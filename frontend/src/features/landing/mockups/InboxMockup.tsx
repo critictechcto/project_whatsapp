@@ -93,7 +93,7 @@ export function InboxMockup({ className, animated = false }: { className?: strin
                 time="Yesterday 18:05"
                 buttons={['Track order']}
               >
-                Hi Priya, your order #RB-20418 has been shipped. Expected delivery: Thursday.
+                Hi Priya, your order #SR-20418 has been shipped. Expected delivery: Thursday.
               </ChatBubble>
             )}
             {step >= 2 && (

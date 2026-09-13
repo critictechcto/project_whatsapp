@@ -4,9 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-project_whatsapp — a multi-tenant WhatsApp SaaS for Indian businesses (working brand "Relaybox"). Businesses connect their own number via **Meta Embedded Signup** and send/schedule/automate messages through the **official WhatsApp Business Platform (Cloud API)**. Unofficial WhatsApp Web automation (whatsapp-web.js, Baileys, QR-code tools) is out of scope — never suggest it.
+project_whatsapp — a multi-tenant WhatsApp SaaS for Indian businesses. Businesses connect their own number via **Meta Embedded Signup** and send/schedule/automate messages through the **official WhatsApp Business Platform (Cloud API)**. Unofficial WhatsApp Web automation (whatsapp-web.js, Baileys, QR-code tools) is out of scope — never suggest it.
 
 Current state: only the marketing landing page (`frontend/`) is built. `backend/` is an empty uv project skeleton — don't scaffold Django or add backend code until the user explicitly asks.
+
+## Workflow
+
+The user's preferred way of working: split a task into independent pieces and run **many agents in parallel, each in its own git worktree** (Agent tool with `isolation: "worktree"`, all launched in one message). Give each agent a self-contained brief with clear file ownership so branches merge cleanly, then review and merge the results. Worktrees require git — run `git init` and an initial commit first if the repo doesn't exist yet.
 
 ## Commands
 

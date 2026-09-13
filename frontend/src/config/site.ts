@@ -2,18 +2,18 @@
 // The brand name is a placeholder — change it here.
 
 export const site = {
-  name: 'Relaybox',
-  domain: 'relaybox.example',
+  name: 'project_whatsapp',
+  domain: 'project-whatsapp.example',
   email: {
-    sales: 'sales@relaybox.example',
-    support: 'support@relaybox.example',
+    sales: 'sales@project-whatsapp.example',
+    support: 'support@project-whatsapp.example',
   },
   trialDays: 14,
   gstRate: 18,
   links: {
     login: '#',
     signup: '#',
-    contactSales: 'mailto:sales@relaybox.example',
+    contactSales: 'mailto:sales@project-whatsapp.example',
   },
   nav: [
     { label: 'Product', href: '#product' },

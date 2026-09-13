@@ -9,7 +9,7 @@ const useCases = [
     industry: 'E-commerce',
     title: 'Order & shipping updates',
     category: 'Utility',
-    message: 'Hi Aarav, your order #RB-58213 has shipped with Delhivery. Expected delivery: Thu, 18 Sep.',
+    message: 'Hi Aarav, your order #SR-58213 has shipped with Delhivery. Expected delivery: Thu, 18 Sep.',
     buttons: ['Track order'],
   },
   {

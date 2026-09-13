@@ -1,4 +1,4 @@
-# project_whatsapp (working brand: Relaybox)
+# project_whatsapp
 
 Multi-tenant platform that lets businesses connect their own WhatsApp number (via Meta Embedded Signup) and send, schedule and automate messages using the official WhatsApp Business Platform (Cloud API).
 
