@@ -2,7 +2,9 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { RoleEnum } from '../../../api/types'
 import { db } from '../../../mocks/db'
+import { server } from '../../../mocks/node'
 import { ids } from '../../../mocks/seed'
+import { http, paginate } from '../../../mocks/utils'
 import { renderDashboard, signIn } from '../../../test/render'
 import { automationState, hoursFor, ruleIds } from './mockState'
 import { emptyAction, ruleSchema, ruleToForm } from './ruleForm'
@@ -62,6 +64,58 @@ describe('rule editor', () => {
     expect(created?.keywords).toEqual(['price'])
     expect(created?.actions).toEqual([{ type: 'send_text', config: { text: 'Our price list is on its way.' } }])
     expect(created?.priority).toBe(4)
+  })
+
+  it('requires a collection for Send collection and saves it', async () => {
+    const collectionId = 'c011ec70-0000-4000-8000-000000000001'
+    server.use(
+      http.get('/api/v1/catalog/collections/', ({ request, response }) =>
+        response(200).json(
+          paginate(request, [
+            {
+              id: collectionId,
+              name: 'Diwali gift boxes',
+              description: '',
+              position: 0,
+              is_active: true,
+              product_count: 4,
+              created_at: '2026-09-01T10:00:00Z',
+              updated_at: '2026-09-01T10:00:00Z',
+            },
+          ]),
+        ),
+      ),
+    )
+    signIn()
+    const { user } = renderDashboard(`${base}/new`)
+
+    await user.type(await screen.findByLabelText(/^Rule name/), 'Diwali boxes')
+    await user.type(screen.getByLabelText(/^Keywords/), 'diwali{Enter}')
+    await user.selectOptions(screen.getByLabelText('Do this'), 'send_collection')
+    expect(screen.getByText('Shop actions need your store turned on')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    expect(await screen.findByText('Choose a collection.')).toBeInTheDocument()
+
+    const select = screen.getByLabelText(/^Collection/)
+    await waitFor(() => expect(select).toBeEnabled())
+    await user.selectOptions(select, collectionId)
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Automations' })).toBeInTheDocument()
+    const created = automationState().rules.find((record) => record.rule.name === 'Diwali boxes')?.rule
+    expect(created?.actions).toEqual([{ type: 'send_collection', config: { collection_id: collectionId } }])
+  })
+
+  it('explains the shop menu and catalog actions', async () => {
+    signIn()
+    const { user } = renderDashboard(`${base}/new`)
+
+    const type = await screen.findByLabelText('Do this', {}, { timeout: 10_000 })
+    await user.selectOptions(type, 'send_shop_menu')
+    expect(screen.getByText(/Sends your store's welcome menu/)).toBeInTheDocument()
+    await user.selectOptions(type, 'send_catalog')
+    expect(screen.getByText(/Sends your products to browse/)).toBeInTheDocument()
   })
 
   it('shows an upgrade message when the plan lacks keyword automations', async () => {

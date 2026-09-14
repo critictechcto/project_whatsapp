@@ -59,6 +59,19 @@ export function useMembers(workspaceId: string) {
   })
 }
 
+export type CatalogCollection = Schemas['Collection']
+
+/** Catalog collections for the Send collection action. */
+export function useCollections(workspaceId: string, enabled = true) {
+  return useQuery({
+    queryKey: automationKeys.custom(workspaceId, 'collections'),
+    queryFn: async ({ signal }) =>
+      (await unwrap(api.GET('/api/v1/catalog/collections/', { params: { query: { page_size: 100 } }, signal }))).results,
+    staleTime: 60_000,
+    enabled,
+  })
+}
+
 export function nextPriority(rules: readonly AutomationRule[] | undefined): number {
   return rules?.length ? Math.max(...rules.map((rule) => rule.priority)) + 1 : 0
 }

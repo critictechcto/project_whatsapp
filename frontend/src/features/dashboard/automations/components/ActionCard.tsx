@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import { Controller, useFormContext, useWatch } from 'react-hook-form'
+import { Link } from 'react-router'
 import {
   Button,
   Combobox,
@@ -14,8 +15,8 @@ import { useWorkspace } from '../../../../lib/workspace'
 import { VariableSourceFields } from '../../campaigns/components/VariableSourceFields'
 import { defaultBodySource } from '../../campaigns/variables'
 import { useTagOptions, useTemplate } from '../../campaigns/wizard/queries'
-import { actionLabels, useMembers, type AutomationActionType } from '../api'
-import { editableActionTypes, emptyAction, type RuleFormValues } from '../ruleForm'
+import { actionLabels, useCollections, useMembers, type AutomationActionType } from '../api'
+import { actionTypes, emptyAction, type RuleFormValues } from '../ruleForm'
 
 type ActionCardProps = {
   index: number
@@ -38,6 +39,7 @@ export function ActionCard({ index, count, onMove, onRemove, readOnly }: ActionC
   const templateId = useWatch({ control, name: `actions.${index}.template_id` })
   const tags = useTagOptions(workspaceId)
   const members = useMembers(workspaceId)
+  const collections = useCollections(workspaceId, type === 'send_collection')
   const template = useTemplate(workspaceId, type === 'send_template' && templateId ? templateId : undefined)
   const actionErrors = errors.actions?.[index]
   const position = index + 1
@@ -81,7 +83,7 @@ export function ActionCard({ index, count, onMove, onRemove, readOnly }: ActionC
         <Field label="Do this">
           <Select
             value={type}
-            options={editableActionTypes.map((value) => ({ value, label: actionLabels[value] }))}
+            options={actionTypes.map((value) => ({ value, label: actionLabels[value] }))}
             onChange={(event) =>
               setValue(`actions.${index}`, emptyAction(event.target.value as AutomationActionType), { shouldDirty: true })
             }
@@ -166,6 +168,47 @@ export function ActionCard({ index, count, onMove, onRemove, readOnly }: ActionC
               placeholder="Choose a team member"
               options={(members.data ?? []).map((member) => ({ value: member.user.id, label: member.user.full_name || member.user.email }))}
             />
+          </Field>
+        )}
+
+        {type === 'send_shop_menu' && (
+          <p className="text-sm text-muted">
+            Sends your store's welcome menu with Shop now, My orders and Talk to us buttons, so the customer can start shopping in the chat.
+          </p>
+        )}
+
+        {type === 'send_catalog' && (
+          <p className="text-sm text-muted">
+            Sends your products to browse: collection menus, or your WhatsApp catalog if the store uses it. The customer can add items to a
+            cart and check out.
+          </p>
+        )}
+
+        {type === 'send_collection' && (
+          <Field
+            label="Collection"
+            hint="Sends the products in this collection as a list the customer can pick from."
+            error={actionErrors?.collection_id?.message}
+            required
+          >
+            {collections.data && collections.data.length === 0 ? (
+              <p className="text-sm text-muted">
+                No collections yet.{' '}
+                <Link to={`/app/w/${workspaceId}/catalog`} className="text-accent-2 underline underline-offset-4">
+                  Create one in Catalog
+                </Link>
+              </p>
+            ) : (
+              <Select
+                {...register(`actions.${index}.collection_id`)}
+                disabled={readOnly || collections.isPending}
+                placeholder={collections.isPending ? 'Loading collections…' : 'Choose a collection'}
+                options={(collections.data ?? []).map((collection) => ({
+                  value: collection.id,
+                  label: collection.is_active ? collection.name : `${collection.name} (hidden)`,
+                }))}
+              />
+            )}
           </Field>
         )}
 

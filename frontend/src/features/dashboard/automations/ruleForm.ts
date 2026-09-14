@@ -4,8 +4,6 @@ import { variableSourceSchema } from '../campaigns/wizardSchema'
 import type { AutomationActionType, AutomationRule, RuleWrite } from './api'
 
 export const actionTypes = ['send_text', 'send_template', 'add_tags', 'assign', 'close_conversation', 'send_shop_menu', 'send_catalog', 'send_collection'] as const
-/** Action types the editor can configure today; the shop actions get their fields with the store screens. */
-export const editableActionTypes = ['send_text', 'send_template', 'add_tags', 'assign', 'close_conversation'] as const
 export const MAX_ACTIONS = 5
 export const MAX_KEYWORDS = 50
 

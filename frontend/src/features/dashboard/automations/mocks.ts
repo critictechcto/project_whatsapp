@@ -16,6 +16,9 @@ const CONFIG_KEYS: Record<string, readonly string[]> = {
   add_tags: ['tag_ids'],
   assign: ['user_id'],
   close_conversation: [],
+  send_shop_menu: [],
+  send_catalog: [],
+  send_collection: ['collection_id'],
 }
 
 function isBlank(value: unknown) {

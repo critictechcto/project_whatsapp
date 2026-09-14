@@ -25,6 +25,7 @@ import {
 import { ActionCard } from './components/ActionCard'
 import { AutomationsNav } from './components/AutomationsNav'
 import { KeywordChipsInput } from './components/KeywordChipsInput'
+import { ShopActionsNotice } from './components/ShopActionsNotice'
 import { emptyAction, formToBody, MAX_ACTIONS, MAX_KEYWORDS, ruleFieldMap, ruleSchema, ruleToForm, type RuleFormValues } from './ruleForm'
 
 const triggers = Object.keys(triggerInfo) as AutomationTrigger[]
@@ -282,6 +283,7 @@ function RuleEditor({ rule }: { rule: AutomationRule | null }) {
                   {actions.fields.length >= MAX_ACTIONS && <span className="text-[13px] text-muted">That's the maximum of {MAX_ACTIONS} actions.</span>}
                 </div>
               )}
+              <ShopActionsNotice />
               <Notice title="The 24-hour window">
                 WhatsApp only delivers free-form messages, like Send text, within 24 hours of the customer's last message. Automations run
                 when a customer writes, so replies normally fall inside that window. Send template works at any time.
