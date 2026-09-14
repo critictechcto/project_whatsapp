@@ -1,3 +1,10 @@
+from rest_framework.routers import SimpleRouter
+
+from .views import CampaignViewSet
+
 app_name = "campaigns"
 
-urlpatterns: list = []
+router = SimpleRouter(use_regex_path=False)
+router.register("", CampaignViewSet, basename="campaign")
+
+urlpatterns = [*router.urls]
