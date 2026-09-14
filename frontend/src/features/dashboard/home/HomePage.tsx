@@ -1,124 +1,107 @@
-import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CircleCheck, Circle } from 'lucide-react'
-import { Link } from 'react-router'
-import { api, unwrap } from '../../../api/client'
-import { workspaceKeys } from '../../../api/queryKeys'
-import { PageHeader, Skeleton } from '../../../components/app'
-import { cn } from '../../../lib/cn'
+import type { UseQueryResult } from '@tanstack/react-query'
+import { PageHeader } from '../../../components/app'
 import { useWorkspace } from '../../../lib/workspace'
 import { useMe } from '../auth/session'
+import { hasSentCampaign, useHasAutomations, useHasContacts, useHasTeam, usePhoneNumbers, useRecentCampaigns, useTemplateSummary } from './api'
+import { CampaignsCard, ConnectionCard, ConversationsCard, SubscriptionCard, TemplatesCard } from './components/OverviewCards'
+import { SetupChecklist, type SetupStep, type StepState } from './components/SetupChecklist'
 
-const homeKeys = workspaceKeys('home')
-
-type Step = {
-  id: string
-  title: string
-  description: string
-  to: string
-  cta: string
-  done: boolean | undefined
+function stepState<T>(query: Pick<UseQueryResult<T>, 'isPending' | 'isError' | 'data'>, done: (data: T) => boolean): StepState {
+  if (query.isError) return 'unknown'
+  if (query.isPending || query.data === undefined) return 'loading'
+  return done(query.data) ? 'done' : 'todo'
 }
 
-/** Workspace home: a setup checklist driven by real data (no placeholder numbers). */
+/** Workspace home: getting-started steps and overview cards, all computed from real list endpoints. */
 export function HomePage() {
-  const { workspaceId, workspace } = useWorkspace()
+  const { workspace } = useWorkspace()
   const me = useMe()
   const firstName = me.data?.full_name?.split(' ')[0]
 
-  const phones = useQuery({
-    queryKey: homeKeys.custom(workspaceId, 'phone-numbers'),
-    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/whatsapp/phone-numbers/', { params: { query: { page_size: 1 } }, signal })),
-  })
-  const templates = useQuery({
-    queryKey: homeKeys.custom(workspaceId, 'approved-templates'),
-    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/templates/', { params: { query: { status: 'APPROVED' } }, signal })),
-  })
-  const contacts = useQuery({
-    queryKey: homeKeys.custom(workspaceId, 'contacts'),
-    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/contacts/', { params: { query: { page_size: 1 } }, signal })),
-  })
+  const phones = usePhoneNumbers()
+  const contacts = useHasContacts()
+  const templates = useTemplateSummary()
+  const campaigns = useRecentCampaigns()
+  const automations = useHasAutomations()
+  const team = useHasTeam()
 
-  const hasResults = (query: { data?: { results: unknown[] }; isError: boolean }) =>
-    query.data ? query.data.results.length > 0 : query.isError ? false : undefined
+  const teamState = ((): StepState => {
+    const members = stepState(team.members, Boolean)
+    if (members === 'done' || !team.canSeeInvitations) return members
+    const invitations = stepState(team.invitations, Boolean)
+    if (invitations === 'done') return 'done'
+    if (members === 'loading' || invitations === 'loading') return 'loading'
+    return members === 'unknown' ? 'unknown' : invitations
+  })()
 
-  const steps: Step[] = [
+  const steps: SetupStep[] = [
     {
-      id: 'number',
-      title: 'Connect your WhatsApp number',
-      description: "Use Meta's Embedded Signup to link a number to the official WhatsApp Business Platform.",
+      id: 'whatsapp',
+      title: 'Connect WhatsApp',
+      description: "Link your business number to the official WhatsApp Business Platform with Meta's Embedded Signup.",
       to: 'whatsapp',
       cta: 'Connect number',
-      done: hasResults(phones),
-    },
-    {
-      id: 'template',
-      title: 'Get a message template approved',
-      description: 'Business-initiated messages outside the 24-hour window need a template approved by Meta.',
-      to: 'templates',
-      cta: 'Open templates',
-      done: hasResults(templates),
+      state: stepState(phones, (page) => page.results.length > 0),
     },
     {
       id: 'contacts',
-      title: 'Add contacts with opt-in',
-      description: 'Import customers who agreed to hear from you on WhatsApp.',
+      title: 'Add contacts',
+      description: 'Import customers who agreed to hear from you on WhatsApp, with their opt-in recorded.',
       to: 'contacts',
       cta: 'Add contacts',
-      done: hasResults(contacts),
+      state: stepState(contacts, Boolean),
+    },
+    {
+      id: 'templates',
+      title: 'Create a template',
+      description: 'Messages you start outside the 24-hour customer service window need a template approved by Meta.',
+      to: 'templates',
+      cta: 'Create template',
+      state: stepState(templates, (summary) => summary.total > 0),
+    },
+    {
+      id: 'campaigns',
+      title: 'Send your first campaign',
+      description: 'Send an approved template to a tagged group of opted-in contacts, now or on a schedule.',
+      to: 'campaigns/new',
+      cta: 'New campaign',
+      state: stepState(campaigns, (page) => hasSentCampaign(page.results)),
+    },
+    {
+      id: 'automations',
+      title: 'Set up an automation',
+      description: 'Reply automatically to keywords, first messages or messages outside business hours.',
+      to: 'automations',
+      cta: 'Add automation',
+      state: stepState(automations, Boolean),
+    },
+    {
+      id: 'team',
+      title: 'Invite your team',
+      description: 'Share the inbox with colleagues and choose what each person can do.',
+      to: 'team',
+      cta: 'Invite teammates',
+      state: teamState,
     },
   ]
 
-  const completed = steps.filter((step) => step.done).length
-  const loading = steps.some((step) => step.done === undefined)
-
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow={workspace.name}
         title={firstName ? `Welcome, ${firstName}` : 'Welcome'}
-        description="Finish these steps to start messaging customers on WhatsApp."
+        description="Your WhatsApp workspace at a glance."
       />
 
-      <section aria-labelledby="setup-heading" className="rounded-xl border border-line bg-card">
-        <div className="flex items-center justify-between border-b border-line-2 px-5 py-3.5">
-          <h2 id="setup-heading" className="font-display text-base font-semibold tracking-[-0.01em] text-ink">
-            Get set up
-          </h2>
-          {loading ? (
-            <Skeleton className="h-4 w-20" />
-          ) : (
-            <p className="font-mono text-[12px] text-muted">
-              {completed} of {steps.length} done
-            </p>
-          )}
-        </div>
-        <ol className="divide-y divide-line-2">
-          {steps.map((step) => (
-            <li key={step.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
-              <span className="shrink-0">
-                {step.done === undefined ? (
-                  <Skeleton className="size-5 rounded-full" />
-                ) : step.done ? (
-                  <CircleCheck className="size-5 text-accent" aria-label="Done" />
-                ) : (
-                  <Circle className="size-5 text-line" aria-label="Not done" />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className={cn('text-sm font-medium', step.done ? 'text-muted' : 'text-ink')}>{step.title}</p>
-                <p className="mt-0.5 text-[13px] text-muted">{step.description}</p>
-              </div>
-              <Link
-                to={step.to}
-                className="inline-flex items-center gap-1 text-sm font-medium text-accent-2 underline-offset-2 hover:underline"
-              >
-                {step.cta}
-                <ArrowRight className="size-3.5" aria-hidden="true" />
-              </Link>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <SetupChecklist steps={steps} />
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ConnectionCard />
+        <ConversationsCard />
+        <TemplatesCard />
+        <CampaignsCard />
+        <SubscriptionCard />
+      </div>
     </div>
   )
 }

@@ -1,12 +1,25 @@
-import { comingSoonRoute } from '../shell/comingSoon'
 import type { AreaRoute } from '../registry/types'
 
-/**
- * Routes under /app/w/:workspaceId/. Owned by the templates feature agent.
- * Replace the placeholder with lazy routes, for example:
- *
- *   { path: 'templates', handle: { title: 'Templates' }, lazy: async () => ({ Component: (await import('./TemplatesPage')).TemplatesPage }) }
- */
+/** Routes under /app/w/:workspaceId/. Creating and editing templates needs admin, like the API. */
 export const routes: AreaRoute[] = [
-  comingSoonRoute('templates/*', 'Templates', "Create message templates and track Meta's review status."),
+  {
+    path: 'templates',
+    handle: { title: 'Templates' },
+    lazy: async () => ({ Component: (await import('./TemplatesListPage')).TemplatesListPage }),
+  },
+  {
+    path: 'templates/new',
+    handle: { title: 'New template', minRole: 'admin' },
+    lazy: async () => ({ Component: (await import('./TemplateBuilderPage')).TemplateBuilderPage }),
+  },
+  {
+    path: 'templates/:id',
+    handle: { title: 'Template' },
+    lazy: async () => ({ Component: (await import('./TemplateDetailPage')).TemplateDetailPage }),
+  },
+  {
+    path: 'templates/:id/edit',
+    handle: { title: 'Edit template', minRole: 'admin' },
+    lazy: async () => ({ Component: (await import('./TemplateBuilderPage')).TemplateBuilderPage }),
+  },
 ]
