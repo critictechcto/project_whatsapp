@@ -83,7 +83,196 @@ def test_get_waba(graph, client):
 
     request = route.calls.last.request
     assert_customer_auth(request)
-    assert "message_template_namespace" in request.url.params["fields"]
+    fields = request.url.params["fields"].split(",")
+    assert "message_template_namespace" in fields
+    assert "owner_business_info" in fields
+
+
+# --- Commerce: catalogs ------------------------------------------------------------------------
+
+
+def paged(route_path, pages):
+    """A responder serving ``pages`` in order, linking them with ``paging.next``."""
+
+    def respond(request):
+        index = int(request.url.params.get("after", "0"))
+        body = {"data": pages[index]}
+        if index + 1 < len(pages):
+            body["paging"] = {"next": f"{BASE}/{route_path}?after={index + 1}"}
+        return ok(body)
+
+    return respond
+
+
+def test_list_waba_catalogs_follows_paging(graph, client):
+    route = graph.get(f"{BASE}/111/product_catalogs").mock(
+        side_effect=paged("111/product_catalogs", [[{"id": "c1", "name": "One"}], [{"id": "c2"}]])
+    )
+
+    assert client.list_waba_catalogs("111") == [{"id": "c1", "name": "One"}, {"id": "c2"}]
+
+    assert route.call_count == 2
+    for call in route.calls:
+        assert_customer_auth(call.request)
+    assert route.calls[0].request.url.params["fields"] == "id,name"
+
+
+def test_list_business_catalogs_follows_paging_and_skips_junk(graph, client):
+    pages = [[{"id": "c1", "name": "Menu", "vertical": "commerce"}, "junk"], [{"id": "c2"}]]
+    route = graph.get(f"{BASE}/555/owned_product_catalogs").mock(
+        side_effect=paged("555/owned_product_catalogs", pages)
+    )
+
+    assert [c["id"] for c in client.list_business_catalogs("555")] == ["c1", "c2"]
+
+    assert route.call_count == 2
+    assert route.calls[0].request.url.params["fields"] == "id,name,vertical"
+    assert_customer_auth(route.calls[1].request)
+
+
+def test_catalog_paging_refuses_foreign_host(graph, client):
+    graph.get(f"{BASE}/555/owned_product_catalogs").mock(
+        return_value=ok({"data": [], "paging": {"next": "https://evil.example/steal"}})
+    )
+
+    with pytest.raises(errors.InvalidParameterError):
+        client.list_business_catalogs("555")
+
+
+def test_create_catalog(graph, client):
+    route = graph.post(f"{BASE}/555/owned_product_catalogs").mock(return_value=ok({"id": "c9"}))
+
+    assert client.create_catalog("555", name="Sharma Sweets") == {"id": "c9"}
+
+    request = route.calls.last.request
+    assert_customer_auth(request)
+    assert body_of(request) == {"name": "Sharma Sweets", "vertical": "commerce"}
+
+
+def test_connect_catalog(graph, client):
+    route = graph.post(f"{BASE}/111/product_catalogs").mock(return_value=ok())
+
+    assert client.connect_catalog("111", "c9") == {"success": True}
+
+    request = route.calls.last.request
+    assert_customer_auth(request)
+    assert body_of(request) == {"catalog_id": "c9"}
+
+
+def test_batch_catalog_items(graph, client):
+    requests = [
+        {"method": "UPDATE", "data": {"id": "KAJU-500", "title": "Kaju katli", "price": "650 INR"}},
+        {"method": "DELETE", "data": {"id": "OLD-1"}},
+    ]
+    route = graph.post(f"{BASE}/c9/items_batch").mock(return_value=ok({"handles": ["h1"]}))
+
+    assert client.batch_catalog_items("c9", requests) == {"handles": ["h1"]}
+
+    request = route.calls.last.request
+    assert_customer_auth(request)
+    assert body_of(request) == {
+        "item_type": "PRODUCT_ITEM",
+        "allow_upsert": True,
+        "requests": requests,
+    }
+
+
+def test_get_catalog_batch_status(graph, client):
+    body = {"data": [{"status": "finished", "errors": []}]}
+    route = graph.get(f"{BASE}/c9/check_batch_request_status").mock(return_value=ok(body))
+
+    assert client.get_catalog_batch_status("c9", "h1") == body
+
+    request = route.calls.last.request
+    assert_customer_auth(request)
+    assert request.url.params["handle"] == "h1"
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [({}, {"limit": "100"}), ({"after": "CUR", "limit": 25}, {"limit": "25", "after": "CUR"})],
+)
+def test_list_catalog_products_is_one_page(graph, client, kwargs, expected):
+    body = {"data": [{"id": "p1", "retailer_id": "KAJU-500"}], "paging": {"next": "ignored"}}
+    route = graph.get(f"{BASE}/c9/products").mock(return_value=ok(body))
+
+    assert client.list_catalog_products("c9", **kwargs) == body
+
+    assert route.call_count == 1
+    params = route.calls.last.request.url.params
+    assert_customer_auth(route.calls.last.request)
+    assert {key: params[key] for key in expected} == expected
+    assert "after" in params if "after" in expected else "after" not in params
+    assert "retailer_id" in params["fields"].split(",")
+    assert "review_status" in params["fields"].split(",")
+
+
+def test_get_commerce_settings_unwraps_the_first_entry(graph, client):
+    entry = {"id": "cs1", "is_cart_enabled": True, "is_catalog_visible": False}
+    route = graph.get(f"{BASE}/222/whatsapp_commerce_settings").mock(
+        return_value=ok({"data": [entry]})
+    )
+
+    assert client.get_commerce_settings("222") == entry
+    assert_customer_auth(route.calls.last.request)
+
+
+@pytest.mark.parametrize("body", [{"data": []}, {}, {"data": ["junk"]}])
+def test_get_commerce_settings_without_data_raises(graph, client, body):
+    graph.get(f"{BASE}/222/whatsapp_commerce_settings").mock(return_value=ok(body))
+
+    with pytest.raises(errors.GraphAPIError):
+        client.get_commerce_settings("222")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        (
+            {"is_cart_enabled": True, "is_catalog_visible": False},
+            {"is_cart_enabled": "true", "is_catalog_visible": "false"},
+        ),
+        ({"is_catalog_visible": True}, {"is_catalog_visible": "true"}),
+        ({"is_cart_enabled": False}, {"is_cart_enabled": "false"}),
+    ],
+)
+def test_update_commerce_settings_sends_query_params(graph, client, kwargs, expected):
+    route = graph.post(f"{BASE}/222/whatsapp_commerce_settings").mock(return_value=ok())
+
+    assert client.update_commerce_settings("222", **kwargs) == {"success": True}
+
+    request = route.calls.last.request
+    assert_customer_auth(request)
+    params = dict(request.url.params)
+    params.pop("appsecret_proof")
+    assert params == expected
+    assert not request.content
+
+
+def test_update_commerce_settings_needs_a_value(client):
+    with pytest.raises(errors.InvalidParameterError):
+        client.update_commerce_settings("222")
+
+
+def test_catalog_errors_are_mapped(graph, client):
+    graph.post(f"{BASE}/555/owned_product_catalogs").mock(
+        return_value=httpx.Response(
+            403,
+            json={
+                "error": {
+                    "message": "Missing permission",
+                    "type": "OAuthException",
+                    "code": 200,
+                }
+            },
+        )
+    )
+
+    with pytest.raises(errors.GraphAPIError) as exc_info:
+        client.create_catalog("555", name="Menu")
+
+    assert exc_info.value.retryable is False
+    assert exc_info.value.code == 200
 
 
 def test_list_phone_numbers_follows_paging(graph, client):

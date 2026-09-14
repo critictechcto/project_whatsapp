@@ -87,7 +87,7 @@ def test_embedded_signup_creates_account(
     assert response.status_code == 201, response.content
     data = response.json()
     assert data["waba_id"] == WABA_ID
-    assert data["business_id"] == "42"
+    assert data["business_id"] == "5550001"  # Meta's owner_business_info wins
     assert [p["phone_number_id"] for p in data["phone_numbers"]] == [PHONE_ID]
     waba = WhatsAppBusinessAccount.objects.get(workspace=workspace)
     assert waba.status == Status.ACTIVE

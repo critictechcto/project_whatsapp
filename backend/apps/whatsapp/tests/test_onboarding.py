@@ -50,7 +50,7 @@ def test_signup_happy_path(
     assert waba.status == Status.ACTIVE
     assert waba.onboarding_status == Onboarding.COMPLETED
     assert waba.name == "Sharma Traders"
-    assert waba.business_id == "555"
+    assert waba.business_id == "5550001"  # Meta's owner_business_info wins over the client value
     assert waba.connected_by == user
     assert waba.access_token == meta_signup
     assert waba.token_expires_at is None

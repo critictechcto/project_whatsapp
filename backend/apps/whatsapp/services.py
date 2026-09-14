@@ -19,8 +19,11 @@ from .client.errors import GraphPermissionError, InvalidParameterError, TokenInv
 from .models import PhoneNumber, WhatsAppBusinessAccount
 
 MANAGEMENT_SCOPE = "whatsapp_business_management"
+# Scopes the seller's token needs to create, connect and sync Meta catalogs.
+CATALOG_SCOPES = ("catalog_management", "business_management")
 RECONNECT_REQUIRED = "Reconnect required"
 _NON_DIGITS = re.compile(r"\D")
+META_ID = re.compile(r"^\d{1,64}$")
 
 
 class SignupRejected(exceptions.APIException):
@@ -70,6 +73,16 @@ def _verify_grant(debug: dict, waba_id: str) -> None:
             "The signup did not grant this app access to that WhatsApp Business Account.",
             code="waba_not_granted",
         )
+
+
+def owner_business_id(waba_data: dict) -> str:
+    """The Meta business portfolio id from a ``get_waba`` response, or ``""``."""
+    info = waba_data.get("owner_business_info") if isinstance(waba_data, dict) else None
+    business_id = info.get("id") if isinstance(info, dict) else None
+    if not isinstance(business_id, str | int) or isinstance(business_id, bool):
+        return ""
+    business_id = str(business_id)
+    return business_id if META_ID.fullmatch(business_id) else ""
 
 
 def _token_expiry(debug: dict) -> datetime | None:
@@ -189,7 +202,7 @@ def complete_embedded_signup(
         _check_number_quota(workspace, number_ids)
 
         waba = waba or WhatsAppBusinessAccount(workspace=workspace, waba_id=waba_id)
-        waba.business_id = business_id or waba.business_id
+        waba.business_id = owner_business_id(waba_data) or business_id or waba.business_id
         waba.name = _clip(waba_data.get("name"), 255)
         waba.currency = _clip(waba_data.get("currency"), 8)
         waba.timezone_id = _clip(waba_data.get("timezone_id"), 16)
@@ -383,3 +396,58 @@ def disconnect_waba(waba: WhatsAppBusinessAccount) -> None:
         waba.phone_numbers.filter(is_default=True).update(
             is_default=False, updated_at=timezone.now()
         )
+
+
+# --- Commerce ----------------------------------------------------------------------------------
+
+
+def _granted_scopes(debug: dict) -> set[str]:
+    scopes = {scope for scope in debug.get("scopes") or [] if isinstance(scope, str)}
+    scopes.update(
+        entry["scope"]
+        for entry in debug.get("granular_scopes") or []
+        if isinstance(entry, dict) and isinstance(entry.get("scope"), str)
+    )
+    return scopes
+
+
+def catalog_permissions_granted(waba: WhatsAppBusinessAccount) -> bool:
+    """Whether the seller's token may manage Meta catalogs (``catalog_management`` and
+    ``business_management``, read from ``debug_token``).
+
+    Accounts connected without those scopes stay usable for messaging; they return False until
+    the seller reconnects. Raises ``UpstreamUnavailable`` when Meta is unreachable.
+    """
+    if not waba.access_token:
+        return False
+    try:
+        debug = get_client().debug_token(waba.access_token)
+    except GraphAPIError as exc:
+        if exc.retryable:
+            raise UpstreamUnavailable() from None
+        return False
+    if debug.get("is_valid") is not True or str(debug.get("app_id", "")) != str(
+        settings.META_APP_ID
+    ):
+        return False
+    return set(CATALOG_SCOPES) <= _granted_scopes(debug)
+
+
+def business_id_for(waba: WhatsAppBusinessAccount) -> str | None:
+    """The seller's Meta business portfolio id: ``owner_business_info.id`` of the WABA.
+
+    Asks Meta and stores a new value on the account; falls back to the stored id when Meta
+    rejects the call or omits the field, and returns None when neither is known. Raises
+    ``UpstreamUnavailable`` when Meta is unreachable.
+    """
+    if waba.access_token:
+        try:
+            business_id = owner_business_id(get_client(waba.access_token).get_waba(waba.waba_id))
+        except GraphAPIError as exc:
+            if exc.retryable:
+                raise UpstreamUnavailable() from None
+            business_id = ""
+        if business_id and business_id != waba.business_id:
+            waba.business_id = business_id
+            waba.save(update_fields=["business_id", "updated_at"])
+    return waba.business_id or None
