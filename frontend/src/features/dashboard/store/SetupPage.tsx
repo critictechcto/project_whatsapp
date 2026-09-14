@@ -55,7 +55,7 @@ export function SetupPage() {
   const { workspaceId } = useWorkspace()
   const checklist = useStoreChecklist(workspaceId)
   const settings = useStoreSettings(workspaceId)
-  const items = checklist.data ?? []
+  const items = checklist.data?.items ?? []
   const done = items.filter((item) => item.done).length
   const storeLink = settings.data?.store_link
 

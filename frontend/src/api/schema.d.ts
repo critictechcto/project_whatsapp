@@ -515,7 +515,7 @@ export interface paths {
         /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
         get: operations["catalog_meta_catalogs_list"];
         put?: never;
-        /** @description 409 catalog_permissions_missing when the token lacks catalog permissions. */
+        /** @description Connects (201) or replaces the WABA's connected catalog (200). 409 catalog_permissions_missing when the token lacks catalog permissions. */
         post: operations["catalog_meta_catalogs_create"];
         delete?: never;
         options?: never;
@@ -1206,7 +1206,7 @@ export interface paths {
         delete: operations["payments_account_destroy"];
         options?: never;
         head?: never;
-        /** @description Changing the provider clears keys and secrets; changing a key, secret or mode resets status to unverified. */
+        /** @description Changing the provider clears keys and secrets; changing a key, secret or mode resets status to unverified. Razorpay key ids set the mode (400 on mode when a given mode disagrees); Cashfree needs a mode (400 on mode); webhook_secret is Razorpay only. */
         patch: operations["payments_account_partial_update"];
         trace?: never;
     };
@@ -1219,7 +1219,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Issue a new optional webhook URL; update it in the gateway afterwards. */
+        /** @description Issue a new optional webhook URL; update it in the gateway afterwards. 409 payment_account_missing when no account is saved. */
         post: operations["payments_account_rotate_webhook_create"];
         delete?: never;
         options?: never;
@@ -1236,7 +1236,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 409 payment_account_missing or payment_account_invalid. */
+        /** @description One authenticated read call on the gateway. 409 payment_account_missing or payment_account_invalid; 503 upstream_unavailable when the gateway can't be reached. */
         post: operations["payments_account_verify_create"];
         delete?: never;
         options?: never;
@@ -1288,7 +1288,7 @@ export interface paths {
         /** @description Personal WhatsApp numbers that get order alerts from the UpChatz number (at most 3). */
         get: operations["seller_alerts_recipients_list"];
         put?: never;
-        /** @description Sends the verification template from the UpChatz number (409 platform_alerts_unavailable, alert_recipient_limit). */
+        /** @description Sends the verification template from the UpChatz number (409 platform_alerts_unavailable, alert_recipient_limit). A number WhatsApp can't reach is a 400 on phone_e164. */
         post: operations["seller_alerts_recipients_create"];
         delete?: never;
         options?: never;
@@ -5263,6 +5263,14 @@ export interface operations {
             };
         };
         responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaCatalog"];
+                };
+            };
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -6979,6 +6987,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AlertRecipient"];
                 };
+            };
+            /** @description platform_alerts_unavailable, alert_recipient_limit */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

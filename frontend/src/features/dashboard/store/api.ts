@@ -35,10 +35,11 @@ export function useStoreSettings(workspaceId: string) {
   })
 }
 
+/** Caches the whole response: the home store card shares this query key. */
 export function useStoreChecklist(workspaceId: string) {
   return useQuery({
     queryKey: storeQueryKeys.checklist(workspaceId),
-    queryFn: async ({ signal }) => (await unwrap(api.GET('/api/v1/store/checklist/', { signal }))).items,
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/store/checklist/', { signal })),
   })
 }
 
