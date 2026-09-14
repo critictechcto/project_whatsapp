@@ -32,13 +32,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: project_whatsapp
-          POSTGRES_PASSWORD: project_whatsapp
-          POSTGRES_DB: project_whatsapp
+          POSTGRES_USER: upchatz
+          POSTGRES_PASSWORD: upchatz
+          POSTGRES_DB: upchatz
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U project_whatsapp -d project_whatsapp"
+          --health-cmd "pg_isready -U upchatz -d upchatz"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -53,7 +53,7 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgres://project_whatsapp:project_whatsapp@localhost:5432/project_whatsapp
+      DATABASE_URL: postgres://upchatz:upchatz@localhost:5432/upchatz
       REDIS_URL: redis://localhost:6379/0
       DJANGO_SETTINGS_MODULE: config.settings.test
 

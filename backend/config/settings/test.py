@@ -26,7 +26,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": dict.fromkeys(REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "10000/min"),
 }
 
-TOKEN_ENCRYPTION_KEYS = [base64.urlsafe_b64encode(b"project_whatsapp-test-key-000000").decode()]
+TOKEN_ENCRYPTION_KEYS = [base64.urlsafe_b64encode(b"upchatz-test-key-000000000000000").decode()]
 
 META_APP_ID = "1234567890"
 META_APP_SECRET = "test-app-secret"
@@ -45,7 +45,7 @@ FRONTEND_URL = "http://testserver-frontend"
 
 # Each git worktree gets its own test database so parallel agents never collide.
 _checkout = re.sub(r"[^a-z0-9]+", "_", REPO_ROOT.name.lower()).strip("_") or "main"
-DATABASES["default"]["TEST"] = {"NAME": f"test_pw_{_checkout}"[:63]}
+DATABASES["default"]["TEST"] = {"NAME": f"test_upchatz_{_checkout}"[:63]}
 
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},

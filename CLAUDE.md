@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-project_whatsapp — a multi-tenant WhatsApp SaaS for Indian businesses. Businesses connect their own number via **Meta Embedded Signup** and send/schedule/automate messages through the **official WhatsApp Business Platform (Cloud API)**. Unofficial WhatsApp Web automation (whatsapp-web.js, Baileys, QR-code tools) is out of scope — never suggest it.
+UpChatz ([upchatz.com](https://upchatz.com)) — a multi-tenant WhatsApp SaaS for Indian businesses. Businesses connect their own number via **Meta Embedded Signup** and send/schedule/automate messages through the **official WhatsApp Business Platform (Cloud API)**. Unofficial WhatsApp Web automation (whatsapp-web.js, Baileys, QR-code tools) is out of scope — never suggest it.
 
 Current state: the marketing landing page (`frontend/`) is built. The backend is being built in waves: wave 0 (foundation: settings, `common/`, accounts, tenants, whatsapp models + Graph client contract) is done; wave 1 builds whatsapp onboarding, webhooks, message_templates and contacts. The dashboard UI comes after the backend. Only build what the user has approved.
 

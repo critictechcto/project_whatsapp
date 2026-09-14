@@ -1,6 +1,6 @@
 # backend
 
-Django + DRF API for project_whatsapp, managed with **uv** (Python 3.12). PostgreSQL, Redis, Celery (+ Beat with the database scheduler) and Django Channels. Setup steps are in the [root README](../README.md#backend).
+Django + DRF API for UpChatz, managed with **uv** (Python 3.12). PostgreSQL, Redis, Celery (+ Beat with the database scheduler) and Django Channels. Setup steps are in the [root README](../README.md#backend).
 
 ## Layout
 
@@ -54,7 +54,7 @@ uv run python manage.py spectacular --validate --fail-on-warn --file schema.yml
 ```
 
 - Tests use `config.settings.test`, which needs no `.env`. It uses an eager Celery, in-memory cache and channel layer, and the fake Graph client.
-- Each git checkout or worktree gets its own test database, `test_pw_<folder>`.
+- Each git checkout or worktree gets its own test database, `test_upchatz_<folder>`.
 - Shared fixtures (`api_client`, `user`, `workspace`, `other_workspace`, `auth_client(role)`, `fake_graph`) are in `conftest.py`.
 - `common/testing.py` has `make_api_client` and `assert_tenant_isolated`.
 - `config/tests` also runs the OpenAPI warning gate, so schema warnings fail `pytest`.

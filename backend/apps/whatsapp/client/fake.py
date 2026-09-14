@@ -93,7 +93,7 @@ class FakeGraphClient:
         self._token_debug[token] = {
             "app_id": settings.META_APP_ID,
             "type": "SYSTEM_USER",
-            "application": "project_whatsapp",
+            "application": "UpChatz",
             "is_valid": True,
             "expires_at": 0,
             "data_access_expires_at": 0,

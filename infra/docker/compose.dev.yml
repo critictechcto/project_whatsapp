@@ -1,21 +1,21 @@
 # Local Postgres + Redis for development. Django and Celery run on the host with uv.
 #   docker compose -f infra/docker/compose.dev.yml up -d
-name: project_whatsapp
+name: upchatz
 
 services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_USER: project_whatsapp
-      POSTGRES_PASSWORD: project_whatsapp
-      POSTGRES_DB: project_whatsapp
+      POSTGRES_USER: upchatz
+      POSTGRES_PASSWORD: upchatz
+      POSTGRES_DB: upchatz
     # Host port 5433 so it never collides with a locally installed PostgreSQL on 5432.
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U project_whatsapp -d project_whatsapp"]
+      test: ["CMD-SHELL", "pg_isready -U upchatz -d upchatz"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -96,7 +96,7 @@ TEMPLATES = [
 DATABASES = {
     "default": env.db(
         "DATABASE_URL",
-        default="postgres://project_whatsapp:project_whatsapp@localhost:5433/project_whatsapp",
+        default="postgres://upchatz:upchatz@localhost:5433/upchatz",
     ),
 }
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=60)
@@ -178,7 +178,7 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "project_whatsapp API",
+    "TITLE": "UpChatz API",
     "DESCRIPTION": "Multi-tenant WhatsApp Business Platform (Cloud API) for Indian businesses.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -256,7 +256,7 @@ EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="project_whatsapp <no-reply@localhost>")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="UpChatz <no-reply@upchatz.com>")
 
 # --- Observability --------------------------------------------------------------------------
 

@@ -1,19 +1,19 @@
 // Single source for brand, contact details and pricing.
-// The brand name is a placeholder — change it here.
+// Brand: UpChatz (upchatz.com).
 
 export const site = {
-  name: 'project_whatsapp',
-  domain: 'project-whatsapp.example',
+  name: 'UpChatz',
+  domain: 'upchatz.com',
   email: {
-    sales: 'sales@project-whatsapp.example',
-    support: 'support@project-whatsapp.example',
+    sales: 'sales@upchatz.com',
+    support: 'support@upchatz.com',
   },
   trialDays: 14,
   gstRate: 18,
   links: {
     login: '#',
     signup: '#',
-    contactSales: 'mailto:sales@project-whatsapp.example',
+    contactSales: 'mailto:sales@upchatz.com',
   },
   nav: [
     { label: 'Product', href: '#product' },

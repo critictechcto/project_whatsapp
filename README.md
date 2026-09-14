@@ -1,4 +1,4 @@
-# project_whatsapp
+# UpChatz
 
 Multi-tenant platform that lets businesses connect their own WhatsApp number (via Meta Embedded Signup) and send, schedule and automate messages using the official WhatsApp Business Platform (Cloud API).
 
@@ -42,7 +42,7 @@ npm run build    # production build in frontend/dist
 
 One-time setup:
 
-1. Push this project to a GitHub repository (e.g. `project_whatsapp`) with `main` as the default branch.
+1. Push this project to a GitHub repository (e.g. `upchatz`) with `main` as the default branch.
 2. In the repo, go to **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**.
 3. Push to `main` or run the workflow manually. The site URL appears in the run summary and under Settings → Pages.
 

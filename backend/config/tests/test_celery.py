@@ -90,6 +90,6 @@ def test_celery_app_reads_django_settings():
     from config.celery import app
 
     assert celery_app is app
-    assert app.main == "project_whatsapp"
+    assert app.main == "upchatz"
     assert app.conf.task_always_eager is True
     assert app.conf.timezone == settings.TIME_ZONE

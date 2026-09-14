@@ -42,7 +42,7 @@ def test_schema_is_an_openapi_document(client):
     assert response.status_code == 200
     document = response.json()
     assert document["openapi"].startswith("3.")
-    assert document["info"]["title"] == "project_whatsapp API"
+    assert document["info"]["title"] == "UpChatz API"
     assert document["paths"]
     assert all(route.startswith("/api/v1/") for route in document["paths"])
 

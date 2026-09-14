@@ -20,9 +20,9 @@ def test_test_database_is_named_after_the_checkout():
     name = settings.DATABASES["default"]["TEST"]["NAME"]
     checkout = re.sub(r"[^a-z0-9]+", "_", settings.REPO_ROOT.name.lower()).strip("_") or "main"
 
-    assert re.fullmatch(r"test_pw_[a-z0-9_]+", name)
+    assert re.fullmatch(r"test_upchatz_[a-z0-9_]+", name)
     assert len(name) <= 63  # PostgreSQL identifier limit
-    assert name == f"test_pw_{checkout}"[:63]
+    assert name == f"test_upchatz_{checkout}"[:63]
 
 
 @pytest.mark.django_db

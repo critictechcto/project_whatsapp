@@ -12,7 +12,7 @@ const snippets = {
   request: {
     label: 'Send a message',
     code: `curl -X POST https://${apiHost}/v1/messages \\
-  -H "Authorization: Bearer pw_live_••••••••••••" \\
+  -H "Authorization: Bearer upc_live_••••••••••••" \\
   -H "Idempotency-Key: order-20418-shipped" \\
   -H "Content-Type: application/json" \\
   -d '{
