@@ -82,7 +82,7 @@ export function MessagingRules() {
     <section id="rules" className="border-t border-line bg-paper-2/50 py-20 md:py-28">
       <Container>
         <SectionHeader
-          index="05"
+          index="06"
           eyebrow="WhatsApp’s rules, explained"
           title="The rules Meta sets — and how we handle them for you."
           description="WhatsApp protects its users from spam with a few clear rules. Understanding them up front saves you from rejected templates, blocked messages and surprise bills."

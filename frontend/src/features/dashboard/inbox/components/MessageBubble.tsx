@@ -1,7 +1,10 @@
 import { memo, useState, type ReactNode } from 'react'
 import { Contact, Download, FileText, Image as ImageIcon, MapPin, Mic, Play, StickyNote, Video } from 'lucide-react'
 import { Spinner } from '../../../../components/app/Spinner'
-import { WhatsAppText } from '../../../../components/app/whatsapp/WhatsAppMessagePreview'
+import { InteractiveMessagePreview } from '../../../../components/app/whatsapp/InteractiveMessagePreview'
+import { isInteractiveMessage, toOrderCart, type InteractiveMessage, type OrderCart } from '../../../../components/app/whatsapp/interactive'
+import { OrderCartPreview } from '../../../../components/app/whatsapp/OrderCartPreview'
+import { WhatsAppText, type DeliveryStatus } from '../../../../components/app/whatsapp/WhatsAppMessagePreview'
 import { cn } from '../../../../lib/cn'
 import { formatBytes, type ConversationNote, type Message, type MessageType } from '../api'
 import { downloadMessageMedia, useMediaObjectUrl } from '../hooks/misc'
@@ -216,6 +219,14 @@ function MessageContent({ message }: { message: Message }) {
       )
     case 'contacts':
       return <MediaCard icon={<Contact />} title={message.text || 'Contact card'} subtitle="Shared contact" />
+    case 'interactive':
+      // The webhook parser summarises an inbound address form (`nfm_reply`) as "Address shared".
+      if (message.direction === 'inbound' && isAddressShared(message.text)) {
+        return <MediaCard icon={<MapPin className="text-accent-2" />} title="Address shared" subtitle="Delivery address from WhatsApp's address form" />
+      }
+      return <BodyText text={message.text || 'Interactive message'} />
+    case 'order':
+      return <BodyText text={message.text || 'Cart'} />
     case 'unsupported':
       return <p className="px-2.5 pt-1.5 italic text-muted">This message type can't be shown here yet.</p>
     default:
@@ -223,11 +234,61 @@ function MessageContent({ message }: { message: Message }) {
   }
 }
 
-function typeLabel(type: MessageType, templateName?: string): ReactNode {
+function isAddressShared(text: string): boolean {
+  return text.trim().toLowerCase() === 'address shared'
+}
+
+function typeLabel(type: MessageType, templateName?: string, message?: Pick<Message, 'direction' | 'text'>): ReactNode {
   if (type === 'template') return `Template · ${templateName || 'unknown'}`
   if (type === 'button') return 'Button reply'
-  if (type === 'interactive') return 'Interactive'
+  if (type === 'interactive') {
+    if (message?.direction === 'inbound') return isAddressShared(message.text) ? undefined : 'Menu reply'
+    return 'Interactive'
+  }
   return undefined
+}
+
+type CommercePayload = { interactive: InteractiveMessage; cart?: never } | { cart: OrderCart; interactive?: never }
+
+/** What a commerce bubble can draw: a valid interactive object, or a native cart with items. */
+function commercePayload(message: Message): CommercePayload | null {
+  if (isInteractiveMessage(message.interactive)) return { interactive: message.interactive }
+  if (message.type !== 'order') return null
+  const cart = toOrderCart(message.order)
+  return cart && cart.product_items.length > 0 ? { cart } : null
+}
+
+function deliveryStatus(status: Message['status']): DeliveryStatus | undefined {
+  return status === 'received' ? undefined : status
+}
+
+/**
+ * Commerce messages drawn with the WhatsApp previews: outbound interactive messages (bot menus,
+ * product cards, payment links, address requests) and inbound native carts (`order`, with the
+ * prices WhatsApp displayed to the buyer).
+ */
+function CommerceBubble({ message, payload, sender, timeZone }: { message: Message; payload: CommercePayload; sender: string; timeZone: string }) {
+  const side: Side = message.direction
+  const time = formatBubbleTime(message.created_at, timeZone)
+  const bubble = {
+    direction: side,
+    time: sender ? `${sender} · ${time}` : time,
+    status: side === 'outbound' ? deliveryStatus(message.status) : undefined,
+    framed: false,
+    className: 'w-full max-w-[88%] sm:max-w-[20rem]',
+  } as const
+
+  return (
+    <div className={cn('flex flex-col gap-1', side === 'outbound' ? 'items-end' : 'items-start')} title={formatFullTime(message.created_at, timeZone)}>
+      {payload.cart ? <OrderCartPreview {...bubble} order={payload.cart} /> : <InteractiveMessagePreview {...bubble} message={payload.interactive} />}
+      {message.status === 'failed' && (
+        <p className="max-w-[88%] rounded-md bg-signal-soft/70 px-2.5 py-1.5 text-[12px] text-signal sm:max-w-[20rem]">
+          Not delivered{message.error_message ? `: ${message.error_message}` : '.'}
+          {message.error_code && <span className="font-mono"> ({message.error_code})</span>}
+        </p>
+      )}
+    </div>
+  )
 }
 
 function ReplyQuote({ replyTo, contactName }: { replyTo: Message | undefined; contactName: string }) {
@@ -236,7 +297,7 @@ function ReplyQuote({ replyTo, contactName }: { replyTo: Message | undefined; co
       {replyTo ? (
         <>
           <p className="font-medium text-accent-2">{replyTo.direction === 'outbound' ? 'You' : contactName}</p>
-          <p className="line-clamp-2 text-muted">{previewText(replyTo.type, replyTo.text)}</p>
+          <p className="line-clamp-2 text-muted">{previewText(replyTo.type, replyTo.text, replyTo.order)}</p>
         </>
       ) : (
         <p className="text-muted">Reply to an earlier message</p>
@@ -267,7 +328,7 @@ export const MessageBubble = memo(function MessageBubble({ message, replyTo, con
       <div className={cn('flex', side === 'outbound' ? 'justify-end' : 'justify-start')}>
         <p className="inline-flex items-center gap-1.5 rounded-full border border-line bg-card px-2.5 py-1 text-[12px] text-muted">
           {side === 'outbound' ? 'You' : contactName} reacted <span className="text-[14px] leading-none text-ink">{message.text}</span>
-          {replyTo && <span className="max-w-40 truncate">to “{previewText(replyTo.type, replyTo.text)}”</span>}
+          {replyTo && <span className="max-w-40 truncate">to “{previewText(replyTo.type, replyTo.text, replyTo.order)}”</span>}
           <span aria-hidden="true">·</span>
           {time}
         </p>
@@ -277,10 +338,13 @@ export const MessageBubble = memo(function MessageBubble({ message, replyTo, con
 
   const sender = side === 'outbound' ? message.sent_by?.full_name.split(' ')[0] || sourceLabels[message.source] : ''
 
+  const payload = commercePayload(message)
+  if (payload) return <CommerceBubble message={message} payload={payload} sender={sender} timeZone={timeZone} />
+
   return (
     <BubbleShell
       side={side}
-      label={typeLabel(message.type, message.template?.name)}
+      label={typeLabel(message.type, message.template?.name, message)}
       footer={
         <>
           {sender && <span>{sender} ·</span>}

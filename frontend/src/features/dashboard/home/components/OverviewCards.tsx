@@ -19,13 +19,13 @@ import {
   useTemplateSummary,
 } from '../api'
 
-type CardProps = {
+export type CardProps = {
   title: string
   link?: { to: string; label: string }
   children: ReactNode
 }
 
-function Card({ title, link, children }: CardProps) {
+export function Card({ title, link, children }: CardProps) {
   const headingId = useId()
   return (
     <section aria-labelledby={headingId} className="flex min-w-0 flex-col rounded-xl border border-line bg-card p-5">
@@ -45,7 +45,7 @@ function Card({ title, link, children }: CardProps) {
   )
 }
 
-function CardLoading() {
+export function CardLoading() {
   return (
     <div className="flex flex-col gap-2" aria-busy="true" aria-label="Loading">
       <Skeleton className="h-5 w-2/3" />
@@ -55,7 +55,7 @@ function CardLoading() {
   )
 }
 
-function CardError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+export function CardError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-start gap-2">
       <p className="text-sm text-muted">Couldn&apos;t load this. {errorMessage(error)}</p>
@@ -77,7 +77,7 @@ function queryState(queries: Queryish[]): 'hidden' | ReactNode | null {
   return null
 }
 
-function Stat({ label, value, to }: { label: string; value: string; to?: string }) {
+export function Stat({ label, value, to }: { label: string; value: string; to?: string }) {
   const content = (
     <>
       <span className="block font-display text-2xl font-semibold tracking-[-0.02em] text-ink">{value}</span>

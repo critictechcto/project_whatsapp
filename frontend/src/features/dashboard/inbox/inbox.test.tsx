@@ -256,6 +256,48 @@ describe('conversation actions', () => {
   })
 })
 
+describe('commerce messages', () => {
+  it('renders the shop bot flow: menu, product card, cart, address and payment link', async () => {
+    signIn()
+    renderDashboard(`${base}/${inboxMockIds.kabir}`)
+    const region = await messagesRegion()
+
+    const cart = await findMessageRow(inboxMockIds.kabirCart)
+    const items = within(cart).getByRole('list', { name: 'Cart items' })
+    expect(within(items).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(items).getByText('SS-KAJU-250')).toBeInTheDocument()
+    expect(within(items).getByText('2 × ₹220')).toBeInTheDocument()
+    expect(within(items).getByText('₹440')).toBeInTheDocument()
+    expect(within(cart).getByText('3 items')).toBeInTheDocument()
+    expect(within(cart).getByText('Total').parentElement).toHaveTextContent('₹540')
+
+    const card = await findMessageRow(inboxMockIds.kabirProductCard)
+    expect(within(card).getByText('Kaju Katli 250 g')).toBeInTheDocument()
+    const buttons = within(card).getByRole('list', { name: 'Reply buttons' })
+    expect(within(buttons).getByText('Add to cart')).toBeInTheDocument()
+    expect(within(card).queryByText('Interactive')).not.toBeInTheDocument()
+
+    expect(within(region).getByRole('button', { name: /View menu/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(within(region).getByText('Provide address')).toBeInTheDocument()
+    expect(within(region).getByText('Address shared')).toBeInTheDocument()
+    expect(within(region).getByText('Pay ₹540')).toBeInTheDocument()
+    expect(within(region).getByText(/Payment received, thank you!/)).toBeInTheDocument()
+    expect(within(region).getAllByText('Menu reply').length).toBeGreaterThan(0)
+  })
+
+  it('previews a native cart in the conversation list', async () => {
+    // Make the cart the latest message so it becomes the list preview.
+    const messages = inboxState().messages.get(inboxMockIds.kabir)!
+    const cartIndex = messages.findIndex((message) => message.id === inboxMockIds.kabirCart)
+    messages.push(...messages.splice(cartIndex, 1))
+
+    signIn()
+    renderDashboard(base)
+    const link = await screen.findByRole('link', { name: /Kabir Reddy/ }, { timeout: 10_000 })
+    expect(link).toHaveTextContent('Cart · 3 items')
+  })
+})
+
 describe('mobile navigation', () => {
   it('goes back from a thread to the list and keeps the filters', async () => {
     signIn()

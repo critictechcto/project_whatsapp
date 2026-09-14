@@ -1,11 +1,13 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { Schemas } from '../../../api/types'
+import { dispatch } from '../../../lib/realtime/registry'
+import { db } from '../../../mocks/db'
 import { server } from '../../../mocks/node'
 import { daysAgo, ids } from '../../../mocks/seed'
 import { errorResponse, http, paginate } from '../../../mocks/utils'
 import { renderDashboard, signIn } from '../../../test/render'
-import { campaignProgress, summarizeTemplates, tierLabel, trialDaysLeft } from './api'
+import { campaignProgress, storeProgress, storeStepLabel, summarizeTemplates, tierLabel, trialDaysLeft } from './api'
 
 const home = `/app/w/${ids.sharmaSweets}`
 const empty = { next: null, previous: null, results: [] }
@@ -42,6 +44,55 @@ type HomeMocks = {
   subscription?: 'trial' | 501
   inviteSent?: boolean
   members?: number
+  /** Order summary and store checklist; 404 keeps the commerce cards out of the older tests. */
+  commerce?: CommerceMocks | 404
+}
+
+type CommerceMocks = {
+  summary?: Schemas['OrderSummary'] | 409
+  checklist?: Schemas['StoreChecklistItem'][] | 409
+}
+
+const checklistItems = (doneCount: number): Schemas['StoreChecklistItem'][] =>
+  ['whatsapp_connected', 'products_added', 'payments_configured', 'order_templates_ready', 'alert_number_verified', 'store_enabled'].map((key, i) => ({
+    key,
+    done: i < doneCount,
+    detail: key === 'payments_configured' ? 'Add Razorpay or Cashfree keys, or turn on cash on delivery.' : '',
+  }))
+
+const liveSummary: Schemas['OrderSummary'] = {
+  today_count: 7,
+  today_revenue_paise: 486_000,
+  open_count: 5,
+  needs_attention_count: 1,
+  awaiting_payment_count: 2,
+}
+
+/** Commerce handlers for home tests only; the orders and store areas own the shared mocks. */
+function mockCommerce(commerce: CommerceMocks | 404) {
+  const notFound = () => errorResponse(404, 'not_found', 'Not found.')
+  const notEnabled = () => errorResponse(409, 'commerce_not_enabled', 'Selling on WhatsApp is not available on this workspace.')
+  const counter = { summaryCalls: 0 }
+  let summary = commerce === 404 ? undefined : commerce.summary
+  server.use(
+    http.get('/api/v1/orders/summary/', ({ response }) => {
+      counter.summaryCalls += 1
+      if (commerce === 404) return response.untyped(notFound())
+      if (summary === 409) return response.untyped(notEnabled())
+      return response(200).json(summary ?? liveSummary)
+    }),
+    http.get('/api/v1/store/checklist/', ({ response }) => {
+      if (commerce === 404) return response.untyped(notFound())
+      if (commerce.checklist === 409) return response.untyped(notEnabled())
+      return response(200).json({ items: commerce.checklist ?? checklistItems(6) })
+    }),
+  )
+  return {
+    counter,
+    setSummary: (next: Schemas['OrderSummary']) => {
+      summary = next
+    },
+  }
 }
 
 /**
@@ -55,7 +106,9 @@ function useHomeMocks({
   subscription = 'trial',
   inviteSent = false,
   members = 3,
+  commerce = 404,
 }: HomeMocks) {
+  const commerceMocks = mockCommerce(commerce)
   const notImplemented = () => errorResponse(501, 'not_implemented', 'This endpoint is not available yet.')
   server.use(
     http.get('/api/v1/workspaces/members/', ({ request, response }) => {
@@ -124,6 +177,7 @@ function useHomeMocks({
       ),
     ),
   )
+  return commerceMocks
 }
 
 async function checklist() {
@@ -222,7 +276,108 @@ describe('home overview cards', () => {
   })
 })
 
+async function commerceCard(name: 'Orders today' | 'Store setup') {
+  return (await screen.findByRole('heading', { level: 2, name }, { timeout: 10_000 })).closest('section')!
+}
+
+describe('home commerce cards', () => {
+  it('shows today’s orders and the next store setup step', async () => {
+    useHomeMocks({ commerce: { checklist: checklistItems(2) } })
+    signIn()
+    renderDashboard(home)
+
+    const orders = await commerceCard('Orders today')
+    await waitFor(() => expect(within(orders).getByText('₹4,860')).toBeInTheDocument())
+    expect(within(orders).getByRole('link', { name: /7\s*Orders/ })).toHaveAttribute('href', `${home}/orders`)
+    expect(within(orders).getByRole('link', { name: /5\s*Open/ })).toHaveAttribute('href', `${home}/orders?stage=open`)
+    expect(within(orders).getByRole('link', { name: /1\s*Needs attention/ })).toHaveAttribute('href', `${home}/orders?status=needs_attention`)
+    expect(within(orders).getByRole('link', { name: /2\s*Awaiting payment/ })).toBeInTheDocument()
+
+    const store = await commerceCard('Store setup')
+    expect(within(store).getByText('2 of 6 done')).toBeInTheDocument()
+    expect(within(store).getByRole('progressbar', { name: 'Store setup progress' })).toHaveAttribute('aria-valuenow', '2')
+    expect(within(store).getByText('Set up payments')).toBeInTheDocument()
+    expect(within(store).getByText('Add Razorpay or Cashfree keys, or turn on cash on delivery.')).toBeInTheDocument()
+    expect(within(store).getByRole('link', { name: /Continue setup/ })).toHaveAttribute('href', `${home}/store`)
+  })
+
+  it('refreshes orders today on realtime order frames', async () => {
+    const mocks = useHomeMocks({ commerce: {} })
+    signIn()
+    renderDashboard(home)
+
+    const orders = await commerceCard('Orders today')
+    await waitFor(() => expect(within(orders).getByRole('link', { name: /7\s*Orders/ })).toBeInTheDocument())
+    // A finished checklist hides the store setup card.
+    expect(screen.queryByRole('heading', { name: 'Store setup' })).not.toBeInTheDocument()
+
+    mocks.setSummary({ ...liveSummary, today_count: 8, today_revenue_paise: 540_000 })
+    const calls = mocks.counter.summaryCalls
+    act(() =>
+      dispatch({ v: 1, type: 'order.created', workspace_id: ids.sharmaSweets, data: { order_id: 'order-1', number: 'SS-1043', status: 'confirmed' } }),
+    )
+    await waitFor(() => expect(within(orders).getByRole('link', { name: /8\s*Orders/ })).toBeInTheDocument())
+    expect(within(orders).getByText('₹5,400')).toBeInTheDocument()
+
+    mocks.setSummary({ ...liveSummary, today_count: 8, today_revenue_paise: 540_000, awaiting_payment_count: 0 })
+    act(() =>
+      dispatch({
+        v: 1,
+        type: 'order.updated',
+        workspace_id: ids.sharmaSweets,
+        data: { order_id: 'order-1', status: 'confirmed', payment_status: 'paid' },
+      }),
+    )
+    await waitFor(() => expect(within(orders).getByRole('link', { name: /0\s*Awaiting payment/ })).toBeInTheDocument())
+    expect(mocks.counter.summaryCalls).toBeGreaterThanOrEqual(calls + 2)
+  })
+
+  it('hides both cards when commerce is not available', async () => {
+    useHomeMocks({ commerce: { summary: 409, checklist: 409 } })
+    signIn()
+    renderDashboard(home)
+    await screen.findByRole('heading', { name: 'WhatsApp connection' }, { timeout: 10_000 })
+    await waitFor(() => expect(screen.getByText('+91 98290 11223')).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: 'Orders today' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Store setup' })).not.toBeInTheDocument()
+  })
+
+  it('keeps a quiet orders card out while the store is off', async () => {
+    useHomeMocks({
+      commerce: {
+        checklist: checklistItems(1),
+        summary: { today_count: 0, today_revenue_paise: 0, open_count: 0, needs_attention_count: 0, awaiting_payment_count: 0 },
+      },
+    })
+    signIn()
+    renderDashboard(home)
+    const store = await commerceCard('Store setup')
+    expect(await within(store).findByText('Add products', {}, { timeout: 10_000 })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Orders today' })).not.toBeInTheDocument())
+  })
+
+  it('shows viewers store progress without edit links', async () => {
+    db.memberships.find((m) => m.workspace_id === ids.sharmaSweets && m.user_id === ids.demoUser)!.role = 'viewer'
+    useHomeMocks({ commerce: { checklist: checklistItems(3) } })
+    signIn()
+    renderDashboard(home)
+
+    const store = await commerceCard('Store setup')
+    await waitFor(() => expect(within(store).getByText('3 of 6 done')).toBeInTheDocument())
+    expect(within(store).getByText('Prepare order update templates')).toBeInTheDocument()
+    expect(within(store).getByText('An admin can finish setting up the store.')).toBeInTheDocument()
+    expect(within(store).queryByRole('link')).not.toBeInTheDocument()
+  })
+})
+
 describe('home helpers', () => {
+  it('summarises store checklist progress', () => {
+    expect(storeProgress(checklistItems(2))).toMatchObject({ done: 2, total: 6, storeEnabled: false, next: { key: 'payments_configured' } })
+    expect(storeProgress(checklistItems(6))).toMatchObject({ done: 6, next: null, storeEnabled: true })
+    expect(storeStepLabel('alert_number_verified')).toBe('Verify your order alert number')
+    expect(storeStepLabel('gst_details_added')).toBe('Gst details added')
+  })
+
   it('computes progress, trial days, tiers and template counts', () => {
     expect(campaignProgress({ total: 0, skipped: 0, queued: 0, sent: 0, delivered: 0, read: 0, failed: 0, replied: 0 }).percent).toBe(0)
     expect(trialDaysLeft('2026-09-12T00:00:00Z', Date.parse('2026-09-10T12:00:00Z'))).toBe(2)

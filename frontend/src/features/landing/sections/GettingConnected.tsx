@@ -57,7 +57,7 @@ export function GettingConnected() {
     <section id="requirements" className="border-t border-line py-20 md:py-28">
       <Container>
         <SectionHeader
-          index="04"
+          index="05"
           eyebrow="Getting connected"
           title="What you need before you connect."
           description="Most businesses finish setup in one sitting. These are Meta’s requirements, laid out plainly so there are no surprises halfway through."

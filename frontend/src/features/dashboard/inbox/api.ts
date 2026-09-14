@@ -9,6 +9,7 @@ import { tokenStore } from '../../../lib/auth/tokens'
 export type Conversation = Schemas['Conversation']
 export type Message = Schemas['Message']
 export type MessageType = Schemas['MessageTypeEnum']
+export type MessageOrder = Schemas['MessageOrder']
 export type MessageStatus = Schemas['MessageStatusEnum']
 export type ConversationStatus = Schemas['ConversationStatusEnum']
 export type ConversationNote = Schemas['ConversationNote']

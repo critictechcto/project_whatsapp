@@ -3,6 +3,7 @@ import { PageHeader } from '../../../components/app'
 import { useWorkspace } from '../../../lib/workspace'
 import { useMe } from '../auth/session'
 import { hasSentCampaign, useHasAutomations, useHasContacts, useHasTeam, usePhoneNumbers, useRecentCampaigns, useTemplateSummary } from './api'
+import { OrdersTodayCard, StoreSetupCard } from './components/CommerceCards'
 import { CampaignsCard, ConnectionCard, ConversationsCard, SubscriptionCard, TemplatesCard } from './components/OverviewCards'
 import { SetupChecklist, type SetupStep, type StepState } from './components/SetupChecklist'
 
@@ -96,6 +97,8 @@ export function HomePage() {
       <SetupChecklist steps={steps} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <OrdersTodayCard />
+        <StoreSetupCard />
         <ConnectionCard />
         <ConversationsCard />
         <TemplatesCard />

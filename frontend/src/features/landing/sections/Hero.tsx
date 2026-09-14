@@ -26,8 +26,9 @@ export function Hero() {
           </h1>
 
           <p className="rise rise-2 mt-6 max-w-xl text-[17.5px] leading-relaxed text-muted">
-            Connect your business number through Meta’s own signup flow, then send campaigns, reminders and order
-            updates — and answer every reply from one shared team inbox. No QR-code workarounds. No banned numbers.
+            Connect your business number through Meta’s own signup flow, then send campaigns and reminders, sell
+            through a WhatsApp menu with payment links or cash on delivery — and answer every reply from one shared
+            team inbox. No QR-code workarounds. No banned numbers.
           </p>
 
           <div className="rise rise-3 mt-8 flex flex-wrap gap-3">
