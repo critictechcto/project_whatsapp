@@ -9,14 +9,20 @@ import { nav as billingNav } from '../billing/nav'
 import { routes as billingRoutes } from '../billing/routes'
 import { nav as campaignsNav } from '../campaigns/nav'
 import { routes as campaignsRoutes } from '../campaigns/routes'
+import { nav as catalogNav } from '../catalog/nav'
+import { routes as catalogRoutes } from '../catalog/routes'
 import { nav as contactsNav } from '../contacts/nav'
 import { routes as contactsRoutes } from '../contacts/routes'
 import { nav as homeNav } from '../home/nav'
 import { routes as homeRoutes } from '../home/routes'
 import { nav as inboxNav } from '../inbox/nav'
 import { routes as inboxRoutes } from '../inbox/routes'
+import { nav as ordersNav } from '../orders/nav'
+import { routes as ordersRoutes } from '../orders/routes'
 import { nav as settingsNav } from '../settings/nav'
 import { routes as settingsRoutes } from '../settings/routes'
+import { nav as storeNav } from '../store/nav'
+import { routes as storeRoutes } from '../store/routes'
 import { nav as teamNav } from '../team/nav'
 import { routes as teamRoutes } from '../team/routes'
 import { nav as templatesNav } from '../templates/nav'
@@ -32,6 +38,9 @@ export const areaRoutes: AreaRoute[] = [
   ...campaignsRoutes,
   ...templatesRoutes,
   ...automationsRoutes,
+  ...catalogRoutes,
+  ...ordersRoutes,
+  ...storeRoutes,
   ...whatsappRoutes,
   ...teamRoutes,
   ...billingRoutes,
@@ -45,6 +54,9 @@ export const navItems: NavItem[] = [
   ...campaignsNav,
   ...templatesNav,
   ...automationsNav,
+  ...catalogNav,
+  ...ordersNav,
+  ...storeNav,
   ...whatsappNav,
   ...teamNav,
   ...billingNav,
