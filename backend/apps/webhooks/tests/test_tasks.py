@@ -14,6 +14,7 @@ from apps.webhooks.tasks import (
     purge_old_events,
     requeue_stuck_events,
 )
+from apps.whatsapp.factories import PhoneNumberFactory
 from common import events
 
 from .helpers import load_payload
@@ -253,6 +254,130 @@ def test_parser_crash_marks_failed_without_retry(recorder, connected_number):
     assert event.status == Status.FAILED
     assert "Parse error" in event.last_error
     retry.assert_not_called()
+
+
+# --- process_event: the platform alerts number ----------------------------------------------
+
+PLATFORM_NUMBER_ID = "990000000000002"
+PLATFORM_WABA_ID = "990000000000001"
+
+
+def platform_payload(name: str) -> dict:
+    payload = load_payload(name)
+    for entry in payload["entry"]:
+        entry["id"] = PLATFORM_WABA_ID
+        for change in entry["changes"]:
+            change["value"]["metadata"]["phone_number_id"] = PLATFORM_NUMBER_ID
+    return payload
+
+
+@pytest.fixture
+def platform_number(settings):
+    settings.PLATFORM_WA_PHONE_NUMBER_ID = PLATFORM_NUMBER_ID
+    return PLATFORM_NUMBER_ID
+
+
+def test_platform_number_messages_emit_platform_events(recorder, connected_number, platform_number):
+    event = WebhookEventFactory(payload=platform_payload("interactive_button_reply.json"))
+
+    process_event.delay(str(event.pk))
+
+    event = refreshed(event)
+    assert event.status == Status.PROCESSED
+    assert event.workspace_id is None
+    assert recorder.of(events.InboundMessage) == []
+    [message] = recorder.of(events.PlatformInboundMessage)
+    parsed = load_payload("interactive_button_reply.json")["entry"][0]["changes"][0]["value"]
+    raw = parsed["messages"][0]
+    assert message.phone_number_id == PLATFORM_NUMBER_ID
+    assert message.wamid == raw["id"]
+    assert message.from_wa_id == raw["from"]
+    assert message.type == "interactive"
+    assert message.text == "Confirm"
+    assert message.reply_id == "confirm_booking"
+    assert message.profile_name == parsed["contacts"][0]["profile"]["name"]
+    assert message.context_wamid == raw["context"]["id"]
+    assert message.payload == raw
+    assert message.webhook_event_id == event.pk
+
+
+def test_platform_number_is_routed_even_when_a_workspace_has_that_number(
+    recorder, workspace, platform_number
+):
+    PhoneNumberFactory(
+        workspace=workspace, waba__workspace=workspace, phone_number_id=PLATFORM_NUMBER_ID
+    )
+    event = WebhookEventFactory(payload=platform_payload("text_message.json"))
+
+    process_event.delay(str(event.pk))
+
+    assert refreshed(event).workspace_id is None
+    assert recorder.of(events.InboundMessage) == []
+    assert len(recorder.of(events.PlatformInboundMessage)) == 1
+
+
+def test_platform_number_statuses_are_dropped(recorder, connected_number, platform_number, caplog):
+    event = WebhookEventFactory(payload=platform_payload("status_failed.json"))
+
+    with caplog.at_level("DEBUG", logger="apps.webhooks.tasks"):
+        process_event.delay(str(event.pk))
+
+    assert refreshed(event).status == Status.PROCESSED
+    assert recorder.events == []
+    assert "Dropping MessageStatus for the platform number" in caplog.text
+
+
+def test_platform_and_workspace_changes_in_one_delivery(
+    recorder, connected_number, platform_number
+):
+    payload = load_payload("text_message.json")
+    platform_entry = platform_payload("text_message.json")["entry"][0]
+    platform_entry["changes"][0]["value"]["messages"][0]["id"] = "wamid.PLATFORM"
+    payload["entry"].append(platform_entry)
+    event = WebhookEventFactory(payload=payload)
+
+    process_event.delay(str(event.pk))
+
+    event = refreshed(event)
+    assert event.status == Status.PROCESSED
+    assert event.workspace_id == connected_number.workspace_id
+    [inbound] = recorder.of(events.InboundMessage)
+    [platform] = recorder.of(events.PlatformInboundMessage)
+    assert inbound.phone_number_id == connected_number.phone_number_id
+    assert platform.wamid == "wamid.PLATFORM"
+
+
+def test_platform_routing_is_off_without_the_setting(recorder, connected_number, settings):
+    settings.PLATFORM_WA_PHONE_NUMBER_ID = ""
+    payload = load_payload("text_message.json")
+    payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"] = ""
+    event = WebhookEventFactory(payload=payload)
+
+    process_event.delay(str(event.pk))
+
+    assert recorder.of(events.PlatformInboundMessage) == []
+    [message] = recorder.of(events.InboundMessage)  # routed by WABA as before
+    assert message.workspace_id == connected_number.workspace_id
+
+
+def test_platform_receiver_failure_marks_failed_and_schedules_retry(recorder, platform_number):
+    def broken(sender, event, **kwargs):
+        raise RuntimeError("alerts down")
+
+    events.platform_inbound_message_received.connect(broken, weak=False)
+    event = WebhookEventFactory(payload=platform_payload("text_message.json"))
+
+    with mock.patch("celery.app.task.Task.retry", side_effect=Retry()) as retry:
+        result = process_event.apply(args=[str(event.pk)], throw=False)
+
+    assert result.state == "RETRY"
+    event = refreshed(event)
+    assert event.status == Status.FAILED
+    assert "PlatformInboundMessage" in event.last_error
+    assert "alerts down" in event.last_error
+    assert event.workspace_id is None
+    retry.assert_called_once()
+    assert retry.call_args.kwargs["max_retries"] == MAX_RETRIES
 
 
 # --- requeue_stuck_events -------------------------------------------------------------------
