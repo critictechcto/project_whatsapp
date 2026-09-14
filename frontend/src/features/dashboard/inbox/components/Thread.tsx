@@ -62,10 +62,12 @@ function ThreadHeader({ conversation, backHref, onOpenDetails }: { conversation:
 
 function MessageStream({
   conversation,
+  now,
   onUseTemplate,
   sender,
 }: {
   conversation: Conversation
+  now: number
   onUseTemplate: () => void
   sender: ReturnType<typeof useSendMessage>
 }) {
@@ -195,7 +197,7 @@ function MessageStream({
                   {showDay && (
                     <li className="sticky top-0 z-10 flex justify-center py-1.5">
                       <span className="rounded-md bg-card/95 px-2.5 py-1 font-mono text-[11px] text-muted shadow-[0_1px_0_rgba(16,39,31,0.08)]">
-                        {dayLabel(item.iso, timeZone, Date.parse(lastItem?.iso ?? item.iso) > item.at ? Math.max(item.at, Date.parse(lastItem.iso)) : item.at)}
+                        {dayLabel(item.iso, timeZone, now)}
                       </span>
                     </li>
                   )}
@@ -291,7 +293,7 @@ export function Thread({ conversationId, backHref, now, onOpenDetails }: ThreadP
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ThreadHeader conversation={data} backHref={backHref} onOpenDetails={onOpenDetails} />
-      <MessageStream conversation={data} sender={sender} onUseTemplate={() => setTemplateOpen(true)} />
+      <MessageStream conversation={data} now={now} sender={sender} onUseTemplate={() => setTemplateOpen(true)} />
       <Composer conversation={data} now={now} send={sender.send} onOpenTemplate={() => setTemplateOpen(true)} />
       {can('agent') && <TemplateDialog open={templateOpen} onOpenChange={setTemplateOpen} conversation={data} onSend={sender.send} />}
     </div>
