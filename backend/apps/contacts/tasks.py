@@ -13,6 +13,7 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
 
+from apps.billing import entitlements
 from common.phone import InvalidPhoneNumber, normalize_e164, to_wa_id
 
 from .models import MAX_IMPORT_ERRORS, ConsentEvent, Contact, ContactImport
@@ -20,6 +21,11 @@ from .models import MAX_IMPORT_ERRORS, ConsentEvent, Contact, ContactImport
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 500
+QUOTA_EXCEEDED = "quota_exceeded"
+QUOTA_EXCEEDED_MESSAGE = (
+    "Your plan's contact limit was reached, so this new contact was not imported. "
+    "Upgrade your plan to import more."
+)
 PHONE_ALIASES = ("phone", "phone_number", "mobile", "whatsapp", "number")
 # A "processing" import older than this is treated as abandoned (worker died) and restarted.
 STALE_PROCESSING_AFTER = timedelta(minutes=40)
@@ -80,10 +86,31 @@ class _Importer:
         self.tag_ids = list(job.tags.values_list("pk", flat=True))
         self.opt_in = job.mark_opted_in and job.consent_attested
         self.seen: set[str] = set()
+        self.quota_skipped: set[str] = set()
 
-    def add_error(self, line: int | None, message: str) -> None:
+    def add_error(self, line: int | None, message: str, *, reason: str | None = None) -> None:
         if len(self.job.errors) < MAX_IMPORT_ERRORS:
-            self.job.errors.append({"row": line, "error": message})
+            error = {"row": line, "error": message}
+            if reason:
+                error["reason"] = reason
+            self.job.errors.append(error)
+
+    def _within_quota(self, to_create: list[Contact], batch: dict[str, "_Row"]) -> list[Contact]:
+        """New contacts that fit the plan's contact limit. The rest are skipped with reason
+        ``quota_exceeded``; updates to existing contacts are never limited."""
+        if not to_create:
+            return to_create
+        remaining = entitlements.remaining_quota(self.job.workspace, entitlements.CONTACTS)
+        if remaining is None or len(to_create) <= remaining:
+            return to_create
+        for contact in to_create[remaining:]:
+            phone = contact.phone_e164
+            if phone in self.quota_skipped:
+                continue
+            self.quota_skipped.add(phone)
+            self.job.skipped_count += 1
+            self.add_error(batch[phone].line, QUOTA_EXCEEDED_MESSAGE, reason=QUOTA_EXCEEDED)
+        return to_create[:remaining]
 
     def run(self) -> None:
         job = self.job
@@ -188,6 +215,7 @@ class _Importer:
                     to_update.append(contact)
                     if phone not in self.seen:
                         job.updated_count += 1
+            to_create = self._within_quota(to_create, batch)
             # ignore_conflicts: a webhook may create the same contact concurrently.
             Contact.objects.bulk_create(to_create, ignore_conflicts=True)
             Contact.objects.bulk_update(to_update, ["name", "email", "attributes", "updated_at"])

@@ -10,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import exceptions
 
+from apps.billing import entitlements
 from common.exceptions import Conflict, UpstreamUnavailable
 from common.phone import InvalidPhoneNumber, normalize_e164
 
@@ -109,6 +110,20 @@ def apply_phone_data(phone: PhoneNumber, data: dict) -> None:
         phone.meta_status = _clip(data["status"], 32)
 
 
+def _check_number_quota(workspace, number_ids: set[str]) -> None:
+    """Numbers new to the workspace (or deregistered ones coming back) count toward the plan's
+    ``whatsapp_numbers`` limit; numbers already connected here don't, so reconnecting and
+    re-syncing are never blocked. Raises ``QuotaExceeded`` before anything is stored."""
+    connected = (
+        PhoneNumber.objects.filter(workspace=workspace, phone_number_id__in=number_ids)
+        .exclude(registration_status=PhoneNumber.RegistrationStatus.DEREGISTERED)
+        .count()
+    )
+    new_numbers = len(number_ids) - connected
+    if new_numbers > 0:
+        entitlements.check_quota(workspace, entitlements.WHATSAPP_NUMBERS, amount=new_numbers)
+
+
 def complete_embedded_signup(
     *,
     workspace,
@@ -171,6 +186,7 @@ def complete_embedded_signup(
                 "A phone number on this account is connected to another workspace.",
                 code="phone_number_already_connected",
             )
+        _check_number_quota(workspace, number_ids)
 
         waba = waba or WhatsAppBusinessAccount(workspace=workspace, waba_id=waba_id)
         waba.business_id = business_id or waba.business_id
