@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import { Container } from '../../../components/ui/Container'
 import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
+import { TiltCard } from '../../../components/ui/TiltCard'
 import { site } from '../../../config/site'
 
 const cards = [
@@ -64,21 +65,18 @@ export function GettingConnected() {
 
         <div className="mt-14 grid gap-5 md:grid-cols-2">
           {cards.map((card, i) => (
-            <Reveal
-              as="article"
-              key={card.title}
-              delay={(i % 2) * 100}
-              className="rounded-xl border border-line bg-card p-6 md:p-7"
-            >
-              <h3 className="text-[18px] font-semibold tracking-[-0.01em]">{card.title}</h3>
-              <ul className="mt-4 space-y-2.5 text-[15px] leading-relaxed text-muted">
-                {card.points.map((point) => (
-                  <li key={point} className="flex gap-2.5">
-                    <Check className="mt-1 size-4 shrink-0 text-accent-2" aria-hidden="true" />
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
+            <Reveal as="article" key={card.title} delay={(i % 2) * 100} className="flex">
+              <TiltCard max={3} className="w-full rounded-xl border border-line bg-card p-6 md:p-7">
+                <h3 className="text-[18px] font-semibold tracking-[-0.01em]">{card.title}</h3>
+                <ul className="mt-4 space-y-2.5 text-[15px] leading-relaxed text-muted">
+                  {card.points.map((point) => (
+                    <li key={point} className="flex gap-2.5">
+                      <Check className="mt-1 size-4 shrink-0 text-accent-2" aria-hidden="true" />
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </TiltCard>
             </Reveal>
           ))}
         </div>

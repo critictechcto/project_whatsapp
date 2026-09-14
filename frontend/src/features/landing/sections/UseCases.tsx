@@ -2,6 +2,7 @@ import { Badge } from '../../../components/ui/Badge'
 import { Container } from '../../../components/ui/Container'
 import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
+import { TiltCard } from '../../../components/ui/TiltCard'
 import { ChatBubble } from '../mockups/ChatBubble'
 
 const useCases = [
@@ -62,26 +63,28 @@ export function UseCases() {
         <ul className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {useCases.map((useCase, i) => (
             <Reveal as="li" key={useCase.title} delay={(i % 3) * 90} className="flex">
-              <div className="group/card flex w-full flex-col overflow-hidden rounded-xl border border-line bg-card transition-[border-color,box-shadow] duration-300 hover:border-ink/25 hover:shadow-[0_20px_40px_-28px_rgba(16,39,31,0.4)]">
-                <div className="flex items-start justify-between gap-3 px-5 pt-5">
-                  <div>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">{useCase.industry}</p>
-                    <h3 className="mt-1.5 text-[17px] font-semibold tracking-[-0.01em]">{useCase.title}</h3>
+              <TiltCard className="flex w-full rounded-xl">
+                <div className="group/card flex w-full flex-col overflow-hidden rounded-xl border border-line bg-card transition-[border-color,box-shadow] duration-300 hover:border-ink/25 hover:shadow-[0_20px_40px_-28px_rgba(16,39,31,0.4)]">
+                  <div className="flex items-start justify-between gap-3 px-5 pt-5">
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">{useCase.industry}</p>
+                      <h3 className="mt-1.5 text-[17px] font-semibold tracking-[-0.01em]">{useCase.title}</h3>
+                    </div>
+                    <Badge tone={useCase.category === 'Marketing' ? 'amber' : 'green'}>{useCase.category}</Badge>
                   </div>
-                  <Badge tone={useCase.category === 'Marketing' ? 'amber' : 'green'}>{useCase.category}</Badge>
+                  <div aria-hidden="true" className="mt-5 flex-1 bg-wallpaper px-4 py-5">
+                    <ChatBubble
+                      from="business"
+                      time="10:00"
+                      buttons={useCase.buttons}
+                      className="transition-transform duration-500 ease-soft group-hover/card:-translate-y-1"
+                    >
+                      {useCase.message}
+                    </ChatBubble>
+                  </div>
+                  <p className="sr-only">Example message: {useCase.message}</p>
                 </div>
-                <div aria-hidden="true" className="mt-5 flex-1 bg-wallpaper px-4 py-5">
-                  <ChatBubble
-                    from="business"
-                    time="10:00"
-                    buttons={useCase.buttons}
-                    className="transition-transform duration-500 ease-soft group-hover/card:-translate-y-1"
-                  >
-                    {useCase.message}
-                  </ChatBubble>
-                </div>
-                <p className="sr-only">Example message: {useCase.message}</p>
-              </div>
+              </TiltCard>
             </Reveal>
           ))}
         </ul>

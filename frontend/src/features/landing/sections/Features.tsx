@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import { Container } from '../../../components/ui/Container'
+import { ScrollDepth } from '../../../components/ui/ScrollDepth'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { Tabs, type TabItem } from '../../../components/ui/Tabs'
 import { CampaignMockup } from '../mockups/CampaignMockup'
@@ -12,7 +13,7 @@ import {
   TeamMockup,
 } from '../mockups/FeatureMockups'
 import { InboxMockup } from '../mockups/InboxMockup'
-import { TemplateStatusMockup } from '../mockups/TemplateStatusMockup'
+import { TemplateStack } from '../mockups/TemplateStack'
 
 type Feature = {
   id: string
@@ -61,7 +62,7 @@ const features: Feature[] = [
       'Live preview exactly as the customer will see it',
       'Rejection reasons from Meta, so you can fix and resubmit',
     ],
-    mockup: <TemplateStatusMockup />,
+    mockup: <TemplateStack />,
   },
   {
     id: 'inbox',
@@ -150,7 +151,7 @@ export function Features() {
             ))}
           </ul>
         </div>
-        <div className="lg:col-span-7">{feature.mockup}</div>
+        <ScrollDepth className="min-w-0 lg:col-span-7">{feature.mockup}</ScrollDepth>
       </div>
     ),
   }))
