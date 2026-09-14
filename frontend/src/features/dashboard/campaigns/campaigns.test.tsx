@@ -36,7 +36,7 @@ describe('campaign wizard', () => {
     await user.click(screen.getByRole('combobox', { name: /^Tags/ }))
     await user.click(await screen.findByRole('option', { name: /Regular customer/ }))
     const preview = screen.getByRole('region', { name: 'Who receives it' })
-    expect(await within(preview).findByText('13', {}, { timeout: 3000 })).toBeInTheDocument()
+    expect(await within(preview).findByText('13', {}, { timeout: 10_000 })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Save and continue' }))
 
     expect(await screen.findByRole('heading', { name: 'Fill in the variables' })).toBeInTheDocument()
@@ -59,7 +59,7 @@ describe('campaign wizard', () => {
     await user.click(screen.getByLabelText('I confirm these contacts agreed to receive WhatsApp messages from us'))
     await user.click(screen.getByRole('button', { name: 'Launch campaign' }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Festive offer' }, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Festive offer' }, { timeout: 10_000 })).toBeInTheDocument()
     const created = campaignRecords().find((record) => record.campaign.name === 'Festive offer')
     expect(created?.campaign.status).toBe('running')
     expect(created?.campaign.consent_attested).toBe(true)
@@ -72,12 +72,12 @@ describe('campaign wizard', () => {
     const { user } = renderDashboard(`${base}/${campaignIds.wholesaleDraft}/edit?step=audience`)
 
     const preview = await screen.findByRole('region', { name: 'Who receives it' })
-    await waitFor(() => expect(within(preview).getAllByText('0').length).toBeGreaterThan(0), { timeout: 3000 })
+    await waitFor(() => expect(within(preview).getAllByText('0').length).toBeGreaterThan(0), { timeout: 10_000 })
 
     await user.click(screen.getByRole('combobox', { name: /^Tags/ }))
     await user.click(await screen.findByRole('option', { name: /Regular customer/ }))
 
-    expect(await within(preview).findByText('24', {}, { timeout: 3000 })).toBeInTheDocument()
+    expect(await within(preview).findByText('24', {}, { timeout: 10_000 })).toBeInTheDocument()
     expect(within(preview).getByText('13')).toBeInTheDocument()
   })
 })

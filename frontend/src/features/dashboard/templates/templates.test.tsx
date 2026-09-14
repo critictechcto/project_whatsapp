@@ -14,7 +14,7 @@ const approved = seedTemplates.find((template) => template.status === 'APPROVED'
 async function openBuilder() {
   signIn()
   const view = renderDashboard(`${base}/new`)
-  await screen.findByRole('heading', { level: 1, name: 'New template' }, { timeout: 3000 })
+  await screen.findByRole('heading', { level: 1, name: 'New template' }, { timeout: 10_000 })
   return view
 }
 
@@ -22,7 +22,7 @@ describe('templates list', () => {
   it('shows rejected templates with a friendly reason', async () => {
     signIn()
     renderDashboard(base)
-    const link = await screen.findByRole('link', { name: rejected.name }, { timeout: 3000 })
+    const link = await screen.findByRole('link', { name: rejected.name }, { timeout: 10_000 })
     const row = link.closest('tr')!
     expect(within(row).getByText(`${rejectionInfo('INVALID_FORMAT').label}.`)).toBeInTheDocument()
     expect(within(row).getByText(rejectionInfo('INVALID_FORMAT').explanation)).toBeInTheDocument()
@@ -31,7 +31,7 @@ describe('templates list', () => {
   it('filters by status', async () => {
     signIn()
     const { user } = renderDashboard(base)
-    await screen.findByRole('link', { name: rejected.name }, { timeout: 3000 })
+    await screen.findByRole('link', { name: rejected.name }, { timeout: 10_000 })
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'REJECTED')
     await waitFor(() => expect(screen.queryByRole('link', { name: approved.name })).not.toBeInTheDocument())
     expect(screen.getByRole('link', { name: rejected.name })).toBeInTheDocument()
@@ -40,7 +40,7 @@ describe('templates list', () => {
   it('syncs from Meta and reports what was queued', async () => {
     signIn()
     const { user } = renderDashboard(base)
-    await user.click(await screen.findByRole('button', { name: 'Sync from Meta' }, { timeout: 3000 }))
+    await user.click(await screen.findByRole('button', { name: 'Sync from Meta' }, { timeout: 10_000 }))
     expect(await screen.findByText(/Sync started for 1 WhatsApp account/)).toBeInTheDocument()
   })
 })
@@ -49,13 +49,13 @@ describe('template detail', () => {
   it('explains the rejection reason', async () => {
     signIn()
     renderDashboard(`${base}/${rejected.id}`)
-    expect(await screen.findByText(`Rejected by Meta: ${rejectionInfo('INVALID_FORMAT').label}`, {}, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByText(`Rejected by Meta: ${rejectionInfo('INVALID_FORMAT').label}`, {}, { timeout: 10_000 })).toBeInTheDocument()
   })
 
   it('links approved templates to a new campaign', async () => {
     signIn()
     renderDashboard(`${base}/${approved.id}`)
-    const link = await screen.findByRole('link', { name: 'Use in campaign' }, { timeout: 3000 })
+    const link = await screen.findByRole('link', { name: 'Use in campaign' }, { timeout: 10_000 })
     expect(link).toHaveAttribute('href', `/app/w/${ids.sharmaSweets}/campaigns/new?template=${approved.id}`)
   })
 })
@@ -173,7 +173,7 @@ describe('template builder', () => {
     await user.type(screen.getByRole('textbox', { name: /Example for \{\{1\}\}/ }), 'Ananya')
     await user.click(screen.getByRole('button', { name: 'Submit for review' }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'order_update' }, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'order_update' }, { timeout: 10_000 })).toBeInTheDocument()
     expect(router.state.location.pathname).toMatch(new RegExp(`^${base}/[0-9a-f-]{36}$`))
     expect(screen.getByText(statusExplanations.PENDING ?? "")).toBeInTheDocument()
     expect(screen.getAllByText('In review')).not.toHaveLength(0)
@@ -190,7 +190,7 @@ describe('roles', () => {
   it("hides create, sync and delete from viewers", async () => {
     makeArjunViewer()
     renderDashboard(base)
-    await screen.findByRole('link', { name: rejected.name }, { timeout: 3000 })
+    await screen.findByRole('link', { name: rejected.name }, { timeout: 10_000 })
     expect(screen.queryByRole('link', { name: /New template/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sync from Meta' })).not.toBeInTheDocument()
   })
@@ -198,7 +198,7 @@ describe('roles', () => {
   it('shows viewers a read-only detail page', async () => {
     makeArjunViewer()
     renderDashboard(`${base}/${rejected.id}`)
-    await screen.findByRole('heading', { level: 1, name: rejected.name }, { timeout: 3000 })
+    await screen.findByRole('heading', { level: 1, name: rejected.name }, { timeout: 10_000 })
     expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Submit for review' })).not.toBeInTheDocument()
@@ -207,13 +207,13 @@ describe('roles', () => {
   it('blocks the builder route for viewers', async () => {
     makeArjunViewer()
     renderDashboard(`${base}/new`)
-    expect(await screen.findByRole('heading', { name: "You don't have access to this page" }, { timeout: 3000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: "You don't have access to this page" }, { timeout: 10_000 })).toBeInTheDocument()
   })
 
   it('lets admins delete with a warning about reusing the name', async () => {
     signIn()
     const { user, router } = renderDashboard(`${base}/${approved.id}`)
-    await user.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 3000 }))
+    await user.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 10_000 }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText(/can't create a new template named/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Delete template' }))

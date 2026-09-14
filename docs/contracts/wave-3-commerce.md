@@ -214,6 +214,8 @@ Cancelling or expiring releases reserved stock (`restock`). Every change writes 
   6. `store_enabled`
 - `StarterTemplatesResult`: `created: str[]`, `existing: str[]` (template names).
 
+UI gate: the Store area (nav and routes) is admin-only because it's for editing. Any member may read `settings/` and `checklist/`, and the home screen's store checklist card uses that read access for viewers.
+
 ### Endpoints
 | Method + path | Role | Notes |
 |---|---|---|
@@ -414,7 +416,7 @@ Tasks and beat entries:
 |---|---|
 | `order.created` | `order_id`, `number`, `status` |
 | `order.updated` | `order_id`, `status`, `payment_status` |
-| `catalog.sync` | `meta_catalog_id`, `status` |
+| `catalog.sync` | `meta_catalog_id`, `status` (`CatalogSyncStatusEnum`) |
 | `alert_recipient.updated` | `recipient_id`, `status` |
 
 ## Allowed cross-app imports in wave 3

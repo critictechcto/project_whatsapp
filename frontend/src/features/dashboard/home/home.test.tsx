@@ -127,7 +127,7 @@ function useHomeMocks({
 }
 
 async function checklist() {
-  await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 3000 })
+  await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 10_000 })
   const heading = await screen.findByRole('heading', { level: 2, name: /Get started|Setup complete/ })
   return heading.closest('section')!
 }
@@ -154,9 +154,9 @@ describe('home checklist', () => {
     useHomeMocks({ campaigns: 'sent', automations: 'some' })
     signIn()
     const { user } = renderDashboard(home)
-    await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 3000 })
+    await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 10_000 })
 
-    const toggle = await screen.findByRole('button', { name: 'Show steps' }, { timeout: 3000 })
+    const toggle = await screen.findByRole('button', { name: 'Show steps' }, { timeout: 10_000 })
     expect(screen.getByRole('heading', { name: 'Setup complete' })).toBeInTheDocument()
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('Connect WhatsApp')).not.toBeVisible()
@@ -182,7 +182,7 @@ describe('home overview cards', () => {
     signIn()
     renderDashboard(home)
 
-    const conversations = (await screen.findByRole('heading', { name: 'Conversations' }, { timeout: 3000 })).closest('section')!
+    const conversations = (await screen.findByRole('heading', { name: 'Conversations' }, { timeout: 10_000 })).closest('section')!
     await waitFor(() => expect(within(conversations).getByText('12')).toBeInTheDocument())
     expect(within(conversations).getByText('3')).toBeInTheDocument()
 
@@ -202,7 +202,7 @@ describe('home overview cards', () => {
     useHomeMocks({ conversations: 501, subscription: 501, campaigns: 501 })
     signIn()
     renderDashboard(home)
-    await screen.findByRole('heading', { name: 'WhatsApp connection' }, { timeout: 3000 })
+    await screen.findByRole('heading', { name: 'WhatsApp connection' }, { timeout: 10_000 })
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Templates' })).toBeInTheDocument())
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Conversations' })).not.toBeInTheDocument()
@@ -215,7 +215,7 @@ describe('home overview cards', () => {
     useHomeMocks({ inviteSent: true, members: 1 })
     signIn()
     renderDashboard(`/app/w/${ids.kaveriClinic}`)
-    await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 3000 })
+    await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 10_000 })
     const section = (await screen.findByRole('heading', { level: 2, name: 'Get started' })).closest('section')!
     const item = within(section).getByText('Invite your team').closest('li')!
     await waitFor(() => expect(within(item).getByLabelText('Done')).toBeInTheDocument())

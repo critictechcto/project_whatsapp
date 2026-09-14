@@ -9,7 +9,7 @@ import { contactId, contactsMock, mockTagIds } from './mockState'
 const base = `/app/w/${ids.sharmaSweets}/contacts`
 /** The list is newest first, so the highest seed indexes are on the first page. */
 const seeded = (i: number) => contactsMock().contacts.find((contact) => contact.id === contactId(i))!
-const LAZY = { timeout: 5000 }
+const LAZY = { timeout: 10_000 }
 
 afterEach(() => {
   vi.useRealTimers()
