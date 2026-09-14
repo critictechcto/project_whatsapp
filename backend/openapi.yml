@@ -3567,7 +3567,7 @@ paths:
     post:
       operationId: seller_alerts_recipients_create
       description: Sends the verification template from the UpChatz number (409 platform_alerts_unavailable,
-        alert_recipient_limit).
+        alert_recipient_limit). A number WhatsApp can't reach is a 400 on phone_e164.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3599,6 +3599,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AlertRecipient'
           description: ''
+        '409':
+          description: platform_alerts_unavailable, alert_recipient_limit
   /api/v1/seller-alerts/recipients/{id}/:
     patch:
       operationId: seller_alerts_recipients_partial_update

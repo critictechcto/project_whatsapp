@@ -20,6 +20,10 @@ class AlertRecipientSerializer(serializers.Serializer):
     last_sent_at = serializers.DateTimeField(read_only=True, allow_null=True)
     created_at = serializers.DateTimeField(read_only=True)
 
+    def validate_events(self, value: list[str]) -> list[str]:
+        """Unique values in contract order."""
+        return [event for event in ALERT_EVENTS if event in value]
+
 
 class PlatformAlertsInfoSerializer(serializers.Serializer):
     available = serializers.BooleanField(read_only=True)
