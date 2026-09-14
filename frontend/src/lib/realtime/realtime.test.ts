@@ -81,6 +81,25 @@ describe('parseFrame', () => {
     expect(parseFrame({ ...conversationUpdated('ws-1'), type: 'contact.deleted' })).toBeNull()
     expect(parseFrame('not json')).toBeNull()
   })
+
+  it('accepts the wave-3 commerce frames and dispatches them by type', () => {
+    const frames: RealtimeFrame[] = [
+      { v: 1, type: 'order.created', workspace_id: 'ws-1', data: { order_id: 'o-1', number: 'SS-1001', status: 'confirmed' } },
+      { v: 1, type: 'order.updated', workspace_id: 'ws-1', data: { order_id: 'o-1', status: 'shipped', payment_status: 'cod_pending' } },
+      { v: 1, type: 'catalog.sync', workspace_id: 'ws-1', data: { meta_catalog_id: 'mc-1', status: 'synced' } },
+      { v: 1, type: 'alert_recipient.updated', workspace_id: 'ws-1', data: { recipient_id: 'r-1', status: 'verified' } },
+    ]
+    const onOrderUpdated = vi.fn()
+    subscribe('order.updated', onOrderUpdated)
+
+    for (const frame of frames) {
+      const parsed = parseFrame(JSON.stringify(frame))
+      expect(parsed).toEqual(frame)
+      if (parsed) dispatch(parsed)
+    }
+    expect(onOrderUpdated).toHaveBeenCalledOnce()
+    expect(onOrderUpdated).toHaveBeenCalledWith({ order_id: 'o-1', status: 'shipped', payment_status: 'cod_pending' }, frames[1])
+  })
 })
 
 describe('RealtimeConnection', () => {
