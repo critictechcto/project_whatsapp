@@ -76,6 +76,11 @@ jobs:
 
       - run: uv run python manage.py makemigrations --check --dry-run
 
-      - run: uv run python manage.py spectacular --validate --fail-on-warn --file "$RUNNER_TEMP/schema.yml"
+      # Regenerates the committed schema; fails on warnings or when openapi.yml is stale.
+      # TODO: add a breaking-change check (e.g. oasdiff against the base branch's openapi.yml).
+      - name: OpenAPI schema is valid and up to date
+        run: |
+          uv run python manage.py spectacular --validate --fail-on-warn --file openapi.yml
+          git diff --exit-code -- openapi.yml
 
       - run: uv run pytest --create-db

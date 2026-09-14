@@ -142,7 +142,18 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = env.path("MEDIA_ROOT", default=BASE_DIR / "media")
+
+# `default` stores uploads (contact imports, WhatsApp media assets): local disk unless a
+# deployment points MEDIA_STORAGE_BACKEND at another storage class (e.g. object storage).
+STORAGES = {
+    "default": {
+        "BACKEND": env(
+            "MEDIA_STORAGE_BACKEND", default="django.core.files.storage.FileSystemStorage"
+        ),
+    },
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
 
 # --- API ------------------------------------------------------------------------------------
 
@@ -186,6 +197,11 @@ SPECTACULAR_SETTINGS = {
     "SCHEMA_PATH_PREFIX": r"/api/v1",
     # Each app may define ENUM_NAME_OVERRIDES in `apps/<app>/schema_enums.py`.
     "ENUM_NAME_OVERRIDES": AppEnumNameOverrides(),
+    # The fallback hook lets value-only overrides also name fields whose choices carry labels.
+    "POSTPROCESSING_HOOKS": [
+        "common.enum_overrides.postprocess_enum_value_fallback",
+        "drf_spectacular.hooks.postprocess_schema_enums",
+    ],
 }
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
@@ -243,11 +259,52 @@ WEBHOOK_EVENT_RETENTION_DAYS = env.int("WEBHOOK_EVENT_RETENTION_DAYS", default=3
 CONTACT_IMPORT_MAX_BYTES = env.int("CONTACT_IMPORT_MAX_BYTES", default=10 * 1024 * 1024)
 CONTACT_IMPORT_MAX_ROWS = env.int("CONTACT_IMPORT_MAX_ROWS", default=100_000)
 
+# Recipients materialised or dispatched per Celery batch while a campaign runs.
+CAMPAIGN_BATCH_SIZE = env.int("CAMPAIGN_BATCH_SIZE", default=100)
+
+# Upload caps for WhatsApp media assets by Meta media type (limits set by Meta).
+WHATSAPP_MEDIA_MAX_BYTES = {
+    "image": 5 * 1024 * 1024,
+    "video": 16 * 1024 * 1024,
+    "audio": 16 * 1024 * 1024,
+    "document": 100 * 1024 * 1024,
+    "sticker": 500 * 1024,
+}
+
+# Per-message cost in INR by template category, used only for estimates shown before a campaign
+# launches (under Meta's current pricing for India). Meta bills the WABA and may change rates.
+# Keys are MessageTemplate.Category values; values are decimal strings.
+WHATSAPP_RATE_CARD_INR = {
+    "MARKETING": env("WHATSAPP_RATE_MARKETING_INR", default="0.7846"),
+    "UTILITY": env("WHATSAPP_RATE_UTILITY_INR", default="0.1150"),
+    "AUTHENTICATION": env("WHATSAPP_RATE_AUTHENTICATION_INR", default="0.1150"),
+    "SERVICE": env("WHATSAPP_RATE_SERVICE_INR", default="0"),
+}
+
+# --- Realtime (Channels) --------------------------------------------------------------------
+
+# Seconds a single-use ticket from POST /api/v1/inbox/ws-ticket/ stays valid.
+WS_TICKET_TTL = env.int("WS_TICKET_TTL", default=30)
+# Browser origins allowed to open /ws/v1/ (the dashboard). Defaults to the CORS origins.
+WS_ALLOWED_ORIGINS = env.list("WS_ALLOWED_ORIGINS", default=CORS_ALLOWED_ORIGINS)
+
 # --- Billing (Razorpay) ---------------------------------------------------------------------
 
 RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
 RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
 RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
+# Razorpay plan ids by plan slug and interval, as JSON:
+#   {"starter": {"monthly": "plan_...", "annual": "plan_..."}, "growth": {...}, "pro": {...}}
+RAZORPAY_PLAN_IDS = env.json("RAZORPAY_PLAN_IDS", default={})
+
+# Seller details printed on GST tax invoices. The seller state code decides CGST+SGST vs IGST.
+BILLING_SELLER_LEGAL_NAME = env("BILLING_SELLER_LEGAL_NAME", default="")
+BILLING_SELLER_GSTIN = env("BILLING_SELLER_GSTIN", default="")
+BILLING_SELLER_STATE_CODE = env("BILLING_SELLER_STATE_CODE", default="")
+BILLING_SELLER_ADDRESS = env("BILLING_SELLER_ADDRESS", default="")
+# SAC 998314: information technology design and development services (SaaS subscriptions).
+BILLING_SAC_CODE = env("BILLING_SAC_CODE", default="998314")
+BILLING_GST_RATE_PERCENT = env.int("BILLING_GST_RATE_PERCENT", default=18)
 
 # --- Email ----------------------------------------------------------------------------------
 
