@@ -33,7 +33,7 @@ class VariableSourceSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs: dict) -> dict:
-        if attrs["source"] == "contact_field" and attrs["value"] not in CONTACT_FIELDS:
+        if attrs.get("source") == "contact_field" and attrs.get("value") not in CONTACT_FIELDS:
             raise serializers.ValidationError(
                 {"value": [f"Use one of the contact fields: {', '.join(CONTACT_FIELDS)}."]}
             )
@@ -101,7 +101,7 @@ class CampaignSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
     name = serializers.CharField(read_only=True)
     status = serializers.ChoiceField(choices=CAMPAIGN_STATUSES, read_only=True)
-    template = CampaignTemplateSerializer(read_only=True)
+    template = CampaignTemplateSerializer(read_only=True, source="template_summary")
     phone_number = ConversationPhoneNumberSerializer(read_only=True)
     audience = CampaignAudienceSerializer(read_only=True)
     variable_mapping = VariableMappingSerializer(read_only=True)
@@ -110,7 +110,9 @@ class CampaignSerializer(serializers.Serializer):
     completed_at = serializers.DateTimeField(read_only=True, allow_null=True)
     consent_attested = serializers.BooleanField(read_only=True)
     stats = CampaignStatsSerializer(read_only=True)
-    estimated_cost = CostEstimateSerializer(read_only=True, allow_null=True)
+    estimated_cost = CostEstimateSerializer(
+        read_only=True, allow_null=True, source="estimated_cost_summary"
+    )
     last_error = serializers.CharField(read_only=True)
     created_by = UserSummarySerializer(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
