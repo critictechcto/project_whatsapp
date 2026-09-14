@@ -305,6 +305,8 @@ BILLING_SELLER_ADDRESS = env("BILLING_SELLER_ADDRESS", default="")
 # SAC 998314: information technology design and development services (SaaS subscriptions).
 BILLING_SAC_CODE = env("BILLING_SAC_CODE", default="998314")
 BILLING_GST_RATE_PERCENT = env.int("BILLING_GST_RATE_PERCENT", default=18)
+# Seconds before a Razorpay API call (checkout, cancel, fetch) times out.
+RAZORPAY_TIMEOUT = env.float("RAZORPAY_TIMEOUT", default=20.0)
 
 # --- Email ----------------------------------------------------------------------------------
 

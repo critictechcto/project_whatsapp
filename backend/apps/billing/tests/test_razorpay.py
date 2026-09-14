@@ -20,6 +20,16 @@ def make_client(handler) -> razorpay.HttpRazorpayClient:
     )
 
 
+def test_timeout_comes_from_settings(settings):
+    settings.RAZORPAY_TIMEOUT = 7.5
+
+    from_settings = make_client(lambda request: httpx.Response(200, json={}))
+    explicit = razorpay.HttpRazorpayClient(key_id=KEY_ID, key_secret=KEY_SECRET, timeout=3)
+
+    assert from_settings._client.timeout == httpx.Timeout(7.5)
+    assert explicit._client.timeout == httpx.Timeout(3)
+
+
 def recording_handler(seen: list, response: httpx.Response):
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)

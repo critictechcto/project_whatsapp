@@ -44,7 +44,8 @@ RAZORPAY_PLAN_IDS = {
     for slug in ("starter", "growth", "pro")
 }
 BILLING_SELLER_LEGAL_NAME = "UpChatz Test Seller Private Limited"
-BILLING_SELLER_GSTIN = "29ABCDE1234F1Z5"
+# Sample Karnataka GSTIN with a valid check character (matches BILLING_SELLER_STATE_CODE).
+BILLING_SELLER_GSTIN = "29ABCDE1234F1ZW"
 BILLING_SELLER_STATE_CODE = "29"
 BILLING_SELLER_ADDRESS = "1 Test Road, Bengaluru, Karnataka 560001"
 
