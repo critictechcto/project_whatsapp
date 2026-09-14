@@ -1773,6 +1773,8 @@ export interface components {
             /** @description 1-based CSV line; null if global. */
             row: number | null;
             error: string;
+            /** @description Why the row was skipped, when machine-readable (e.g. quota_exceeded). */
+            reason?: string;
         };
         Invitation: {
             /** Format: uuid */
