@@ -165,7 +165,9 @@ describe('thread and composer', () => {
     await user.click(screen.getByRole('button', { name: 'Send template' }))
     const dialog = await screen.findByRole('dialog', { name: 'Send a template' })
     await user.click(within(dialog).getByRole('combobox', { name: 'Template' }))
-    await user.click(await screen.findByRole('option', { name: /order_shipped/ }))
+    // Templates mocks also seed a Hindi order_shipped; pick the non-Hindi one.
+    const templateOptions = await screen.findAllByRole('option', { name: /order_shipped/ })
+    await user.click(templateOptions.find((option) => !option.textContent?.includes('· hi'))!)
 
     const header = await within(dialog).findByLabelText(/^Header/)
     await user.type(header, '4521')
