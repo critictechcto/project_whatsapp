@@ -42,6 +42,18 @@ describe('inbox text helpers', () => {
     expect(previewText('unsupported', 'x')).toBe('Unsupported message')
   })
 
+  it('previews native carts by item count', () => {
+    const items = [
+      { product_retailer_id: 'SS-KAJU-250', quantity: 2, item_price: 220, currency: 'INR' },
+      { product_retailer_id: 'SS-SOAN-250', quantity: 1, item_price: 100, currency: 'INR' },
+    ]
+    expect(previewText('order', 'Cart: 3 items, ₹540.00', { items })).toBe('Cart · 3 items')
+    expect(previewText('order', 'Cart: 1 items, ₹220.00')).toBe('Cart · 1 item')
+    expect(previewText('order', 'Cart: 12 items, ₹4,450.00')).toBe('Cart · 12 items')
+    expect(previewText('order', '')).toBe('Cart')
+    expect(previewText('interactive', 'Address shared')).toBe('Address shared')
+  })
+
   it('formats Indian numbers', () => {
     expect(formatPhone('+919829011223')).toBe('+91 98290 11223')
     expect(formatPhone('+14155550100')).toBe('+14155550100')

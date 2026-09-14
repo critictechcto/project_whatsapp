@@ -66,6 +66,12 @@ export const inboxMockIds = {
   kavya: conversationId(8),
   /** Assigned to Rohan: template, button reply and a contact card. */
   vivaan: conversationId(9),
+  /** Shop bot flow: menu, product card, native cart, address, payment link, confirmation. */
+  kabir: conversationId(10),
+  /** The native cart `order` message in Kabir's thread. */
+  kabirCart: 'd7e8f9a0-1b2c-4d3e-9f4a-0000000c0a01',
+  /** The bot's product card in Kabir's thread. */
+  kabirProductCard: 'd7e8f9a0-1b2c-4d3e-9f4a-0000000c0a02',
   /** Delivered outbound message in Ananya's thread. */
   ananyaDelivered: 'd7e8f9a0-1b2c-4d3e-9f4a-00000000a001',
 } as const
@@ -136,6 +142,10 @@ type MessageSpec = {
   replyTo?: string
   error?: [code: string, message: string]
   id?: string
+  /** Raw Cloud API `interactive` object of an outbound interactive message. */
+  interactive?: Record<string, unknown>
+  /** Cart of an inbound native catalog `order` message. */
+  order?: Message['order']
 }
 
 export function mediaUrl(messageId: string) {
@@ -228,8 +238,8 @@ function build(): InboxMockState {
       error_code: spec.error?.[0] ?? '',
       error_message: spec.error?.[1] ?? '',
       template: template ? { id: template.id, name: template.name, language: template.language } : null,
-      interactive: null,
-      order: null,
+      interactive: spec.interactive ?? null,
+      order: spec.order ?? null,
       media: spec.media
         ? {
             mime_type: spec.media.mime_type,
@@ -398,6 +408,138 @@ function build(): InboxMockState {
     { dir: 'in', ago: 6.5 * HOUR, type: 'button', text: 'Talk to us' },
     { dir: 'in', ago: 6.4 * HOUR, type: 'contacts', text: 'Suresh Rao, +91 98765 43210' },
     { dir: 'out', ago: 6 * HOUR, text: 'Ji Vivaan, Suresh ji ko bhi call kar lenge.', status: 'delivered' },
+  ])
+
+  // J: Kabir, a shop bot flow from "hi" to a paid order (bot replies are automation sends).
+  const bot = { dir: 'out', source: 'automation', status: 'read' } as const
+  const shopEnd = 55 * MINUTE
+  add(10, { contact: 6 }, [
+    { dir: 'in', ago: shopEnd + 14 * MINUTE, text: 'hi' },
+    {
+      ...bot,
+      ago: shopEnd + 13.9 * MINUTE,
+      type: 'interactive',
+      text: 'Namaste! Welcome to Sharma Sweets. Fresh mithai and namkeen, delivered across Jaipur.',
+      interactive: {
+        type: 'list',
+        header: { type: 'text', text: 'Sharma Sweets' },
+        body: { text: 'Namaste! Welcome to Sharma Sweets. Fresh mithai and namkeen, delivered across Jaipur.' },
+        footer: { text: 'Powered by UpChatz' },
+        action: {
+          button: 'View menu',
+          sections: [
+            {
+              title: 'Shop',
+              rows: [
+                { id: 'upc:shop:col:5b8e2c1a-7d4f-4e9a-b3c6-1f2a3b4c5d01:0', title: 'Mithai', description: 'Kaju katli, laddoo, barfi' },
+                { id: 'upc:shop:col:5b8e2c1a-7d4f-4e9a-b3c6-1f2a3b4c5d02:0', title: 'Namkeen', description: 'Bhujia, mathri, mixture' },
+                { id: 'upc:shop:col:5b8e2c1a-7d4f-4e9a-b3c6-1f2a3b4c5d03:0', title: 'Gift boxes', description: 'Festive assortments' },
+              ],
+            },
+            {
+              title: 'Help',
+              rows: [
+                { id: 'upc:shop:orders', title: 'My orders' },
+                { id: 'upc:shop:talk', title: 'Talk to us' },
+              ],
+            },
+          ],
+        },
+      },
+    },
+    { dir: 'in', ago: shopEnd + 13 * MINUTE, type: 'interactive', text: 'Mithai' },
+    {
+      ...bot,
+      id: inboxMockIds.kabirProductCard,
+      ago: shopEnd + 12.9 * MINUTE,
+      type: 'interactive',
+      text: 'Kaju Katli 250 g · ₹220',
+      interactive: {
+        type: 'button',
+        header: { type: 'text', text: 'Kaju Katli 250 g' },
+        body: { text: '₹220\nPure ghee kaju katli, made fresh every morning.' },
+        footer: { text: '1 of 6 in Mithai' },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'upc:shop:add:6c9f3d2b-8e5a-4f0b-94d7-2a3b4c5d6e01:1', title: 'Add to cart' } },
+            { type: 'reply', reply: { id: 'upc:shop:col:5b8e2c1a-7d4f-4e9a-b3c6-1f2a3b4c5d01:1', title: 'Next item' } },
+            { type: 'reply', reply: { id: 'upc:shop:menu', title: 'Menu' } },
+          ],
+        },
+      },
+    },
+    { dir: 'in', ago: shopEnd + 12 * MINUTE, type: 'interactive', text: 'Add to cart' },
+    {
+      dir: 'in',
+      id: inboxMockIds.kabirCart,
+      ago: shopEnd + 9 * MINUTE,
+      type: 'order',
+      text: 'Cart: 3 items, ₹540.00',
+      order: {
+        catalog_id: '1234567890123456',
+        items: [
+          { product_retailer_id: 'SS-KAJU-250', quantity: 2, item_price: 220, currency: 'INR' },
+          { product_retailer_id: 'SS-SOAN-250', quantity: 1, item_price: 100, currency: 'INR' },
+        ],
+      },
+    },
+    {
+      ...bot,
+      ago: shopEnd + 8.9 * MINUTE,
+      type: 'interactive',
+      text: 'Where should we deliver order SS-1042? Tap below to share your address.',
+      interactive: {
+        type: 'address_message',
+        body: { text: 'Where should we deliver order SS-1042? Tap below to share your address.' },
+        action: { name: 'address_message', parameters: { country: 'IN' } },
+      },
+    },
+    { dir: 'in', ago: shopEnd + 6 * MINUTE, type: 'interactive', text: 'Address shared' },
+    {
+      ...bot,
+      ago: shopEnd + 5.9 * MINUTE,
+      type: 'interactive',
+      text: 'Delivering to C-12, Malviya Nagar, Jaipur 302017. How would you like to pay ₹540?',
+      interactive: {
+        type: 'button',
+        body: { text: 'Delivering to C-12, Malviya Nagar, Jaipur 302017. How would you like to pay ₹540?' },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'upc:chk:pay:7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01:online', title: 'Pay online' } },
+            { type: 'reply', reply: { id: 'upc:chk:pay:7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01:cod', title: 'Cash on delivery' } },
+          ],
+        },
+      },
+    },
+    { dir: 'in', ago: shopEnd + 5 * MINUTE, type: 'interactive', text: 'Pay online' },
+    {
+      ...bot,
+      ago: shopEnd + 4.9 * MINUTE,
+      type: 'interactive',
+      text: 'Order SS-1042 · ₹540. Pay by UPI or card. This link expires in 30 minutes.',
+      interactive: {
+        type: 'cta_url',
+        body: { text: 'Order SS-1042 · ₹540\nPay by UPI or card. This link expires in 30 minutes.' },
+        footer: { text: 'Payment goes to Sharma Sweets via Razorpay' },
+        action: { name: 'cta_url', parameters: { display_text: 'Pay ₹540', url: 'https://rzp.io/rzp/demo-SS1042' } },
+      },
+    },
+    {
+      ...bot,
+      ago: shopEnd,
+      type: 'interactive',
+      text: 'Payment received, thank you! Order SS-1042 is confirmed. We will message you when it ships.',
+      interactive: {
+        type: 'button',
+        body: { text: 'Payment received, thank you! Order SS-1042 is confirmed. We will message you when it ships.' },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'upc:ord:view:7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01', title: 'View order' } },
+            { type: 'reply', reply: { id: 'upc:shop:menu', title: 'Shop more' } },
+          ],
+        },
+      },
+    },
   ])
 
   // Generated conversations to fill the list (more than one page of open conversations).

@@ -1,6 +1,6 @@
 import { TZDate } from '@date-fns/tz'
 import { differenceInCalendarDays, format } from 'date-fns'
-import type { Conversation, MessageType } from './api'
+import type { Conversation, MessageOrder, MessageType } from './api'
 
 const HOUR = 3_600_000
 const MINUTE = 60_000
@@ -97,9 +97,22 @@ export function messageTypeLabel(type: MessageType): string {
   return typeLabels[type]
 }
 
-/** One-line preview of a message for the list and reply quotes. */
-export function previewText(type: MessageType, text: string): string {
+function itemCountLabel(count: number): string {
+  return `Cart · ${count} ${count === 1 ? 'item' : 'items'}`
+}
+
+/**
+ * One-line preview of a message for the list and reply quotes. An `order` (native cart) reads
+ * "Cart · 3 items": counted from the cart when given, else read from the parser's summary text
+ * ("Cart: 3 items, ₹1,450.00"), since list previews carry only the text.
+ */
+export function previewText(type: MessageType, text: string, order?: Pick<MessageOrder, 'items'> | null): string {
   const trimmed = text.replace(/\s+/g, ' ').trim()
+  if (type === 'order') {
+    if (order) return itemCountLabel(order.items.reduce((sum, item) => sum + item.quantity, 0))
+    const match = /(\d+)\s+items?\b/i.exec(trimmed)
+    return match ? itemCountLabel(Number(match[1])) : 'Cart'
+  }
   if (type === 'text' || type === 'button' || type === 'interactive') return trimmed || typeLabels[type]
   if (type === 'reaction') return trimmed ? `Reacted ${trimmed}` : 'Reaction'
   if (type === 'unsupported') return typeLabels.unsupported
