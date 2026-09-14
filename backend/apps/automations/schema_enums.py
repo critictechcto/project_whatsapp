@@ -8,6 +8,9 @@ AUTOMATION_ACTION_TYPES = (
     "add_tags",
     "assign",
     "close_conversation",
+    "send_shop_menu",
+    "send_catalog",
+    "send_collection",
 )
 AUTOMATION_RUN_STATUSES = ("succeeded", "skipped", "failed")
 

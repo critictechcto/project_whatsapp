@@ -14,11 +14,20 @@ Flow (``process_inbound``):
    records a ``skipped`` run. Then its actions run in order.
 5. ``stop_processing`` on a matched rule (whatever its run status) stops lower-priority rules.
 
+Messages claimed by commerce (``common.commerce.is_claimed_by_commerce``: carts, ``upc:`` replies,
+store keywords) are never queued by ``receivers.on_message_recorded`` and record nothing; stored
+``order`` messages are ignored here as well.
+
 Action failure semantics: each action runs in its own savepoint. Policy errors (409s such as
 ``outside_service_window``), validation errors and missing referenced objects mark that action
 ``failed``; they never raise. A failed *send* halts the remaining actions (recorded ``not_run``) so
 a sequence never continues without its message, e.g. a conversation is not closed when the reply
 could not be queued. Other failed actions don't halt. A run with any failed action is ``failed``.
+
+Commerce send actions (``send_shop_menu``, ``send_catalog``, ``send_collection``) run the handler
+``apps.shop`` registers in :mod:`.hooks`. Without one, or when the handler raises
+``ActionSkipped``, the action is ``skipped`` ("Store is not available.") and, being a send, halts
+later actions. A run whose actions were only skipped (none succeeded or failed) is ``skipped``.
 Unexpected errors (database, bugs) propagate and roll the whole evaluation back so the task can be
 retried safely.
 """
@@ -47,6 +56,14 @@ from apps.message_templates.models import MessageTemplate
 from apps.tenants.models import Membership
 
 from . import business_hours, matching
+from .hooks import (
+    COMMERCE_ACTION_TYPES,
+    STORE_UNAVAILABLE,
+    ActionFailed,
+    ActionSkipped,
+    get_commerce_action,
+    idempotency_key,
+)
 from .models import AutomationRule, AutomationRun, BusinessHours
 
 logger = logging.getLogger(__name__)
@@ -57,22 +74,21 @@ RunStatus = AutomationRun.Status
 # At most this many automation messages per conversation in any rolling hour.
 MAX_AUTOMATED_SENDS_PER_HOUR = 10
 SEND_CAP_WINDOW = timedelta(hours=1)
-SEND_ACTIONS = frozenset({"send_text", "send_template"})
+SEND_ACTIONS = frozenset({"send_text", "send_template", *COMMERCE_ACTION_TYPES})
 # Reactions to an automated reply would otherwise trigger more replies; unsupported/system
-# messages carry no customer text.
-IGNORED_MESSAGE_TYPES = frozenset({Message.Type.REACTION, Message.Type.UNSUPPORTED})
+# messages carry no customer text; native carts (orders) are always answered by commerce.
+IGNORED_MESSAGE_TYPES = frozenset(
+    {Message.Type.REACTION, Message.Type.UNSUPPORTED, Message.Type.ORDER}
+)
 # Contact fields a VariableSource with ``source == "contact_field"`` may read.
 CONTACT_FIELDS = ("name", "phone_e164", "email")
 DETAIL_MAX_LENGTH = 1000
 
 ACTION_SUCCEEDED, ACTION_FAILED, ACTION_NOT_RUN = "succeeded", "failed", "not_run"
+ACTION_SKIPPED = "skipped"
+STORE_UNAVAILABLE_CODE = "store_unavailable"
 
-
-class ActionFailed(Exception):
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
+__all__ = ("ActionFailed", "ActionSkipped", "idempotency_key", "process_inbound")
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,12 +213,18 @@ def execute_rule(
         return _record(rule, message, conversation, RunStatus.SKIPPED, reason, [])
 
     results = run_actions(rule, message, conversation)
-    failed = [result for result in results if result["status"] == ACTION_FAILED]
-    status = RunStatus.FAILED if failed else RunStatus.SUCCEEDED
+    statuses = {result["status"] for result in results}
+    if ACTION_FAILED in statuses:
+        status = RunStatus.FAILED
+    elif ACTION_SKIPPED in statuses and ACTION_SUCCEEDED not in statuses:
+        status = RunStatus.SKIPPED  # nothing ran, e.g. the store is not available
+    else:
+        status = RunStatus.SUCCEEDED
     run = _record(rule, message, conversation, status, summarize(results), results)
-    AutomationRule.objects.filter(pk=rule.pk).update(
-        run_count=F("run_count") + 1, last_triggered_at=now
-    )
+    if status != RunStatus.SKIPPED:
+        AutomationRule.objects.filter(pk=rule.pk).update(
+            run_count=F("run_count") + 1, last_triggered_at=now
+        )
     return run
 
 
@@ -279,9 +301,7 @@ def run_actions(
             results.append({**result, "status": ACTION_NOT_RUN})
             continue
         try:
-            handler = ACTION_HANDLERS.get(action_type)
-            if handler is None:
-                raise ActionFailed("unknown_action", f"Unknown action type {action_type!r}.")
+            handler = _handler_for(action_type)
             with transaction.atomic():
                 outcome = handler(
                     rule=rule,
@@ -290,6 +310,8 @@ def run_actions(
                     config=config if isinstance(config, Mapping) else {},
                     index=index,
                 )
+        except ActionSkipped as exc:
+            result.update(status=ACTION_SKIPPED, code=exc.code, message=exc.message)
         except ActionFailed as exc:
             result.update(status=ACTION_FAILED, code=exc.code, message=exc.message)
         except APIException as exc:
@@ -309,27 +331,47 @@ def run_actions(
                 result["code"],
             )
             halted = action_type in SEND_ACTIONS
+        elif result["status"] == ACTION_SKIPPED:
+            # A skipped send halts too: later actions must not run without their message.
+            halted = action_type in SEND_ACTIONS
         results.append(result)
     return results
 
 
+def _handler_for(action_type: Any) -> "ActionHandler":
+    if action_type in COMMERCE_ACTION_TYPES:
+        return get_commerce_action(action_type) or _store_unavailable
+    handler = ACTION_HANDLERS.get(action_type)
+    if handler is None:
+        raise ActionFailed("unknown_action", f"Unknown action type {action_type!r}.")
+    return handler
+
+
 def summarize(results: list[dict[str, Any]]) -> str:
     failed = [result for result in results if result["status"] == ACTION_FAILED]
-    if not failed:
+    skipped = [result for result in results if result["status"] == ACTION_SKIPPED]
+    succeeded = any(result["status"] == ACTION_SUCCEEDED for result in results)
+    if not failed and not skipped:
         return f"Ran {len(results)} action(s)."
-    parts = [
-        f"action {result['index'] + 1} ({result['type']}): {result['code']}: {result['message']}"
-        for result in failed
-    ]
-    detail = f"{len(failed)} of {len(results)} action(s) failed. " + "; ".join(parts)
+    if not failed and not succeeded and len({result["message"] for result in skipped}) == 1:
+        detail = skipped[0]["message"]  # e.g. "Store is not available."
+    else:
+        parts = [
+            f"action {result['index'] + 1} ({result['type']}): {result['code']}: "
+            f"{result['message']}"
+            for result in failed + skipped
+        ]
+        counts = []
+        if failed:
+            counts.append(f"{len(failed)} of {len(results)} action(s) failed")
+        if skipped:
+            counts.append(f"{len(skipped)} of {len(results)} action(s) skipped")
+        detail = f"{' and '.join(counts)}. " + "; ".join(parts)
     not_run = sum(1 for result in results if result["status"] == ACTION_NOT_RUN)
     if not_run:
+        detail = detail.rstrip(".")
         detail += f". {not_run} later action(s) not run because a message could not be sent."
     return detail
-
-
-def idempotency_key(rule: AutomationRule, message: Message, index: int) -> str:
-    return f"automation:{rule.pk}:{message.wamid or message.pk}:{index}"
 
 
 def _api_error(exc: APIException) -> tuple[str, str]:
@@ -448,6 +490,11 @@ def _assign(*, rule, message, conversation, config, index) -> dict[str, Any]:
 def _close_conversation(*, rule, message, conversation, config, index) -> dict[str, Any]:
     inbox_services.close(conversation, actor=None)
     return {}
+
+
+def _store_unavailable(*, rule, message, conversation, config, index) -> dict[str, Any]:
+    """Commerce actions without a registered handler (the shop app is not installed)."""
+    raise ActionSkipped(STORE_UNAVAILABLE_CODE, STORE_UNAVAILABLE)
 
 
 ACTION_HANDLERS: dict[str, ActionHandler] = {

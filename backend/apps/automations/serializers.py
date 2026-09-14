@@ -9,6 +9,9 @@ Action configs are validated against the request's workspace and stored normalis
 - ``add_tags {tag_ids}``: 1-50 tags of this workspace.
 - ``assign {user_id}``: a member of this workspace.
 - ``close_conversation {}``.
+- ``send_shop_menu {}`` and ``send_catalog {}``: commerce sends run by ``apps.shop``.
+- ``send_collection {collection_id}``: a UUID. The collection is looked up when the rule runs; a
+  missing collection fails that action.
 """
 
 import copy
@@ -50,6 +53,9 @@ ACTION_CONFIG_KEYS = {
     "add_tags": ("tag_ids",),
     "assign": ("user_id",),
     "close_conversation": (),
+    "send_shop_menu": (),
+    "send_catalog": (),
+    "send_collection": ("collection_id",),
 }
 
 KEYWORDS_REQUIRED = "Add at least one keyword for the keyword trigger."
@@ -206,12 +212,22 @@ def _clean_close(workspace, config: Mapping[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _clean_send_collection(workspace, config: Mapping[str, Any]) -> dict[str, Any]:
+    collection_id = _as_uuid(config.get("collection_id"))
+    if collection_id is None:
+        raise ConfigError({"collection_id": ["Choose a collection from your store."]})
+    return {"collection_id": str(collection_id)}
+
+
 CONFIG_CLEANERS = {
     "send_text": _clean_send_text,
     "send_template": _clean_send_template,
     "add_tags": _clean_add_tags,
     "assign": _clean_assign,
     "close_conversation": _clean_close,
+    "send_shop_menu": _clean_close,
+    "send_catalog": _clean_close,
+    "send_collection": _clean_send_collection,
 }
 
 
@@ -224,7 +240,8 @@ class AutomationActionSerializer(serializers.Serializer):
         default=dict,
         help_text=(
             "send_text {text}; send_template {template_id, body_params: VariableSource[]}; "
-            "add_tags {tag_ids}; assign {user_id}; close_conversation {}."
+            "add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; "
+            "send_catalog {}; send_collection {collection_id}."
         ),
     )
 

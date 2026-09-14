@@ -1,6 +1,7 @@
 """Automation API: rules CRUD and validation, the plan gate, business hours, runs, roles and
 tenant isolation."""
 
+import uuid
 from datetime import timedelta
 from unittest.mock import ANY
 
@@ -214,6 +215,42 @@ def test_create_rule_with_every_action_type(admin, workspace, number):
         {"type": "close_conversation", "config": {}},
     ]
     assert AutomationRule.objects.get().actions == response.json()["actions"]
+
+
+def test_create_rule_with_commerce_actions(admin):
+    collection_id = uuid.uuid4()
+    body = rule_body(
+        trigger="first_inbound",
+        keywords=[],
+        actions=[
+            {"type": "send_shop_menu", "config": {"ignored": True}},
+            {"type": "send_catalog"},
+            {"type": "send_collection", "config": {"collection_id": str(collection_id).upper()}},
+        ],
+    )
+
+    response = admin.post(RULES, body, format="json")
+
+    assert response.status_code == 201, response.content
+    assert response.json()["actions"] == [
+        {"type": "send_shop_menu", "config": {}},
+        {"type": "send_catalog", "config": {}},
+        {"type": "send_collection", "config": {"collection_id": str(collection_id)}},
+    ]
+
+
+@pytest.mark.parametrize("config", [{}, {"collection_id": "summer"}, {"collection_id": None}])
+def test_send_collection_needs_a_collection_id(admin, config):
+    body = rule_body(
+        trigger="first_inbound",
+        keywords=[],
+        actions=[{"type": "send_collection", "config": config}],
+    )
+
+    response = admin.post(RULES, body, format="json")
+
+    assert_invalid(response, "actions", 0, "config")
+    assert not AutomationRule.objects.exists()
 
 
 def test_non_keyword_trigger_needs_no_keywords(admin):
