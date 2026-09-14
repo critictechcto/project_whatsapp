@@ -199,7 +199,7 @@ def test_catalog_is_tenant_isolated(auth_client, workspace, other_workspace):
         ("patch", "meta-catalog-commerce-settings"),
     ],
 )
-def test_catalog_writes_are_admin_stubs(auth_client, workspace, method, url_name):
+def test_catalog_writes_need_admin(auth_client, workspace, method, url_name):
     product = ProductFactory(workspace=workspace)
     collection = CollectionFactory(workspace=workspace)
     meta_catalog = MetaCatalogFactory(waba__workspace=workspace)
@@ -220,9 +220,7 @@ def test_catalog_writes_are_admin_stubs(auth_client, workspace, method, url_name
     }
     url = urls[url_name]
 
-    denied = getattr(auth_client(Role.AGENT), method)(url, {}, format="json")
-    allowed = getattr(auth_client(Role.ADMIN), method)(url, {}, format="json")
-
-    assert denied.status_code == 403, denied.content
-    assert allowed.status_code == 501, allowed.content
-    assert allowed.json()["error"]["code"] == "not_implemented"
+    for role in (Role.VIEWER, Role.AGENT):
+        denied = getattr(auth_client(role), method)(url, {}, format="json")
+        assert denied.status_code == 403, denied.content
+        assert denied.json()["error"]["code"] == "insufficient_role"
