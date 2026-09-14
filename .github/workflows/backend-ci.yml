@@ -1,0 +1,81 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+# One run per ref; a newer push cancels the run in progress.
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, migrations, schema and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: project_whatsapp
+          POSTGRES_PASSWORD: project_whatsapp
+          POSTGRES_DB: project_whatsapp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U project_whatsapp -d project_whatsapp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://project_whatsapp:project_whatsapp@localhost:5432/project_whatsapp
+      REDIS_URL: redis://localhost:6379/0
+      DJANGO_SETTINGS_MODULE: config.settings.test
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      # Installs the version pinned in backend/.python-version
+      - run: uv python install
+
+      - run: uv sync --locked
+
+      - run: uv run ruff check .
+
+      - run: uv run ruff format --check .
+
+      - run: uv run python manage.py makemigrations --check --dry-run
+
+      - run: uv run python manage.py spectacular --validate --fail-on-warn --file "$RUNNER_TEMP/schema.yml"
+
+      - run: uv run pytest --create-db
