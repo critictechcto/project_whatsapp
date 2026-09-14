@@ -2,8 +2,7 @@ import { ArrowRight, Check, ShieldCheck } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Container } from '../../../components/ui/Container'
 import { site } from '../../../config/site'
-import { CampaignMockup } from '../mockups/CampaignMockup'
-import { InboxMockup } from '../mockups/InboxMockup'
+import { HeroScene } from '../scenes/HeroScene'
 
 const facts = [
   'Official Meta Cloud API',
@@ -51,9 +50,8 @@ export function Hero() {
           </ul>
         </div>
 
-        <div className="rise rise-2 relative min-w-0 sm:mb-52 lg:col-span-7 lg:mb-0 lg:self-start">
-          <InboxMockup animated />
-          <CampaignMockup className="relative mx-auto -mt-8 w-[94%] sm:absolute sm:-bottom-52 sm:left-0 sm:mt-0 sm:w-[340px] lg:-left-10" />
+        <div className="relative min-w-0 lg:col-span-7 lg:self-start">
+          <HeroScene />
         </div>
       </Container>
     </section>

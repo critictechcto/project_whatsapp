@@ -1,9 +1,11 @@
 import { Check } from 'lucide-react'
 import { Container } from '../../../components/ui/Container'
 import { Reveal } from '../../../components/ui/Reveal'
+import { ScrollDepth } from '../../../components/ui/ScrollDepth'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { site } from '../../../config/site'
 import { EmbeddedSignupMockup } from '../mockups/EmbeddedSignupMockup'
+import { MessageJourney } from '../scenes/MessageJourney'
 
 const steps = [
   {
@@ -63,6 +65,24 @@ export function HowItWorks() {
           ))}
         </Reveal>
 
+        <div className="mt-20">
+          <Reveal className="max-w-2xl">
+            <h3 className="font-display text-[1.7rem] font-semibold leading-[1.1] tracking-[-0.025em] md:text-[2rem]">
+              What happens when you hit send
+            </h3>
+            <p className="mt-5 text-[16px] leading-relaxed text-muted">
+              Every message passes through {site.name} and Meta’s WhatsApp Cloud API before it reaches your customer.
+              Meta then reports its status back, so you can see what was delivered and read.
+            </p>
+          </Reveal>
+          <div className="mt-10">
+            <MessageJourney />
+          </div>
+          <p className="mt-8 text-[13px] text-muted">
+            Read status is only reported when the customer has read receipts turned on in WhatsApp.
+          </p>
+        </div>
+
         <div className="mt-20 grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-10">
           <Reveal className="min-w-0 lg:col-span-5">
             <h3 className="font-display text-[1.7rem] font-semibold leading-[1.1] tracking-[-0.025em] md:text-[2rem]">
@@ -86,7 +106,9 @@ export function HowItWorks() {
             </ul>
           </Reveal>
           <Reveal delay={120} className="min-w-0 lg:col-span-6 lg:col-start-7">
-            <EmbeddedSignupMockup />
+            <ScrollDepth>
+              <EmbeddedSignupMockup />
+            </ScrollDepth>
           </Reveal>
         </div>
       </Container>

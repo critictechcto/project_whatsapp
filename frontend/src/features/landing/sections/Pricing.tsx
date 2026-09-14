@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/Button'
 import { Container } from '../../../components/ui/Container'
 import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
+import { TiltCard } from '../../../components/ui/TiltCard'
 import { ANNUAL_MONTHS_CHARGED, plans, site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
 import { formatINR } from '../../../lib/format'
@@ -58,57 +59,57 @@ export function Pricing() {
             const shownPrice = billing === 'monthly' ? plan.monthlyPrice : Math.round(annualTotal / 12)
 
             return (
-              <Reveal
-                as="li"
-                key={plan.id}
-                delay={i * 100}
-                className={cn(
-                  'relative flex flex-col rounded-xl border bg-card p-7',
-                  plan.recommended ? 'border-ink shadow-[0_24px_48px_-32px_rgba(16,39,31,0.45)]' : 'border-line',
-                )}
-              >
-                {plan.recommended && (
-                  <span className="absolute -top-3 left-7 rounded bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-paper">
-                    Recommended
-                  </span>
-                )}
-                <h3 className="text-[18px] font-semibold">{plan.name}</h3>
-                <p className="mt-1.5 text-[14.5px] text-muted">{plan.blurb}</p>
-
-                <p className="mt-7 flex items-baseline gap-1.5">
-                  <span
-                    key={billing}
-                    className="fade-up font-display text-[2.7rem] font-semibold leading-none tracking-[-0.035em]"
-                  >
-                    {formatINR(shownPrice)}
-                  </span>
-                  <span className="text-[14px] text-muted">/ month</span>
-                </p>
-                <p key={`${billing}-note`} className="fade-up mt-2 h-5 text-[13px] text-muted">
-                  {billing === 'annual' ? `Billed ${formatINR(annualTotal)} yearly` : 'Billed monthly, cancel anytime'}
-                </p>
-
-                <Button
-                  href={site.links.signup}
-                  variant={plan.recommended ? 'primary' : 'secondary'}
-                  className="mt-7 w-full"
+              <Reveal as="li" key={plan.id} delay={i * 100} className="flex">
+                <TiltCard
+                  max={3}
+                  className={cn(
+                    'flex w-full flex-col rounded-xl border bg-card p-7',
+                    plan.recommended ? 'border-ink shadow-[0_24px_48px_-32px_rgba(16,39,31,0.45)]' : 'border-line',
+                  )}
                 >
-                  Start free trial
-                </Button>
+                  {plan.recommended && (
+                    <span className="absolute -top-3 left-7 rounded bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-paper">
+                      Recommended
+                    </span>
+                  )}
+                  <h3 className="text-[18px] font-semibold">{plan.name}</h3>
+                  <p className="mt-1.5 text-[14.5px] text-muted">{plan.blurb}</p>
 
-                <ul className="mt-7 space-y-1.5 border-t border-line pt-6 text-[14px] font-medium">
-                  {plan.limits.map((limit) => (
-                    <li key={limit}>{limit}</li>
-                  ))}
-                </ul>
-                <ul className="mt-5 space-y-2.5 text-[14px] text-muted">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex gap-2.5">
-                      <Check className="mt-0.5 size-4 shrink-0 text-accent-2" aria-hidden="true" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+                  <p className="mt-7 flex items-baseline gap-1.5">
+                    <span
+                      key={billing}
+                      className="fade-up font-display text-[2.7rem] font-semibold leading-none tracking-[-0.035em]"
+                    >
+                      {formatINR(shownPrice)}
+                    </span>
+                    <span className="text-[14px] text-muted">/ month</span>
+                  </p>
+                  <p key={`${billing}-note`} className="fade-up mt-2 h-5 text-[13px] text-muted">
+                    {billing === 'annual' ? `Billed ${formatINR(annualTotal)} yearly` : 'Billed monthly, cancel anytime'}
+                  </p>
+
+                  <Button
+                    href={site.links.signup}
+                    variant={plan.recommended ? 'primary' : 'secondary'}
+                    className="mt-7 w-full"
+                  >
+                    Start free trial
+                  </Button>
+
+                  <ul className="mt-7 space-y-1.5 border-t border-line pt-6 text-[14px] font-medium">
+                    {plan.limits.map((limit) => (
+                      <li key={limit}>{limit}</li>
+                    ))}
+                  </ul>
+                  <ul className="mt-5 space-y-2.5 text-[14px] text-muted">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex gap-2.5">
+                        <Check className="mt-0.5 size-4 shrink-0 text-accent-2" aria-hidden="true" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </TiltCard>
               </Reveal>
             )
           })}

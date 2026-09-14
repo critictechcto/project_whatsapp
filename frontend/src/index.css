@@ -195,6 +195,349 @@
   animation: fade-up 0.25s var(--ease-soft) both;
 }
 
+/* ---------- Depth ---------- */
+
+/* Pauses looping animations inside an element marked offscreen (see features/landing/lib/useOnScreen) */
+[data-paused],
+[data-paused] * {
+  animation-play-state: paused !important;
+}
+
+/* Hero scene — features/landing/scenes/HeroScene.tsx. Phones get a flat stack that rises in. */
+.hero-layer {
+  animation: rise 0.8s var(--ease-soft) var(--delay, 0ms) both;
+}
+.hero-float {
+  animation: hero-float var(--float-duration, 8s) ease-in-out infinite;
+}
+
+@media (width >= 40rem) {
+  .hero-stage {
+    perspective: 1900px;
+    perspective-origin: 40% 45%;
+  }
+  .hero-tilt,
+  .hero-scene {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+  }
+  /* Pointer tilt, written by usePointerTilt; eases back to rest when the pointer leaves */
+  .hero-tilt {
+    transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+    transition: transform 1.1s var(--ease-soft);
+  }
+  .hero-tilt[data-tilt='active'] {
+    transition-duration: 0.4s;
+    will-change: transform;
+  }
+  .hero-scene {
+    transform: rotateX(5deg) rotateY(-11deg);
+    animation: hero-settle 1.6s var(--ease-soft) both;
+  }
+  .hero-layer {
+    transform: translateZ(var(--z, 0px));
+    animation-name: hero-unfold;
+    animation-duration: 1.3s;
+  }
+  .hero-shadow {
+    position: absolute;
+    left: 6%;
+    right: 2%;
+    bottom: -18px;
+    height: 70px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(16 39 31 / 0.14), rgb(16 39 31 / 0));
+    transform: translateZ(-60px);
+  }
+}
+
+@keyframes hero-settle {
+  from {
+    transform: rotateX(20deg) rotateY(-26deg) scale(0.93);
+  }
+}
+
+@keyframes hero-unfold {
+  from {
+    opacity: 0;
+    transform: translateZ(0) translateY(24px);
+  }
+}
+
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+/* Tilt card — components/ui/TiltCard.tsx */
+.tilt-card {
+  position: relative;
+}
+.tilt-card[data-tilt] {
+  transform: perspective(1100px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.8s var(--ease-soft);
+}
+.tilt-card[data-tilt='active'] {
+  transition-duration: 0.2s;
+  will-change: transform;
+}
+.tilt-sheen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s var(--ease-soft);
+}
+.tilt-sheen::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 26rem;
+  height: 26rem;
+  margin: -13rem 0 0 -13rem;
+  background: radial-gradient(closest-side, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0));
+  transform: translate3d(var(--pointer-x, 0px), var(--pointer-y, 0px), 0);
+}
+.tilt-card[data-tilt='active'] > .tilt-sheen {
+  opacity: 1;
+}
+
+/* Scroll depth — components/ui/ScrollDepth.tsx */
+@keyframes depth-settle {
+  from {
+    transform: perspective(1400px) rotateX(14deg) translateY(28px) scale(0.97);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scroll-depth {
+    transform-origin: 50% 100%;
+  }
+
+  @supports (animation-timeline: view()) {
+    .scroll-depth {
+      animation: depth-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 38%;
+    }
+  }
+
+  @supports not (animation-timeline: view()) {
+    .scroll-depth {
+      transform: perspective(1400px) rotateX(12deg) translateY(20px);
+      transition: transform 1s var(--ease-soft);
+    }
+    .scroll-depth.is-flat {
+      transform: none;
+    }
+  }
+}
+
+/* Template previews fanned in front of the list — features/landing/mockups/TemplateStack.tsx */
+.template-deck {
+  perspective: 1200px;
+}
+.template-card {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  width: min(15rem, 62%);
+  margin-left: calc(min(15rem, 62%) / -2);
+  transition: transform 0.9s var(--ease-soft);
+}
+.template-card[data-card='0'] {
+  transform: translate3d(0, -14px, -30px) scale(0.95);
+}
+.template-card[data-card='1'] {
+  z-index: 1;
+  transform: translate3d(0, 0, 0);
+}
+.template-card[data-card='2'] {
+  transform: translate3d(0, -28px, -60px) scale(0.9);
+}
+.is-fanned .template-card[data-card='0'] {
+  transform: translate3d(-22%, 12px, 0) rotate(-4deg);
+}
+.is-fanned .template-card[data-card='1'] {
+  transform: translate3d(0, 0, 30px);
+}
+.is-fanned .template-card[data-card='2'] {
+  transform: translate3d(22%, 12px, 0) rotate(4deg);
+}
+
+@media (width >= 40rem) {
+  .is-fanned .template-card[data-card='0'] {
+    transform: translate3d(-62%, 16px, 0) rotateY(16deg) rotate(-5deg);
+  }
+  .is-fanned .template-card[data-card='1'] {
+    transform: translate3d(0, 0, 60px);
+  }
+  .is-fanned .template-card[data-card='2'] {
+    transform: translate3d(62%, 16px, 0) rotateY(-16deg) rotate(5deg);
+  }
+}
+
+@media (width >= 40rem) and (hover: hover) and (pointer: fine) {
+  .template-stack.is-fanned:hover .template-card[data-card='0'] {
+    transform: translate3d(-70%, 8px, 0) rotateY(20deg) rotate(-7deg);
+  }
+  .template-stack.is-fanned:hover .template-card[data-card='1'] {
+    transform: translate3d(0, -10px, 90px);
+  }
+  .template-stack.is-fanned:hover .template-card[data-card='2'] {
+    transform: translate3d(70%, 8px, 0) rotateY(-20deg) rotate(7deg);
+  }
+}
+
+/* Message journey — features/landing/scenes/MessageJourney.tsx */
+.journey-runner {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.journey-packet {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.2s ease-out;
+}
+.journey-runner[data-state='idle'] .journey-packet {
+  opacity: 0;
+  transition: none;
+}
+.journey-runner[data-state='done'] .journey-packet {
+  opacity: 0;
+}
+.journey-runner[data-state='moving'] {
+  transition: transform 0.85s cubic-bezier(0.45, 0, 0.25, 1);
+}
+.journey-runner[data-axis='x'][data-direction='forward'],
+.journey-runner[data-axis='x'][data-direction='back']:not([data-state='idle']) {
+  transform: translateX(0);
+}
+.journey-runner[data-axis='x'][data-direction='forward']:not([data-state='idle']),
+.journey-runner[data-axis='x'][data-direction='back'][data-state='idle'] {
+  transform: translateX(100%);
+}
+.journey-runner[data-axis='y'][data-direction='forward'],
+.journey-runner[data-axis='y'][data-direction='back']:not([data-state='idle']) {
+  transform: translateY(0);
+}
+.journey-runner[data-axis='y'][data-direction='forward']:not([data-state='idle']),
+.journey-runner[data-axis='y'][data-direction='back'][data-state='idle'] {
+  transform: translateY(100%);
+}
+
+.journey-pop {
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 0.3s var(--ease-soft),
+    transform 0.45s var(--ease-soft);
+  transition-delay: var(--pop-delay, 0ms);
+}
+.journey-pop.is-on {
+  opacity: 1;
+  transform: none;
+}
+.journey-fade {
+  transition: opacity 0.45s var(--ease-soft);
+}
+
+/* The diorama: a floor tilted away from the viewer, with station panels standing on it */
+.journey-stage {
+  perspective: 2400px;
+  perspective-origin: 50% 0%;
+}
+.journey-floor {
+  position: absolute;
+  inset-inline: 0;
+  top: -110px;
+  height: 380px;
+  border: 1px solid var(--color-line);
+  border-radius: 28px;
+  background-color: rgb(251 250 246 / 0.7);
+  background-image:
+    linear-gradient(to right, rgb(16 39 31 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(16 39 31 / 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  transform-origin: 50% 78%;
+  transform: rotateX(62deg);
+  transform-style: preserve-3d;
+}
+.journey-tile {
+  position: absolute;
+  top: 78%;
+  width: 21%;
+  height: 120px;
+  margin: -44px 0 0 -10.5%;
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  background: var(--color-card);
+  box-shadow: 0 2px 0 var(--color-line);
+}
+.journey-lane {
+  position: absolute;
+  width: 25%;
+  height: 0;
+  border-top: 1.5px dashed rgb(16 39 31 / 0.22);
+  transform-style: preserve-3d;
+}
+.journey-lane[data-lane='forward'] {
+  top: calc(78% + 26px);
+}
+.journey-lane[data-lane='back'] {
+  top: calc(78% + 52px);
+}
+.journey-lane .journey-runner {
+  transform-style: preserve-3d;
+}
+/* Packets stand up on their lane */
+.journey-lane .journey-packet {
+  top: auto;
+  bottom: 0;
+  transform-origin: 50% 100%;
+  transform: translateX(-50%) rotateX(-90deg);
+}
+.journey-post {
+  position: absolute;
+  bottom: 22%;
+  width: 17.5%;
+  height: 190px;
+  margin-left: -8.75%;
+  transform-origin: 50% 100%;
+  transform: rotateX(-90deg);
+  transform-style: preserve-3d;
+}
+.journey-post-face {
+  position: absolute;
+  inset: 0;
+}
+/* Soft shadow each panel casts on the floor behind it */
+.journey-post-shadow {
+  position: absolute;
+  inset-inline: 4%;
+  bottom: 0;
+  height: 90px;
+  border-radius: 12px;
+  background: linear-gradient(to top, rgb(16 39 31 / 0.14), rgb(16 39 31 / 0));
+  transform-origin: 50% 100%;
+  transform: rotateX(90deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
