@@ -3364,7 +3364,9 @@ paths:
     patch:
       operationId: payments_account_partial_update
       description: Changing the provider clears keys and secrets; changing a key,
-        secret or mode resets status to unverified.
+        secret or mode resets status to unverified. Razorpay key ids set the mode
+        (400 on mode when a given mode disagrees); Cashfree needs a mode (400 on mode);
+        webhook_secret is Razorpay only.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3419,6 +3421,7 @@ paths:
     post:
       operationId: payments_account_rotate_webhook_create
       description: Issue a new optional webhook URL; update it in the gateway afterwards.
+        409 payment_account_missing when no account is saved.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3441,7 +3444,9 @@ paths:
   /api/v1/payments/account/verify/:
     post:
       operationId: payments_account_verify_create
-      description: 409 payment_account_missing or payment_account_invalid.
+      description: One authenticated read call on the gateway. 409 payment_account_missing
+        or payment_account_invalid; 503 upstream_unavailable when the gateway can't
+        be reached.
       parameters:
       - in: header
         name: X-Workspace-ID

@@ -41,3 +41,15 @@ class PaymentProviderError(Exception):
         self.provider = provider
         self.status_code = status_code
         self.retryable = retryable
+
+    def __reduce__(self):  # keyword-only arguments: pickle (Celery) needs a rebuild recipe
+        return (
+            _rebuild_provider_error,
+            (str(self), self.provider, self.status_code, self.retryable),
+        )
+
+
+def _rebuild_provider_error(message, provider, status_code, retryable) -> PaymentProviderError:
+    return PaymentProviderError(
+        message, provider=provider, status_code=status_code, retryable=retryable
+    )
