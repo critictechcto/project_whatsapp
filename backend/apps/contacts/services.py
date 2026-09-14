@@ -158,3 +158,19 @@ def match_consent_keyword(text: str | None) -> str | None:
     if normalized in OPT_IN_KEYWORDS:
         return ConsentEvent.Action.OPT_IN
     return None
+
+
+def _same_workspace_tags(contact: Contact, tags) -> list:
+    tags = list(tags)
+    if any(tag.workspace_id != contact.workspace_id for tag in tags):
+        raise ValueError("Tags must belong to the contact's workspace.")
+    return tags
+
+
+def add_tags(contact: Contact, tags) -> None:
+    """Attach ``tags`` (same workspace) to ``contact``; already-attached tags are ignored."""
+    contact.tags.add(*_same_workspace_tags(contact, tags))
+
+
+def remove_tags(contact: Contact, tags) -> None:
+    contact.tags.remove(*_same_workspace_tags(contact, tags))

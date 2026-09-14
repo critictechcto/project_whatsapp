@@ -1,0 +1,3612 @@
+openapi: 3.0.3
+info:
+  title: UpChatz API
+  version: 1.0.0
+  description: Multi-tenant WhatsApp Business Platform (Cloud API) for Indian businesses.
+paths:
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Blacklist a refresh token.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenBlacklistRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenBlacklistRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenBlacklistRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+    patch:
+      operationId: auth_me_partial_update
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+  /api/v1/auth/password/change/:
+    post:
+      operationId: auth_password_change_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/register/:
+    post:
+      operationId: auth_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+          description: ''
+  /api/v1/auth/token/:
+    post:
+      operationId: auth_token_create
+      description: Exchange email + password for an access/refresh token pair.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/v1/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: Rotate a refresh token. The old refresh token is blacklisted.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/contacts/:
+    get:
+      operationId: contacts_list
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: marketing_opt_in_status
+        schema:
+          type: string
+          enum:
+          - opted_in
+          - opted_out
+          - unknown
+        description: |-
+          * `unknown` - Unknown
+          * `opted_in` - Opted in
+          * `opted_out` - Opted out
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: tag
+        schema:
+          type: string
+          format: uuid
+        description: Tag id
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContactList'
+          description: ''
+    post:
+      operationId: contacts_create
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+  /api/v1/contacts/{id}/:
+    get:
+      operationId: contacts_retrieve
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+    patch:
+      operationId: contacts_partial_update
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedContactRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedContactRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedContactRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+    delete:
+      operationId: contacts_destroy
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/contacts/{id}/consent-events/:
+    get:
+      operationId: contacts_consent_events_list
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedConsentEventList'
+          description: ''
+  /api/v1/contacts/{id}/opt-in/:
+    post:
+      operationId: contacts_opt_in_create
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptInRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OptInRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OptInRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+  /api/v1/contacts/{id}/opt-out/:
+    post:
+      operationId: contacts_opt_out_create
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConsentRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConsentRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+          description: ''
+  /api/v1/contacts/bulk-tag/:
+    post:
+      operationId: contacts_bulk_tag_create
+      description: Contacts of the header workspace. Consent changes only through
+        opt-in/opt-out.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkTagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkTagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkTagRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkTagResult'
+          description: ''
+  /api/v1/contacts/imports/:
+    get:
+      operationId: contacts_imports_list
+      description: CSV contact imports. Uploading starts a background import.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedContactImportList'
+          description: ''
+    post:
+      operationId: contacts_imports_create
+      description: CSV contact imports. Uploading starts a background import.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContactImportCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactImport'
+          description: ''
+  /api/v1/contacts/imports/{id}/:
+    get:
+      operationId: contacts_imports_retrieve
+      description: CSV contact imports. Uploading starts a background import.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactImport'
+          description: ''
+  /api/v1/contacts/tags/:
+    get:
+      operationId: contacts_tags_list
+      description: Turn a unique-constraint race on save into 409 (serializers pre-check
+        the common case).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTagList'
+          description: ''
+    post:
+      operationId: contacts_tags_create
+      description: Turn a unique-constraint race on save into 409 (serializers pre-check
+        the common case).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TagRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+          description: ''
+  /api/v1/contacts/tags/{id}/:
+    get:
+      operationId: contacts_tags_retrieve
+      description: Turn a unique-constraint race on save into 409 (serializers pre-check
+        the common case).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+          description: ''
+    patch:
+      operationId: contacts_tags_partial_update
+      description: Turn a unique-constraint race on save into 409 (serializers pre-check
+        the common case).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTagRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+          description: ''
+    delete:
+      operationId: contacts_tags_destroy
+      description: Turn a unique-constraint race on save into 409 (serializers pre-check
+        the common case).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/templates/:
+    get:
+      operationId: templates_list
+      description: |-
+        WhatsApp message templates of the header workspace.
+
+        Created as local drafts, then submitted to Meta for review. Drafts and rejected templates can
+        be edited; everything else is read-only until Meta changes its status.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: category
+        schema:
+          type: string
+          enum:
+          - AUTHENTICATION
+          - MARKETING
+          - UTILITY
+        description: |-
+          * `MARKETING` - Marketing
+          * `UTILITY` - Utility
+          * `AUTHENTICATION` - Authentication
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: language
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - APPROVED
+          - ARCHIVED
+          - DELETED
+          - DISABLED
+          - DRAFT
+          - IN_APPEAL
+          - LIMIT_EXCEEDED
+          - PAUSED
+          - PENDING
+          - PENDING_DELETION
+          - REJECTED
+        description: |-
+          * `DRAFT` - Draft
+          * `PENDING` - Pending review
+          * `APPROVED` - Approved
+          * `REJECTED` - Rejected
+          * `PAUSED` - Paused
+          * `DISABLED` - Disabled
+          * `IN_APPEAL` - In appeal
+          * `PENDING_DELETION` - Pending deletion
+          * `DELETED` - Deleted
+          * `LIMIT_EXCEEDED` - Limit exceeded
+          * `ARCHIVED` - Archived
+      - in: query
+        name: waba
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - templates
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessageTemplateList'
+          description: ''
+    post:
+      operationId: templates_create
+      description: |-
+        WhatsApp message templates of the header workspace.
+
+        Created as local drafts, then submitted to Meta for review. Drafts and rejected templates can
+        be edited; everything else is read-only until Meta changes its status.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageTemplateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MessageTemplateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MessageTemplateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplate'
+          description: ''
+  /api/v1/templates/{id}/:
+    get:
+      operationId: templates_retrieve
+      description: |-
+        WhatsApp message templates of the header workspace.
+
+        Created as local drafts, then submitted to Meta for review. Drafts and rejected templates can
+        be edited; everything else is read-only until Meta changes its status.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - templates
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplate'
+          description: ''
+    patch:
+      operationId: templates_partial_update
+      description: |-
+        WhatsApp message templates of the header workspace.
+
+        Created as local drafts, then submitted to Meta for review. Drafts and rejected templates can
+        be edited; everything else is read-only until Meta changes its status.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMessageTemplateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMessageTemplateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMessageTemplateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplate'
+          description: ''
+    delete:
+      operationId: templates_destroy
+      description: |-
+        WhatsApp message templates of the header workspace.
+
+        Created as local drafts, then submitted to Meta for review. Drafts and rejected templates can
+        be edited; everything else is read-only until Meta changes its status.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - templates
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/templates/{id}/preview/:
+    post:
+      operationId: templates_preview_create
+      description: Render the template with body (and header) variables.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PreviewRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PreviewRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preview'
+          description: ''
+  /api/v1/templates/{id}/submit/:
+    post:
+      operationId: templates_submit_create
+      description: Send a draft or rejected template to Meta for review.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - templates
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageTemplate'
+          description: ''
+  /api/v1/templates/sync/:
+    post:
+      operationId: templates_sync_create
+      description: Queue a sync from Meta for one account, or every active account
+        in the workspace.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SyncRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SyncRequestRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncQueued'
+          description: ''
+  /api/v1/whatsapp/accounts/:
+    get:
+      operationId: whatsapp_accounts_list
+      description: Connected WhatsApp Business Accounts. Deleting one disconnects
+        it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: onboarding_status
+        schema:
+          type: string
+          enum:
+          - code_exchanged
+          - completed
+          - failed
+          - registering
+          - subscribing
+        description: |-
+          * `code_exchanged` - Code exchanged
+          * `subscribing` - Subscribing to webhooks
+          * `registering` - Registering phone number
+          * `completed` - Completed
+          * `failed` - Failed
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - active
+          - disabled
+          - disconnected
+          - pending
+          - restricted
+        description: |-
+          * `pending` - Pending
+          * `active` - Active
+          * `restricted` - Restricted
+          * `disabled` - Disabled
+          * `disconnected` - Disconnected
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWhatsAppBusinessAccountList'
+          description: ''
+  /api/v1/whatsapp/accounts/{id}/:
+    get:
+      operationId: whatsapp_accounts_retrieve
+      description: Connected WhatsApp Business Accounts. Deleting one disconnects
+        it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppBusinessAccount'
+          description: ''
+    delete:
+      operationId: whatsapp_accounts_destroy
+      description: Connected WhatsApp Business Accounts. Deleting one disconnects
+        it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/whatsapp/accounts/{id}/resync/:
+    post:
+      operationId: whatsapp_accounts_resync_create
+      description: Connected WhatsApp Business Accounts. Deleting one disconnects
+        it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppBusinessAccount'
+          description: ''
+  /api/v1/whatsapp/embedded-signup/:
+    post:
+      operationId: whatsapp_embedded_signup_create
+      description: Finish Embedded Signup with the code and ids from the frontend's
+        session-info event.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - whatsapp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddedSignupRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmbeddedSignupRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmbeddedSignupRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppBusinessAccount'
+          description: ''
+  /api/v1/whatsapp/phone-numbers/:
+    get:
+      operationId: whatsapp_phone_numbers_list
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: is_default
+        schema:
+          type: boolean
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: quality_rating
+        schema:
+          type: string
+          enum:
+          - GREEN
+          - RED
+          - UNKNOWN
+          - YELLOW
+        description: |-
+          * `GREEN` - High
+          * `YELLOW` - Medium
+          * `RED` - Low
+          * `UNKNOWN` - Unknown
+      - in: query
+        name: registration_status
+        schema:
+          type: string
+          enum:
+          - deregistered
+          - failed
+          - pending
+          - registered
+        description: |-
+          * `pending` - Pending
+          * `registered` - Registered
+          * `failed` - Failed
+          * `deregistered` - Deregistered
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: waba
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPhoneNumberList'
+          description: ''
+  /api/v1/whatsapp/phone-numbers/{id}/:
+    get:
+      operationId: whatsapp_phone_numbers_retrieve
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumber'
+          description: ''
+  /api/v1/whatsapp/phone-numbers/{id}/refresh/:
+    post:
+      operationId: whatsapp_phone_numbers_refresh_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumber'
+          description: ''
+  /api/v1/whatsapp/phone-numbers/{id}/retry-registration/:
+    post:
+      operationId: whatsapp_phone_numbers_retry_registration_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumber'
+          description: ''
+  /api/v1/whatsapp/phone-numbers/{id}/set-default/:
+    post:
+      operationId: whatsapp_phone_numbers_set_default_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumber'
+          description: ''
+  /api/v1/whatsapp/signup-config/:
+    get:
+      operationId: whatsapp_signup_config_retrieve
+      description: Public Meta app settings the frontend needs to launch Embedded
+        Signup.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - whatsapp
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupConfig'
+          description: ''
+  /api/v1/workspaces/:
+    get:
+      operationId: workspaces_list
+      description: Workspaces the caller belongs to. Addressed by id in the URL, not
+        the header.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorkspaceList'
+          description: ''
+    post:
+      operationId: workspaces_create
+      description: Workspaces the caller belongs to. Addressed by id in the URL, not
+        the header.
+      tags:
+      - workspaces
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WorkspaceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WorkspaceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+  /api/v1/workspaces/{id}/:
+    get:
+      operationId: workspaces_retrieve
+      description: Workspaces the caller belongs to. Addressed by id in the URL, not
+        the header.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+    patch:
+      operationId: workspaces_partial_update
+      description: Workspaces the caller belongs to. Addressed by id in the URL, not
+        the header.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - workspaces
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedWorkspaceRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+    delete:
+      operationId: workspaces_destroy
+      description: Workspaces the caller belongs to. Addressed by id in the URL, not
+        the header.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/invitations/:
+    get:
+      operationId: workspaces_invitations_list
+      description: Open invitations for the header workspace. Deleting one revokes
+        it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvitationList'
+          description: ''
+    post:
+      operationId: workspaces_invitations_create
+      description: Open invitations for the header workspace. Deleting one revokes
+        it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - workspaces
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InvitationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InvitationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+          description: ''
+  /api/v1/workspaces/invitations/{id}/:
+    delete:
+      operationId: workspaces_invitations_destroy
+      description: Open invitations for the header workspace. Deleting one revokes
+        it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/workspaces/invitations/accept/:
+    post:
+      operationId: workspaces_invitations_accept_create
+      tags:
+      - workspaces
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationAcceptRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InvitationAcceptRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InvitationAcceptRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedInvitation'
+          description: ''
+  /api/v1/workspaces/members/:
+    get:
+      operationId: workspaces_members_list
+      description: Members of the header workspace. Anyone may leave; admins manage
+        others.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+          enum:
+          - admin
+          - agent
+          - owner
+          - viewer
+        description: |-
+          * `owner` - Owner
+          * `admin` - Admin
+          * `agent` - Agent
+          * `viewer` - Viewer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMembershipList'
+          description: ''
+  /api/v1/workspaces/members/{id}/:
+    get:
+      operationId: workspaces_members_retrieve
+      description: Members of the header workspace. Anyone may leave; admins manage
+        others.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+          description: ''
+    patch:
+      operationId: workspaces_members_partial_update
+      description: Members of the header workspace. Anyone may leave; admins manage
+        others.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - workspaces
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMembershipRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Membership'
+          description: ''
+    delete:
+      operationId: workspaces_members_destroy
+      description: Members of the header workspace. Anyone may leave; admins manage
+        others.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          pattern: ^[0-9a-fA-F-]{36}$
+        required: true
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+components:
+  schemas:
+    AcceptedInvitation:
+      type: object
+      properties:
+        workspace:
+          $ref: '#/components/schemas/WorkspaceSummary'
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+      required:
+      - role
+      - workspace
+    BulkTagRequest:
+      type: object
+      properties:
+        contact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5000
+          minItems: 1
+        add_tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        remove_tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - contact_ids
+    BulkTagResult:
+      type: object
+      properties:
+        contact_count:
+          type: integer
+        added:
+          type: integer
+          description: Tag links created.
+        removed:
+          type: integer
+          description: Tag links removed.
+      required:
+      - added
+      - contact_count
+      - removed
+    ConsentActionEnum:
+      enum:
+      - opt_in
+      - opt_out
+      type: string
+      description: |-
+        * `opt_in` - Opt in
+        * `opt_out` - Opt out
+    ConsentEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        purpose:
+          allOf:
+          - $ref: '#/components/schemas/ConsentPurposeEnum'
+          readOnly: true
+        action:
+          allOf:
+          - $ref: '#/components/schemas/ConsentActionEnum'
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/ConsentSourceEnum'
+          readOnly: true
+        evidence:
+          type: string
+          readOnly: true
+        actor:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        wamid:
+          type: string
+          readOnly: true
+        occurred_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - action
+      - actor
+      - created_at
+      - evidence
+      - id
+      - occurred_at
+      - purpose
+      - source
+      - wamid
+    ConsentPurposeEnum:
+      enum:
+      - marketing
+      type: string
+      description: '* `marketing` - Marketing'
+    ConsentRequestRequest:
+      type: object
+      properties:
+        source:
+          allOf:
+          - $ref: '#/components/schemas/ConsentRequestSourceEnum'
+          default: manual
+        evidence:
+          type: string
+          maxLength: 2000
+    ConsentRequestSourceEnum:
+      enum:
+      - manual
+      - api
+      type: string
+      description: |-
+        * `manual` - Manual
+        * `api` - API
+    ConsentSourceEnum:
+      enum:
+      - manual
+      - import
+      - api
+      - whatsapp_keyword
+      - meta_marketing_optout
+      type: string
+      description: |-
+        * `manual` - Manual
+        * `import` - Import
+        * `api` - API
+        * `whatsapp_keyword` - WhatsApp keyword
+        * `meta_marketing_optout` - Meta marketing opt-out
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        phone_e164:
+          type: string
+          description: Any common format; Indian local numbers are accepted. Stored
+            as E.164.
+          maxLength: 32
+        wa_id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        attributes:
+          type: object
+          additionalProperties: {}
+        tags:
+          type: array
+          items:
+            type: string
+            format: uuid
+        marketing_opt_in_status:
+          allOf:
+          - $ref: '#/components/schemas/ContactOptInStatusEnum'
+          readOnly: true
+        opted_in_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        opted_out_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        opt_in_source:
+          type: string
+          readOnly: true
+        last_inbound_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - last_inbound_at
+      - marketing_opt_in_status
+      - opt_in_source
+      - opted_in_at
+      - opted_out_at
+      - phone_e164
+      - updated_at
+      - wa_id
+    ContactImport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        file_name:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ContactImportStatusEnum'
+          readOnly: true
+        total_rows:
+          type: integer
+          readOnly: true
+        created_count:
+          type: integer
+          readOnly: true
+        updated_count:
+          type: integer
+          readOnly: true
+        skipped_count:
+          type: integer
+          readOnly: true
+        error_count:
+          type: integer
+          readOnly: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRowError'
+          readOnly: true
+        mark_opted_in:
+          type: boolean
+          readOnly: true
+        consent_attested:
+          type: boolean
+          readOnly: true
+        opt_in_source:
+          type: string
+          readOnly: true
+        tags:
+          type: array
+          items:
+            type: string
+            format: uuid
+          readOnly: true
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - consent_attested
+      - created_at
+      - created_by
+      - created_count
+      - error_count
+      - errors
+      - file_name
+      - finished_at
+      - id
+      - mark_opted_in
+      - opt_in_source
+      - skipped_count
+      - started_at
+      - status
+      - tags
+      - total_rows
+      - updated_count
+    ContactImportCreateRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: UTF-8 CSV with a phone column.
+        mark_opted_in:
+          type: boolean
+        consent_attested:
+          type: boolean
+        opt_in_source:
+          type: string
+          description: Where these contacts opted in, e.g. 'Checkout form on example.in'.
+          maxLength: 255
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - file
+    ContactImportStatusEnum:
+      enum:
+      - queued
+      - processing
+      - completed
+      - failed
+      type: string
+      description: |-
+        * `queued` - Queued
+        * `processing` - Processing
+        * `completed` - Completed
+        * `failed` - Failed
+    ContactOptInStatusEnum:
+      enum:
+      - unknown
+      - opted_in
+      - opted_out
+      type: string
+      description: |-
+        * `unknown` - Unknown
+        * `opted_in` - Opted in
+        * `opted_out` - Opted out
+    ContactRequest:
+      type: object
+      properties:
+        phone_e164:
+          type: string
+          minLength: 1
+          description: Any common format; Indian local numbers are accepted. Stored
+            as E.164.
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 255
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        attributes:
+          type: object
+          additionalProperties: {}
+        tags:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - phone_e164
+    EmbeddedSignupRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        waba_id:
+          type: string
+          minLength: 1
+          pattern: ^\d{1,64}$
+        phone_number_id:
+          oneOf:
+          - type: string
+            pattern: ^\d{1,64}$
+          - type: string
+            maxLength: 0
+        business_id:
+          oneOf:
+          - type: string
+            pattern: ^\d{1,64}$
+          - type: string
+            maxLength: 0
+        coexistence:
+          type: boolean
+          default: false
+      required:
+      - code
+      - waba_id
+    ImportRowError:
+      type: object
+      properties:
+        row:
+          type: integer
+          nullable: true
+          description: 1-based CSV line; null if global.
+        error:
+          type: string
+      required:
+      - error
+      - row
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/InvitationStatusEnum'
+          readOnly: true
+        invited_by:
+          allOf:
+          - $ref: '#/components/schemas/MemberUser'
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - expires_at
+      - id
+      - invited_by
+      - status
+    InvitationAcceptRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+      required:
+      - token
+    InvitationRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+      required:
+      - email
+    InvitationStatusEnum:
+      enum:
+      - pending
+      - accepted
+      - revoked
+      - expired
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `accepted` - Accepted
+        * `revoked` - Revoked
+        * `expired` - Expired
+    Me:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        full_name:
+          type: string
+          maxLength: 150
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+        email_verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        memberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMembershipSummary'
+          readOnly: true
+      required:
+      - date_joined
+      - email
+      - email_verified_at
+      - id
+      - memberships
+    MemberUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        full_name:
+          type: string
+          maxLength: 150
+      required:
+      - email
+      - id
+    MemberUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          title: Email address
+          maxLength: 254
+        full_name:
+          type: string
+          maxLength: 150
+      required:
+      - email
+    Membership:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/MemberUser'
+          readOnly: true
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - user
+    MessageTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        waba:
+          type: string
+          format: uuid
+        meta_template_id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 512
+        language:
+          type: string
+          maxLength: 16
+        category:
+          $ref: '#/components/schemas/MessageTemplateCategoryEnum'
+        previous_category:
+          allOf:
+          - $ref: '#/components/schemas/MessageTemplateCategoryEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MessageTemplateStatusEnum'
+          readOnly: true
+        rejected_reason:
+          type: string
+          readOnly: true
+        quality_score:
+          allOf:
+          - $ref: '#/components/schemas/TemplateQualityScoreEnum'
+          readOnly: true
+        components:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Template components in Meta's format (HEADER, BODY, FOOTER,
+            BUTTONS).
+        submitted_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_synced_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - components
+      - created_at
+      - created_by
+      - id
+      - language
+      - last_synced_at
+      - meta_template_id
+      - name
+      - previous_category
+      - quality_score
+      - rejected_reason
+      - status
+      - submitted_at
+      - updated_at
+      - waba
+    MessageTemplateCategoryEnum:
+      enum:
+      - MARKETING
+      - UTILITY
+      - AUTHENTICATION
+      type: string
+      description: |-
+        * `MARKETING` - Marketing
+        * `UTILITY` - Utility
+        * `AUTHENTICATION` - Authentication
+    MessageTemplateRequest:
+      type: object
+      properties:
+        waba:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 512
+        language:
+          type: string
+          minLength: 1
+          maxLength: 16
+        category:
+          $ref: '#/components/schemas/MessageTemplateCategoryEnum'
+        components:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Template components in Meta's format (HEADER, BODY, FOOTER,
+            BUTTONS).
+      required:
+      - category
+      - components
+      - language
+      - name
+      - waba
+    MessageTemplateStatusEnum:
+      enum:
+      - DRAFT
+      - PENDING
+      - APPROVED
+      - REJECTED
+      - PAUSED
+      - DISABLED
+      - IN_APPEAL
+      - PENDING_DELETION
+      - DELETED
+      - LIMIT_EXCEEDED
+      - ARCHIVED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `PENDING` - Pending review
+        * `APPROVED` - Approved
+        * `REJECTED` - Rejected
+        * `PAUSED` - Paused
+        * `DISABLED` - Disabled
+        * `IN_APPEAL` - In appeal
+        * `PENDING_DELETION` - Pending deletion
+        * `DELETED` - Deleted
+        * `LIMIT_EXCEEDED` - Limit exceeded
+        * `ARCHIVED` - Archived
+    OptInRequestRequest:
+      type: object
+      properties:
+        source:
+          allOf:
+          - $ref: '#/components/schemas/ConsentRequestSourceEnum'
+          default: manual
+        evidence:
+          type: string
+          description: How and when the customer agreed to receive marketing messages.
+            Required.
+          maxLength: 2000
+    PaginatedConsentEventList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsentEvent'
+    PaginatedContactImportList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactImport'
+    PaginatedContactList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Contact'
+    PaginatedInvitationList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invitation'
+    PaginatedMembershipList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Membership'
+    PaginatedMessageTemplateList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageTemplate'
+    PaginatedPhoneNumberList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhoneNumber'
+    PaginatedTagList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+    PaginatedWhatsAppBusinessAccountList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WhatsAppBusinessAccount'
+    PaginatedWorkspaceList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+    PasswordChangeRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - current_password
+      - new_password
+    PatchedContactRequest:
+      type: object
+      properties:
+        phone_e164:
+          type: string
+          minLength: 1
+          description: Any common format; Indian local numbers are accepted. Stored
+            as E.164.
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 255
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        attributes:
+          type: object
+          additionalProperties: {}
+        tags:
+          type: array
+          items:
+            type: string
+            format: uuid
+    PatchedMeRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 150
+    PatchedMembershipRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+    PatchedMessageTemplateRequest:
+      type: object
+      properties:
+        waba:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 512
+        language:
+          type: string
+          minLength: 1
+          maxLength: 16
+        category:
+          $ref: '#/components/schemas/MessageTemplateCategoryEnum'
+        components:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Template components in Meta's format (HEADER, BODY, FOOTER,
+            BUTTONS).
+    PatchedTagRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
+    PatchedWorkspaceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        time_zone:
+          type: string
+          minLength: 1
+          maxLength: 64
+    PhoneNumber:
+      type: object
+      description: Never exposes the registration PIN.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        waba:
+          type: string
+          format: uuid
+          readOnly: true
+        phone_number_id:
+          type: string
+          readOnly: true
+        display_phone_number:
+          type: string
+          readOnly: true
+        phone_e164:
+          type: string
+          readOnly: true
+        verified_name:
+          type: string
+          readOnly: true
+        name_status:
+          type: string
+          readOnly: true
+        quality_rating:
+          allOf:
+          - $ref: '#/components/schemas/PhoneQualityRatingEnum'
+          readOnly: true
+        messaging_limit_tier:
+          type: string
+          readOnly: true
+        throughput_level:
+          type: string
+          readOnly: true
+        platform_type:
+          type: string
+          readOnly: true
+        code_verification_status:
+          type: string
+          readOnly: true
+        meta_status:
+          type: string
+          readOnly: true
+        registration_status:
+          allOf:
+          - $ref: '#/components/schemas/PhoneRegistrationStatusEnum'
+          readOnly: true
+        is_coexistence:
+          type: boolean
+          readOnly: true
+        is_default:
+          type: boolean
+          readOnly: true
+        last_synced_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_error:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code_verification_status
+      - created_at
+      - display_phone_number
+      - id
+      - is_coexistence
+      - is_default
+      - last_error
+      - last_synced_at
+      - messaging_limit_tier
+      - meta_status
+      - name_status
+      - phone_e164
+      - phone_number_id
+      - platform_type
+      - quality_rating
+      - registration_status
+      - throughput_level
+      - updated_at
+      - verified_name
+      - waba
+    PhoneQualityRatingEnum:
+      enum:
+      - GREEN
+      - YELLOW
+      - RED
+      - UNKNOWN
+      type: string
+      description: |-
+        * `GREEN` - High
+        * `YELLOW` - Medium
+        * `RED` - Low
+        * `UNKNOWN` - Unknown
+    PhoneRegistrationStatusEnum:
+      enum:
+      - pending
+      - registered
+      - failed
+      - deregistered
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `registered` - Registered
+        * `failed` - Failed
+        * `deregistered` - Deregistered
+    Preview:
+      type: object
+      properties:
+        header:
+          allOf:
+          - $ref: '#/components/schemas/PreviewHeader'
+          nullable: true
+        body:
+          type: string
+        footer:
+          type: string
+          nullable: true
+        buttons:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreviewButton'
+      required:
+      - body
+      - buttons
+      - footer
+      - header
+    PreviewButton:
+      type: object
+      properties:
+        type:
+          type: string
+        text:
+          type: string
+        url:
+          type: string
+        phone_number:
+          type: string
+      required:
+      - text
+      - type
+    PreviewHeader:
+      type: object
+      properties:
+        format:
+          type: string
+        text:
+          type: string
+          nullable: true
+      required:
+      - format
+      - text
+    PreviewRequestRequest:
+      type: object
+      properties:
+        variables:
+          type: array
+          items:
+            type: string
+        header_variables:
+          type: array
+          items:
+            type: string
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+        full_name:
+          type: string
+          maxLength: 150
+      required:
+      - email
+      - password
+    RegisterResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        tokens:
+          $ref: '#/components/schemas/TokenPair'
+      required:
+      - tokens
+      - user
+    RoleEnum:
+      enum:
+      - owner
+      - admin
+      - agent
+      - viewer
+      type: string
+      description: |-
+        * `owner` - Owner
+        * `admin` - Admin
+        * `agent` - Agent
+        * `viewer` - Viewer
+    SignupConfig:
+      type: object
+      properties:
+        app_id:
+          type: string
+        config_id:
+          type: string
+        graph_api_version:
+          type: string
+      required:
+      - app_id
+      - config_id
+      - graph_api_version
+    SyncQueued:
+      type: object
+      properties:
+        queued:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - queued
+    SyncRequestRequest:
+      type: object
+      properties:
+        waba_id:
+          type: string
+          minLength: 1
+          description: Our WABA id (UUID) or Meta's WABA id. Omit to sync every active
+            account.
+    Tag:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 64
+        color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+    TagRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        color:
+          oneOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+            maxLength: 7
+          - type: string
+            maxLength: 0
+      required:
+      - name
+    TemplateQualityScoreEnum:
+      enum:
+      - GREEN
+      - YELLOW
+      - RED
+      - UNKNOWN
+      type: string
+      description: |-
+        * `GREEN` - Green
+        * `YELLOW` - Yellow
+        * `RED` - Red
+        * `UNKNOWN` - Not yet rated
+    TokenBlacklistRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - refresh
+    TokenObtainPair:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - refresh
+    TokenObtainPairRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    TokenPair:
+      type: object
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        full_name:
+          type: string
+          maxLength: 150
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+        email_verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - date_joined
+      - email
+      - email_verified_at
+      - id
+    WabaOnboardingStatusEnum:
+      enum:
+      - code_exchanged
+      - subscribing
+      - registering
+      - completed
+      - failed
+      type: string
+      description: |-
+        * `code_exchanged` - Code exchanged
+        * `subscribing` - Subscribing to webhooks
+        * `registering` - Registering phone number
+        * `completed` - Completed
+        * `failed` - Failed
+    WabaStatusEnum:
+      enum:
+      - pending
+      - active
+      - restricted
+      - disabled
+      - disconnected
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `active` - Active
+        * `restricted` - Restricted
+        * `disabled` - Disabled
+        * `disconnected` - Disconnected
+    WhatsAppBusinessAccount:
+      type: object
+      description: Never exposes the access token.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        waba_id:
+          type: string
+          readOnly: true
+        business_id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        timezone_id:
+          type: string
+          readOnly: true
+        message_template_namespace:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/WabaStatusEnum'
+          readOnly: true
+        onboarding_status:
+          allOf:
+          - $ref: '#/components/schemas/WabaOnboardingStatusEnum'
+          readOnly: true
+        last_error:
+          type: string
+          readOnly: true
+        subscribed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        token_expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        connected_by:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        phone_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhoneNumber'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - business_id
+      - connected_by
+      - created_at
+      - currency
+      - id
+      - last_error
+      - message_template_namespace
+      - name
+      - onboarding_status
+      - phone_numbers
+      - status
+      - subscribed_at
+      - timezone_id
+      - token_expires_at
+      - updated_at
+      - waba_id
+    Workspace:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        time_zone:
+          type: string
+          maxLength: 64
+        my_role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - my_role
+      - name
+      - slug
+    WorkspaceMembershipSummary:
+      type: object
+      properties:
+        workspace_id:
+          type: string
+          format: uuid
+        workspace_name:
+          type: string
+        workspace_slug:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+      required:
+      - role
+      - workspace_id
+      - workspace_name
+      - workspace_slug
+    WorkspaceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        time_zone:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required:
+      - name
+    WorkspaceSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          maxLength: 64
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - id
+      - name
+      - slug
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
