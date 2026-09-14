@@ -43,7 +43,9 @@ TRACKING_URL_MAX_LENGTH = 500
 _validate_https_url = URLValidator(schemes=["https"])
 
 RecipientStatus = AlertRecipient.Status
-ORDER_ACTIONS = ("pack", "ship", "cancel")
+# *Cancel* only asks for confirmation; *Yes, cancel* (``cancel_yes``) cancels and *Keep order*
+# (``cancel_no``) leaves the order alone.
+ORDER_ACTIONS = ("pack", "ship", "cancel", "cancel_yes", "cancel_no")
 DONE_TEXT = {"packed": "marked as packed", "shipped": "marked as shipped", "cancelled": "cancelled"}
 
 
@@ -259,8 +261,12 @@ def _handle_reply(ctx: _Context, verified: list[AlertRecipient], reply: ReplyId)
             _pack(ctx, recipient, order)
         elif reply.action == "ship":
             _ask_for_shipment(ctx, recipient, order)
-        else:
+        elif reply.action == "cancel":
+            _confirm_cancel(ctx, recipient, order)
+        elif reply.action == "cancel_yes":
             _cancel(ctx, recipient, order)
+        else:
+            ctx.reply(recipient, content.text(f"Okay, order {order.number} is unchanged."))
         return
     ctx.reply(verified[0], content.stale_option())
 
@@ -300,7 +306,24 @@ def _pack(ctx: _Context, recipient: AlertRecipient, order: Order) -> None:
         ctx.reply(recipient, content.text(_failure_text(order, "packed", error)))
 
 
+def _confirm_cancel(ctx: _Context, recipient: AlertRecipient, order: Order) -> None:
+    """A mis-tap must not lose a sale: ask first. The seller just tapped a button, so their
+    service window is open and the question goes out as a free-form interactive message."""
+    if Order.Status.CANCELLED not in order.allowed_transitions:
+        ctx.reply(
+            recipient,
+            content.text(
+                f"Order {order.number} can't be cancelled because it is "
+                f"{status_label(order.status).lower()}."
+            ),
+        )
+        return
+    ctx.reply(recipient, content.cancel_confirmation(order))
+
+
 def _cancel(ctx: _Context, recipient: AlertRecipient, order: Order) -> None:
+    """*Yes, cancel*: the order was re-checked and locked by ``_find_order``; ``cancel_order``
+    re-checks the transition, so an old or repeated tap gets the friendly refusal."""
     error = _run(
         lambda: order_services.cancel_order(order, actor=SELLER_ACTOR, reason=SELLER_CANCEL_REASON)
     )
