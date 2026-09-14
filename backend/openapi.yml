@@ -161,6 +161,938 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenRefresh'
           description: ''
+  /api/v1/automations/business-hours/:
+    get:
+      operationId: automations_business_hours_retrieve
+      description: The workspace's business hours (one per workspace).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - automations
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessHours'
+          description: ''
+    patch:
+      operationId: automations_business_hours_partial_update
+      description: The workspace's business hours (one per workspace).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - automations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBusinessHoursRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBusinessHoursRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBusinessHoursRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessHours'
+          description: ''
+  /api/v1/automations/rules/:
+    get:
+      operationId: automations_rules_list
+      description: Rules that react to inbound messages, e.g. keyword auto-replies.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: trigger
+        schema:
+          type: string
+          enum:
+          - first_inbound
+          - keyword
+          - new_contact
+          - outside_business_hours
+      tags:
+      - automations
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAutomationRuleList'
+          description: ''
+    post:
+      operationId: automations_rules_create
+      description: Rules that react to inbound messages, e.g. keyword auto-replies.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - automations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationRuleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AutomationRuleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AutomationRuleRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+          description: ''
+  /api/v1/automations/rules/{id}/:
+    get:
+      operationId: automations_rules_retrieve
+      description: Rules that react to inbound messages, e.g. keyword auto-replies.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - automations
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+          description: ''
+    patch:
+      operationId: automations_rules_partial_update
+      description: Rules that react to inbound messages, e.g. keyword auto-replies.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - automations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAutomationRuleRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAutomationRuleRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAutomationRuleRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+          description: ''
+    delete:
+      operationId: automations_rules_destroy
+      description: Rules that react to inbound messages, e.g. keyword auto-replies.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - automations
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/automations/runs/:
+    get:
+      operationId: automations_runs_list
+      description: History of rule executions.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: rule
+        schema:
+          type: string
+          format: uuid
+        description: Rule id.
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - failed
+          - skipped
+          - succeeded
+      tags:
+      - automations
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAutomationRunList'
+          description: ''
+  /api/v1/billing/billing-profile/:
+    get:
+      operationId: billing_profile_retrieve
+      description: Details printed on GST invoices. Admins can read it; only the owner
+        can change it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingProfile'
+          description: ''
+    patch:
+      operationId: billing_profile_partial_update
+      description: Details printed on GST invoices. Admins can read it; only the owner
+        can change it.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBillingProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBillingProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBillingProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingProfile'
+          description: ''
+  /api/v1/billing/invoices/:
+    get:
+      operationId: billing_invoices_list
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - billing
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoiceList'
+          description: ''
+  /api/v1/billing/plans/:
+    get:
+      operationId: billing_plans_list
+      description: Plans a workspace can subscribe to (prices before GST).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+          description: ''
+  /api/v1/billing/subscription/:
+    get:
+      operationId: billing_subscription_retrieve
+      description: The workspace's subscription; changes are owner-only.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+          description: ''
+  /api/v1/billing/subscription/cancel/:
+    post:
+      operationId: billing_subscription_cancel_create
+      description: The workspace's subscription; changes are owner-only.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelSubscriptionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CancelSubscriptionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CancelSubscriptionRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+          description: ''
+  /api/v1/billing/subscription/checkout/:
+    post:
+      operationId: billing_subscription_checkout_create
+      description: Create a Razorpay subscription and return options for Razorpay
+        Checkout.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutSession'
+          description: ''
+  /api/v1/billing/subscription/verify/:
+    post:
+      operationId: billing_subscription_verify_create
+      description: Verify the Checkout signature. Status may stay pending until the
+        webhook.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CheckoutVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CheckoutVerifyRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+          description: ''
+  /api/v1/billing/usage/:
+    get:
+      operationId: billing_usage_retrieve
+      description: Current usage against the plan's limits.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - billing
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usage'
+          description: ''
+  /api/v1/campaigns/:
+    get:
+      operationId: campaigns_list
+      description: Bulk template sends to an audience of opted-in contacts.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - cancelled
+          - completed
+          - draft
+          - failed
+          - paused
+          - running
+          - scheduled
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCampaignList'
+          description: ''
+    post:
+      operationId: campaigns_create
+      description: Create a draft campaign.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - campaigns
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CampaignWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CampaignWriteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/{id}/:
+    get:
+      operationId: campaigns_retrieve
+      description: Bulk template sends to an audience of opted-in contacts.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+    patch:
+      operationId: campaigns_partial_update
+      description: Only draft and scheduled campaigns can change (409 campaign_not_editable).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCampaignWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCampaignWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCampaignWriteRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+    delete:
+      operationId: campaigns_destroy
+      description: Only drafts can be deleted.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/campaigns/{id}/audience-preview/:
+    post:
+      operationId: campaigns_audience_preview_create
+      description: Count who would receive the campaign and who would be skipped.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudiencePreview'
+          description: ''
+  /api/v1/campaigns/{id}/cancel/:
+    post:
+      operationId: campaigns_cancel_create
+      description: Bulk template sends to an audience of opted-in contacts.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/{id}/launch/:
+    post:
+      operationId: campaigns_launch_create
+      description: Schedule or start sending. The template must be approved by Meta.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaunchCampaignRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LaunchCampaignRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LaunchCampaignRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/{id}/pause/:
+    post:
+      operationId: campaigns_pause_create
+      description: Bulk template sends to an audience of opted-in contacts.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
+  /api/v1/campaigns/{id}/recipients/:
+    get:
+      operationId: campaigns_recipients_list
+      description: Bulk template sends to an audience of opted-in contacts.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - delivered
+          - failed
+          - pending
+          - queued
+          - read
+          - sent
+          - skipped
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCampaignRecipientList'
+          description: ''
+  /api/v1/campaigns/{id}/resume/:
+    post:
+      operationId: campaigns_resume_create
+      description: Bulk template sends to an audience of opted-in contacts.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - campaigns
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+          description: ''
   /api/v1/contacts/:
     get:
       operationId: contacts_list
@@ -799,6 +1731,519 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/inbox/conversations/:
+    get:
+      operationId: inbox_conversations_list
+      description: Conversations with contacts, newest activity first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: assignee
+        schema:
+          type: string
+        description: A member's user id, `me` or `none`.
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: phone_number
+        schema:
+          type: string
+          format: uuid
+        description: Business phone number id.
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Contact name or phone number.
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - closed
+          - open
+          - pending
+      - in: query
+        name: unread
+        schema:
+          type: boolean
+        description: Only conversations with unread.
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedConversationList'
+          description: ''
+    post:
+      operationId: inbox_conversations_create
+      description: Get or create the conversation with a contact (201 when created).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartConversationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StartConversationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StartConversationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/inbox/conversations/{id}/:
+    get:
+      operationId: inbox_conversations_retrieve
+      description: Conversations with contacts, newest activity first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/inbox/conversations/{id}/assign/:
+    post:
+      operationId: inbox_conversations_assign_create
+      description: Conversations with contacts, newest activity first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignConversationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssignConversationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssignConversationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/inbox/conversations/{id}/close/:
+    post:
+      operationId: inbox_conversations_close_create
+      description: Conversations with contacts, newest activity first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/inbox/conversations/{id}/messages/:
+    get:
+      operationId: inbox_conversations_messages_list
+      description: Messages in the conversation, newest first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessageList'
+          description: ''
+    post:
+      operationId: inbox_conversations_messages_create
+      description: Queue a message. Outside the service window only approved templates
+        send.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Retrying with the same key returns the original message instead
+          of resending.
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+  /api/v1/inbox/conversations/{id}/notes/:
+    get:
+      operationId: inbox_conversations_notes_list
+      description: Conversations with contacts, newest activity first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedConversationNoteList'
+          description: ''
+    post:
+      operationId: inbox_conversations_notes_create
+      description: Conversations with contacts, newest activity first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationNoteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConversationNoteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConversationNoteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationNote'
+          description: ''
+  /api/v1/inbox/conversations/{id}/read/:
+    post:
+      operationId: inbox_conversations_read_create
+      description: Reset the unread count and send a read receipt for the latest inbound.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/inbox/conversations/{id}/reopen/:
+    post:
+      operationId: inbox_conversations_reopen_create
+      description: Conversations with contacts, newest activity first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/inbox/media/:
+    post:
+      operationId: inbox_media_create
+      description: Uploaded media for outgoing messages.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - inbox
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+  /api/v1/inbox/messages/{id}/media/:
+    get:
+      operationId: inbox_messages_media_retrieve
+      description: Stream the message's stored media file.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/inbox/ws-ticket/:
+    post:
+      operationId: inbox_ws_ticket_create
+      description: Issue a single-use ticket for opening the realtime WebSocket (any
+        member).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - inbox
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WsTicket'
+          description: ''
   /api/v1/templates/:
     get:
       operationId: templates_list
@@ -2016,6 +3461,341 @@ components:
       required:
       - role
       - workspace
+    AssignConversationRequest:
+      type: object
+      properties:
+        assignee_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: A member's user id, or null to unassign.
+      required:
+      - assignee_id
+    AudienceMatchEnum:
+      enum:
+      - any
+      - all
+      type: string
+      description: |-
+        * `any` - any
+        * `all` - all
+    AudiencePreview:
+      type: object
+      properties:
+        total:
+          type: integer
+          readOnly: true
+        eligible:
+          type: integer
+          readOnly: true
+        skipped:
+          allOf:
+          - $ref: '#/components/schemas/AudienceSkipped'
+          readOnly: true
+      required:
+      - eligible
+      - skipped
+      - total
+    AudienceSkipped:
+      type: object
+      properties:
+        opted_out:
+          type: integer
+          readOnly: true
+        not_opted_in:
+          type: integer
+          readOnly: true
+        invalid:
+          type: integer
+          readOnly: true
+      required:
+      - invalid
+      - not_opted_in
+      - opted_out
+    AutomationAction:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/AutomationActionTypeEnum'
+        config:
+          type: object
+          additionalProperties: {}
+          description: 'send_text {text}; send_template {template_id, body_params:
+            VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation
+            {}.'
+      required:
+      - type
+    AutomationActionRequest:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/AutomationActionTypeEnum'
+        config:
+          type: object
+          additionalProperties: {}
+          description: 'send_text {text}; send_template {template_id, body_params:
+            VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation
+            {}.'
+      required:
+      - type
+    AutomationActionTypeEnum:
+      enum:
+      - send_text
+      - send_template
+      - add_tags
+      - assign
+      - close_conversation
+      type: string
+      description: |-
+        * `send_text` - send_text
+        * `send_template` - send_template
+        * `add_tags` - add_tags
+        * `assign` - assign
+        * `close_conversation` - close_conversation
+    AutomationRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        is_active:
+          type: boolean
+          default: true
+        trigger:
+          $ref: '#/components/schemas/AutomationTriggerEnum'
+        keywords:
+          type: array
+          items:
+            type: string
+            maxLength: 100
+          description: Required for the keyword trigger. Matching ignores case.
+          maxItems: 50
+        keyword_match:
+          allOf:
+          - $ref: '#/components/schemas/KeywordMatchEnum'
+          default: exact
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null applies to every number.
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationAction'
+        cooldown_minutes:
+          type: integer
+          minimum: 0
+          default: 0
+        priority:
+          type: integer
+          default: 0
+          description: Lower runs first.
+        stop_processing:
+          type: boolean
+          default: false
+          description: Skip lower-priority rules after this one runs.
+        run_count:
+          type: integer
+          readOnly: true
+        last_triggered_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - actions
+      - created_at
+      - id
+      - last_triggered_at
+      - name
+      - run_count
+      - trigger
+      - updated_at
+    AutomationRuleRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - name
+    AutomationRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        is_active:
+          type: boolean
+          default: true
+        trigger:
+          $ref: '#/components/schemas/AutomationTriggerEnum'
+        keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          description: Required for the keyword trigger. Matching ignores case.
+          maxItems: 50
+        keyword_match:
+          allOf:
+          - $ref: '#/components/schemas/KeywordMatchEnum'
+          default: exact
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null applies to every number.
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationActionRequest'
+        cooldown_minutes:
+          type: integer
+          minimum: 0
+          default: 0
+        priority:
+          type: integer
+          default: 0
+          description: Lower runs first.
+        stop_processing:
+          type: boolean
+          default: false
+          description: Skip lower-priority rules after this one runs.
+      required:
+      - actions
+      - name
+      - trigger
+    AutomationRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        rule:
+          allOf:
+          - $ref: '#/components/schemas/AutomationRuleRef'
+          readOnly: true
+        conversation_id:
+          type: string
+          format: uuid
+          readOnly: true
+        message_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AutomationRunStatusEnum'
+          readOnly: true
+        detail:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - conversation_id
+      - created_at
+      - detail
+      - id
+      - message_id
+      - rule
+      - status
+    AutomationRunStatusEnum:
+      enum:
+      - succeeded
+      - skipped
+      - failed
+      type: string
+      description: |-
+        * `succeeded` - succeeded
+        * `skipped` - skipped
+        * `failed` - failed
+    AutomationTriggerEnum:
+      enum:
+      - keyword
+      - first_inbound
+      - new_contact
+      - outside_business_hours
+      type: string
+      description: |-
+        * `keyword` - keyword
+        * `first_inbound` - first_inbound
+        * `new_contact` - new_contact
+        * `outside_business_hours` - outside_business_hours
+    BillingIntervalEnum:
+      enum:
+      - monthly
+      - annual
+      type: string
+      description: |-
+        * `monthly` - monthly
+        * `annual` - annual
+    BillingProfile:
+      type: object
+      properties:
+        legal_name:
+          type: string
+          maxLength: 255
+        gstin:
+          description: 15-character GSTIN, or "" if unregistered.
+          oneOf:
+          - type: string
+            pattern: ^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$
+          - type: string
+            maxLength: 0
+        email:
+          type: string
+          format: email
+        address_line1:
+          type: string
+          maxLength: 255
+        address_line2:
+          type: string
+          default: ''
+          maxLength: 255
+        city:
+          type: string
+          maxLength: 120
+        state_code:
+          type: string
+          description: 2-digit GST state code.
+          pattern: ^\d{2}$
+        postal_code:
+          type: string
+          description: 6-digit PIN code.
+          pattern: ^\d{6}$
+      required:
+      - address_line1
+      - city
+      - email
+      - gstin
+      - legal_name
+      - postal_code
+      - state_code
     BulkTagRequest:
       type: object
       properties:
@@ -2053,6 +3833,424 @@ components:
       - added
       - contact_count
       - removed
+    BusinessHours:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        time_zone:
+          type: string
+          readOnly: true
+          description: The workspace time zone.
+        schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessHoursSlot'
+      required:
+      - enabled
+      - schedule
+      - time_zone
+    BusinessHoursSlot:
+      type: object
+      properties:
+        day:
+          type: integer
+          maximum: 6
+          minimum: 0
+          description: 0 = Monday … 6 = Sunday.
+        start:
+          type: string
+          description: HH:MM
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+        end:
+          type: string
+          description: HH:MM. Earlier than start means the slot runs overnight.
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+      required:
+      - day
+      - end
+      - start
+    BusinessHoursSlotRequest:
+      type: object
+      properties:
+        day:
+          type: integer
+          maximum: 6
+          minimum: 0
+          description: 0 = Monday … 6 = Sunday.
+        start:
+          type: string
+          minLength: 1
+          description: HH:MM
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+        end:
+          type: string
+          minLength: 1
+          description: HH:MM. Earlier than start means the slot runs overnight.
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+      required:
+      - day
+      - end
+      - start
+    Campaign:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CampaignStatusEnum'
+          readOnly: true
+        template:
+          allOf:
+          - $ref: '#/components/schemas/CampaignTemplate'
+          readOnly: true
+        phone_number:
+          allOf:
+          - $ref: '#/components/schemas/ConversationPhoneNumber'
+          readOnly: true
+        audience:
+          allOf:
+          - $ref: '#/components/schemas/CampaignAudience'
+          readOnly: true
+        variable_mapping:
+          allOf:
+          - $ref: '#/components/schemas/VariableMapping'
+          readOnly: true
+        scheduled_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        consent_attested:
+          type: boolean
+          readOnly: true
+        stats:
+          allOf:
+          - $ref: '#/components/schemas/CampaignStats'
+          readOnly: true
+        estimated_cost:
+          allOf:
+          - $ref: '#/components/schemas/CostEstimate'
+          readOnly: true
+          nullable: true
+        last_error:
+          type: string
+          readOnly: true
+        created_by:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - audience
+      - completed_at
+      - consent_attested
+      - created_at
+      - created_by
+      - estimated_cost
+      - id
+      - last_error
+      - name
+      - phone_number
+      - scheduled_at
+      - started_at
+      - stats
+      - status
+      - template
+      - updated_at
+      - variable_mapping
+    CampaignAudience:
+      type: object
+      properties:
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5000
+        match:
+          allOf:
+          - $ref: '#/components/schemas/AudienceMatchEnum'
+          default: any
+          description: |-
+            Contacts with any of the tags, or all of them.
+
+            * `any` - any
+            * `all` - all
+        contact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5000
+    CampaignAudienceRequest:
+      type: object
+      properties:
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5000
+        match:
+          allOf:
+          - $ref: '#/components/schemas/AudienceMatchEnum'
+          default: any
+          description: |-
+            Contacts with any of the tags, or all of them.
+
+            * `any` - any
+            * `all` - all
+        contact_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5000
+    CampaignRecipient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ConversationContact'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RecipientStatusEnum'
+          readOnly: true
+        skip_reason:
+          type: string
+          readOnly: true
+        error_code:
+          type: string
+          readOnly: true
+        message_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - contact
+      - error_code
+      - id
+      - message_id
+      - skip_reason
+      - status
+      - updated_at
+    CampaignStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          readOnly: true
+        skipped:
+          type: integer
+          readOnly: true
+        queued:
+          type: integer
+          readOnly: true
+        sent:
+          type: integer
+          readOnly: true
+        delivered:
+          type: integer
+          readOnly: true
+        read:
+          type: integer
+          readOnly: true
+        failed:
+          type: integer
+          readOnly: true
+        replied:
+          type: integer
+          readOnly: true
+      required:
+      - delivered
+      - failed
+      - queued
+      - read
+      - replied
+      - sent
+      - skipped
+      - total
+    CampaignStatusEnum:
+      enum:
+      - draft
+      - scheduled
+      - running
+      - paused
+      - completed
+      - cancelled
+      - failed
+      type: string
+      description: |-
+        * `draft` - draft
+        * `scheduled` - scheduled
+        * `running` - running
+        * `paused` - paused
+        * `completed` - completed
+        * `cancelled` - cancelled
+        * `failed` - failed
+    CampaignTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        language:
+          type: string
+          readOnly: true
+        category:
+          allOf:
+          - $ref: '#/components/schemas/MessageTemplateCategoryEnum'
+          readOnly: true
+      required:
+      - category
+      - id
+      - language
+      - name
+    CampaignWriteRequest:
+      type: object
+      description: Create (always a draft) or PATCH a draft/scheduled campaign.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        template_id:
+          type: string
+          format: uuid
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Workspace default number when omitted.
+        audience:
+          $ref: '#/components/schemas/CampaignAudienceRequest'
+        variable_mapping:
+          $ref: '#/components/schemas/VariableMappingRequest'
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - audience
+      - name
+      - template_id
+      - variable_mapping
+    CancelSubscriptionRequest:
+      type: object
+      properties:
+        at_period_end:
+          type: boolean
+          default: true
+          description: Keep access until the paid period ends.
+    CheckoutPrefill:
+      type: object
+      properties:
+        name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+      required:
+      - email
+      - name
+    CheckoutRequest:
+      type: object
+      properties:
+        plan_id:
+          type: string
+          minLength: 1
+          description: 'Plan slug: starter, growth or pro.'
+          maxLength: 32
+        interval:
+          $ref: '#/components/schemas/BillingIntervalEnum'
+      required:
+      - interval
+      - plan_id
+    CheckoutSession:
+      type: object
+      description: Options for Razorpay Checkout in subscription mode.
+      properties:
+        key_id:
+          type: string
+          readOnly: true
+        subscription_id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        prefill:
+          allOf:
+          - $ref: '#/components/schemas/CheckoutPrefill'
+          readOnly: true
+      required:
+      - description
+      - key_id
+      - name
+      - prefill
+      - subscription_id
+    CheckoutVerifyRequest:
+      type: object
+      properties:
+        razorpay_payment_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        razorpay_subscription_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        razorpay_signature:
+          type: string
+          minLength: 1
+          maxLength: 256
+      required:
+      - razorpay_payment_id
+      - razorpay_signature
+      - razorpay_subscription_id
     ConsentActionEnum:
       enum:
       - opt_in
@@ -2379,6 +4577,180 @@ components:
             format: uuid
       required:
       - phone_e164
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ConversationContact'
+          readOnly: true
+        phone_number:
+          allOf:
+          - $ref: '#/components/schemas/ConversationPhoneNumber'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ConversationStatusEnum'
+          readOnly: true
+        assignee:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+          nullable: true
+        unread_count:
+          type: integer
+          readOnly: true
+        last_message_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_inbound_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        service_window_expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: End of the 24-hour customer service window; free-form replies
+            need it open.
+        window_open:
+          type: boolean
+          readOnly: true
+        last_message:
+          allOf:
+          - $ref: '#/components/schemas/MessagePreview'
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - assignee
+      - contact
+      - created_at
+      - id
+      - last_inbound_at
+      - last_message
+      - last_message_at
+      - phone_number
+      - service_window_expires_at
+      - status
+      - unread_count
+      - updated_at
+      - window_open
+    ConversationContact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        phone_e164:
+          type: string
+          readOnly: true
+        marketing_opt_in_status:
+          allOf:
+          - $ref: '#/components/schemas/ContactOptInStatusEnum'
+          readOnly: true
+      required:
+      - id
+      - marketing_opt_in_status
+      - name
+      - phone_e164
+    ConversationNote:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        body:
+          type: string
+          maxLength: 4000
+        author:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - id
+    ConversationNoteRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+      required:
+      - body
+    ConversationPhoneNumber:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        display_phone_number:
+          type: string
+          readOnly: true
+        verified_name:
+          type: string
+          readOnly: true
+      required:
+      - display_phone_number
+      - id
+      - verified_name
+    ConversationStatusEnum:
+      enum:
+      - open
+      - pending
+      - closed
+      type: string
+      description: |-
+        * `open` - open
+        * `pending` - pending
+        * `closed` - closed
+    CostEstimate:
+      type: object
+      properties:
+        currency:
+          type: string
+          readOnly: true
+          description: Always INR.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,4})?$
+          readOnly: true
+        note:
+          type: string
+          readOnly: true
+      required:
+      - amount
+      - currency
+      - note
     EmbeddedSignupRequest:
       type: object
       properties:
@@ -2488,6 +4860,96 @@ components:
         * `accepted` - Accepted
         * `revoked` - Revoked
         * `expired` - Expired
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/InvoiceStatusEnum'
+          readOnly: true
+        issued_at:
+          type: string
+          format: date-time
+          readOnly: true
+        period_start:
+          type: string
+          format: date-time
+          readOnly: true
+        period_end:
+          type: string
+          format: date-time
+          readOnly: true
+        subtotal_paise:
+          type: integer
+          readOnly: true
+        cgst_paise:
+          type: integer
+          readOnly: true
+        sgst_paise:
+          type: integer
+          readOnly: true
+        igst_paise:
+          type: integer
+          readOnly: true
+        total_paise:
+          type: integer
+          readOnly: true
+        download_url:
+          type: string
+          readOnly: true
+          nullable: true
+      required:
+      - cgst_paise
+      - download_url
+      - id
+      - igst_paise
+      - issued_at
+      - number
+      - period_end
+      - period_start
+      - sgst_paise
+      - status
+      - subtotal_paise
+      - total_paise
+    InvoiceStatusEnum:
+      enum:
+      - issued
+      - paid
+      - void
+      type: string
+      description: |-
+        * `issued` - issued
+        * `paid` - paid
+        * `void` - void
+    KeywordMatchEnum:
+      enum:
+      - exact
+      - contains
+      type: string
+      description: |-
+        * `exact` - exact
+        * `contains` - contains
+    LaunchCampaignRequest:
+      type: object
+      properties:
+        consent_attested:
+          type: boolean
+          description: Confirms every recipient agreed to receive these messages.
+            Must be true.
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Null or omitted sends now.
+      required:
+      - consent_attested
     Me:
       type: object
       properties:
@@ -2523,6 +4985,42 @@ components:
       - email_verified_at
       - id
       - memberships
+    MediaAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        mime_type:
+          type: string
+          readOnly: true
+        file_name:
+          type: string
+          readOnly: true
+        size:
+          type: integer
+          readOnly: true
+          description: Bytes.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - file_name
+      - id
+      - mime_type
+      - size
+    MediaUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Within Meta's size limit for the media type.
+      required:
+      - file
     MemberUser:
       type: object
       properties:
@@ -2576,6 +5074,200 @@ components:
       - created_at
       - id
       - user
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        conversation_id:
+          type: string
+          format: uuid
+          readOnly: true
+        direction:
+          allOf:
+          - $ref: '#/components/schemas/MessageDirectionEnum'
+          readOnly: true
+        type:
+          allOf:
+          - $ref: '#/components/schemas/MessageTypeEnum'
+          readOnly: true
+        text:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MessageStatusEnum'
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/MessageSourceEnum'
+          readOnly: true
+        error_code:
+          type: string
+          readOnly: true
+          description: '"" when there is no error.'
+        error_message:
+          type: string
+          readOnly: true
+        template:
+          allOf:
+          - $ref: '#/components/schemas/MessageTemplateRef'
+          readOnly: true
+          nullable: true
+        media:
+          allOf:
+          - $ref: '#/components/schemas/MessageMedia'
+          readOnly: true
+          nullable: true
+        reply_to_message_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        sent_by:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+          nullable: true
+        wamid:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        sent_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - conversation_id
+      - created_at
+      - delivered_at
+      - direction
+      - error_code
+      - error_message
+      - failed_at
+      - id
+      - media
+      - read_at
+      - reply_to_message_id
+      - sent_at
+      - sent_by
+      - source
+      - status
+      - template
+      - text
+      - type
+      - wamid
+    MessageDirectionEnum:
+      enum:
+      - inbound
+      - outbound
+      type: string
+      description: |-
+        * `inbound` - inbound
+        * `outbound` - outbound
+    MessageMedia:
+      type: object
+      properties:
+        mime_type:
+          type: string
+          readOnly: true
+        file_name:
+          type: string
+          readOnly: true
+        size:
+          type: integer
+          readOnly: true
+          description: Bytes.
+        download_url:
+          type: string
+          readOnly: true
+          nullable: true
+      required:
+      - download_url
+      - file_name
+      - mime_type
+      - size
+    MessagePreview:
+      type: object
+      properties:
+        direction:
+          allOf:
+          - $ref: '#/components/schemas/MessageDirectionEnum'
+          readOnly: true
+        type:
+          allOf:
+          - $ref: '#/components/schemas/MessageTypeEnum'
+          readOnly: true
+        text:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MessageStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - direction
+      - status
+      - text
+      - type
+    MessageSourceEnum:
+      enum:
+      - inbound
+      - inbox
+      - campaign
+      - automation
+      - api
+      type: string
+      description: |-
+        * `inbound` - inbound
+        * `inbox` - inbox
+        * `campaign` - campaign
+        * `automation` - automation
+        * `api` - api
+    MessageStatusEnum:
+      enum:
+      - queued
+      - sending
+      - sent
+      - delivered
+      - read
+      - failed
+      - received
+      type: string
+      description: |-
+        * `queued` - queued
+        * `sending` - sending
+        * `sent` - sent
+        * `delivered` - delivered
+        * `read` - read
+        * `failed` - failed
+        * `received` - received
     MessageTemplate:
       type: object
       properties:
@@ -2669,6 +5361,24 @@ components:
         * `MARKETING` - Marketing
         * `UTILITY` - Utility
         * `AUTHENTICATION` - Authentication
+    MessageTemplateRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        name:
+          type: string
+          readOnly: true
+        language:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - language
+      - name
     MessageTemplateRequest:
       type: object
       properties:
@@ -2724,6 +5434,36 @@ components:
         * `DELETED` - Deleted
         * `LIMIT_EXCEEDED` - Limit exceeded
         * `ARCHIVED` - Archived
+    MessageTypeEnum:
+      enum:
+      - text
+      - image
+      - video
+      - audio
+      - document
+      - sticker
+      - location
+      - contacts
+      - interactive
+      - button
+      - reaction
+      - template
+      - unsupported
+      type: string
+      description: |-
+        * `text` - text
+        * `image` - image
+        * `video` - video
+        * `audio` - audio
+        * `document` - document
+        * `sticker` - sticker
+        * `location` - location
+        * `contacts` - contacts
+        * `interactive` - interactive
+        * `button` - button
+        * `reaction` - reaction
+        * `template` - template
+        * `unsupported` - unsupported
     OptInRequestRequest:
       type: object
       properties:
@@ -2736,6 +5476,82 @@ components:
           description: How and when the customer agreed to receive marketing messages.
             Required.
           maxLength: 2000
+    PaginatedAutomationRuleList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationRule'
+    PaginatedAutomationRunList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationRun'
+    PaginatedCampaignList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Campaign'
+    PaginatedCampaignRecipientList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CampaignRecipient'
     PaginatedConsentEventList:
       type: object
       required:
@@ -2793,6 +5609,44 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Contact'
+    PaginatedConversationList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Conversation'
+    PaginatedConversationNoteList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationNote'
     PaginatedInvitationList:
       type: object
       required:
@@ -2812,6 +5666,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Invitation'
+    PaginatedInvoiceList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invoice'
     PaginatedMembershipList:
       type: object
       required:
@@ -2831,6 +5704,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Membership'
+    PaginatedMessageList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
     PaginatedMessageTemplateList:
       type: object
       required:
@@ -2940,6 +5832,124 @@ components:
       required:
       - current_password
       - new_password
+    PatchedAutomationRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        is_active:
+          type: boolean
+          default: true
+        trigger:
+          $ref: '#/components/schemas/AutomationTriggerEnum'
+        keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          description: Required for the keyword trigger. Matching ignores case.
+          maxItems: 50
+        keyword_match:
+          allOf:
+          - $ref: '#/components/schemas/KeywordMatchEnum'
+          default: exact
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null applies to every number.
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationActionRequest'
+        cooldown_minutes:
+          type: integer
+          minimum: 0
+          default: 0
+        priority:
+          type: integer
+          default: 0
+          description: Lower runs first.
+        stop_processing:
+          type: boolean
+          default: false
+          description: Skip lower-priority rules after this one runs.
+    PatchedBillingProfileRequest:
+      type: object
+      properties:
+        legal_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        gstin:
+          description: 15-character GSTIN, or "" if unregistered.
+          oneOf:
+          - type: string
+            pattern: ^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$
+          - type: string
+            maxLength: 0
+        email:
+          type: string
+          format: email
+          minLength: 1
+        address_line1:
+          type: string
+          minLength: 1
+          maxLength: 255
+        address_line2:
+          type: string
+          default: ''
+          maxLength: 255
+        city:
+          type: string
+          minLength: 1
+          maxLength: 120
+        state_code:
+          type: string
+          minLength: 1
+          description: 2-digit GST state code.
+          pattern: ^\d{2}$
+        postal_code:
+          type: string
+          minLength: 1
+          description: 6-digit PIN code.
+          pattern: ^\d{6}$
+    PatchedBusinessHoursRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/BusinessHoursSlotRequest'
+    PatchedCampaignWriteRequest:
+      type: object
+      description: Create (always a draft) or PATCH a draft/scheduled campaign.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        template_id:
+          type: string
+          format: uuid
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Workspace default number when omitted.
+        audience:
+          $ref: '#/components/schemas/CampaignAudienceRequest'
+        variable_mapping:
+          $ref: '#/components/schemas/VariableMappingRequest'
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
     PatchedContactRequest:
       type: object
       properties:
@@ -3143,6 +6153,60 @@ components:
         * `registered` - Registered
         * `failed` - Failed
         * `deregistered` - Deregistered
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: 'Plan slug: starter, growth or pro.'
+        name:
+          type: string
+          readOnly: true
+        monthly_price_paise:
+          type: integer
+          readOnly: true
+          description: Before GST.
+        annual_price_paise:
+          type: integer
+          readOnly: true
+          description: Before GST.
+        limits:
+          allOf:
+          - $ref: '#/components/schemas/PlanLimits'
+          readOnly: true
+          description: null means unlimited.
+        features:
+          type: array
+          items:
+            type: string
+          readOnly: true
+      required:
+      - annual_price_paise
+      - features
+      - id
+      - limits
+      - monthly_price_paise
+      - name
+    PlanLimits:
+      type: object
+      properties:
+        whatsapp_numbers:
+          type: integer
+          readOnly: true
+          nullable: true
+        members:
+          type: integer
+          readOnly: true
+          nullable: true
+        contacts:
+          type: integer
+          readOnly: true
+          nullable: true
+      required:
+      - contacts
+      - members
+      - whatsapp_numbers
     Preview:
       type: object
       properties:
@@ -3200,6 +6264,24 @@ components:
           type: array
           items:
             type: string
+    RecipientStatusEnum:
+      enum:
+      - pending
+      - skipped
+      - queued
+      - sent
+      - delivered
+      - read
+      - failed
+      type: string
+      description: |-
+        * `pending` - pending
+        * `skipped` - skipped
+        * `queued` - queued
+        * `sent` - sent
+        * `delivered` - delivered
+        * `read` - read
+        * `failed` - failed
     RegisterRequest:
       type: object
       properties:
@@ -3239,6 +6321,59 @@ components:
         * `admin` - Admin
         * `agent` - Agent
         * `viewer` - Viewer
+    SendMessageRequest:
+      type: object
+      description: Body of ``POST conversations/{id}/messages/``; required fields
+        depend on ``type``.
+      properties:
+        type:
+          $ref: '#/components/schemas/SendMessageTypeEnum'
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        preview_url:
+          type: boolean
+          default: false
+        template_id:
+          type: string
+          format: uuid
+        body_params:
+          type: array
+          items:
+            type: string
+        header_param:
+          type: string
+          minLength: 1
+        button_params:
+          type: object
+          additionalProperties:
+            type: string
+            minLength: 1
+          description: Button parameters keyed by button index ('0', '1', ...).
+        media_id:
+          type: string
+          format: uuid
+          description: Id from POST media/.
+        caption:
+          type: string
+          maxLength: 1024
+        reply_to_message_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - type
+    SendMessageTypeEnum:
+      enum:
+      - text
+      - template
+      - media
+      type: string
+      description: |-
+        * `text` - text
+        * `template` - template
+        * `media` - media
     SignupConfig:
       type: object
       properties:
@@ -3252,6 +6387,76 @@ components:
       - app_id
       - config_id
       - graph_api_version
+    StartConversationRequest:
+      type: object
+      properties:
+        contact_id:
+          type: string
+          format: uuid
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Business number to use; the workspace default number when omitted.
+      required:
+      - contact_id
+    Subscription:
+      type: object
+      properties:
+        plan:
+          allOf:
+          - $ref: '#/components/schemas/Plan'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SubscriptionStatusEnum'
+          readOnly: true
+        interval:
+          allOf:
+          - $ref: '#/components/schemas/BillingIntervalEnum'
+          readOnly: true
+        trial_ends_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        current_period_start:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        current_period_end:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancel_at_period_end:
+          type: boolean
+          readOnly: true
+      required:
+      - cancel_at_period_end
+      - current_period_end
+      - current_period_start
+      - interval
+      - plan
+      - status
+      - trial_ends_at
+    SubscriptionStatusEnum:
+      enum:
+      - trialing
+      - pending
+      - active
+      - halted
+      - cancelled
+      - expired
+      type: string
+      description: |-
+        * `trialing` - trialing
+        * `pending` - pending
+        * `active` - active
+        * `halted` - halted
+        * `cancelled` - cancelled
+        * `expired` - expired
     SyncQueued:
       type: object
       properties:
@@ -3387,6 +6592,35 @@ components:
           minLength: 1
       required:
       - refresh
+    Usage:
+      type: object
+      properties:
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageMetric'
+          readOnly: true
+      required:
+      - metrics
+    UsageMetric:
+      type: object
+      properties:
+        key:
+          type: string
+          readOnly: true
+          description: whatsapp_numbers, members or contacts.
+        used:
+          type: integer
+          readOnly: true
+        limit:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: null = unlimited.
+      required:
+      - key
+      - limit
+      - used
     User:
       type: object
       properties:
@@ -3416,6 +6650,103 @@ components:
       - email
       - email_verified_at
       - id
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        full_name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+      required:
+      - email
+      - full_name
+      - id
+    VariableMapping:
+      type: object
+      properties:
+        body:
+          type: array
+          items:
+            $ref: '#/components/schemas/VariableSource'
+        header:
+          allOf:
+          - $ref: '#/components/schemas/VariableSource'
+          nullable: true
+        buttons:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/VariableSource'
+          description: Button variables keyed by button index ('0', '1', ...).
+    VariableMappingRequest:
+      type: object
+      properties:
+        body:
+          type: array
+          items:
+            $ref: '#/components/schemas/VariableSourceRequest'
+        header:
+          allOf:
+          - $ref: '#/components/schemas/VariableSourceRequest'
+          nullable: true
+        buttons:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/VariableSourceRequest'
+          description: Button variables keyed by button index ('0', '1', ...).
+    VariableSource:
+      type: object
+      properties:
+        source:
+          $ref: '#/components/schemas/VariableSourceTypeEnum'
+        value:
+          type: string
+          description: Contact field (name, phone_e164, email), attribute key, or
+            static text.
+          maxLength: 1024
+        fallback:
+          type: string
+          default: ''
+          description: Used when the value is empty.
+          maxLength: 1024
+      required:
+      - source
+      - value
+    VariableSourceRequest:
+      type: object
+      properties:
+        source:
+          $ref: '#/components/schemas/VariableSourceTypeEnum'
+        value:
+          type: string
+          minLength: 1
+          description: Contact field (name, phone_e164, email), attribute key, or
+            static text.
+          maxLength: 1024
+        fallback:
+          type: string
+          default: ''
+          description: Used when the value is empty.
+          maxLength: 1024
+      required:
+      - source
+      - value
+    VariableSourceTypeEnum:
+      enum:
+      - contact_field
+      - attribute
+      - static
+      type: string
+      description: |-
+        * `contact_field` - contact_field
+        * `attribute` - attribute
+        * `static` - static
     WabaOnboardingStatusEnum:
       enum:
       - code_exchanged
@@ -3605,6 +6936,25 @@ components:
       - id
       - name
       - slug
+    WsTicket:
+      type: object
+      properties:
+        ticket:
+          type: string
+          readOnly: true
+          description: Single use.
+        expires_in:
+          type: integer
+          readOnly: true
+          description: Seconds.
+        path:
+          type: string
+          readOnly: true
+          description: Connect to <path>?ticket=<ticket>.
+      required:
+      - expires_in
+      - path
+      - ticket
   securitySchemes:
     jwtAuth:
       type: http
