@@ -8,6 +8,8 @@ import { renderDashboard, signIn } from '../../../test/render'
 import { createMockOrder, orderSummary, seededOrder } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/orders`
+// Lazy routes and refetches can be slow when the whole suite runs in parallel.
+const slow = { timeout: 10_000 }
 
 function orderLink(number: string) {
   return screen.queryByRole('link', { name: number })
@@ -23,15 +25,15 @@ describe('orders list', () => {
     signIn()
     renderDashboard(base)
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Orders' }, { timeout: 10_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Orders' }, slow)).toBeInTheDocument()
     const nav = screen.getByRole('navigation', { name: 'Workspace' })
     expect(within(nav).getByRole('link', { name: 'Orders' })).toHaveAttribute('href', base)
 
     const attention = seededOrder('needsAttention').order
-    expect(await screen.findByRole('link', { name: attention.number })).toHaveAttribute('href', `${base}/${attention.id}`)
+    expect(await screen.findByRole('link', { name: attention.number }, slow)).toHaveAttribute('href', `${base}/${attention.id}`)
 
     const summary = orderSummary(ids.sharmaSweets)
-    await waitFor(() => expect(summaryValue('Orders today')).toHaveTextContent(formatNumber(summary.today_count)))
+    await waitFor(() => expect(summaryValue('Orders today')).toHaveTextContent(formatNumber(summary.today_count)), slow)
     expect(summaryValue('Revenue today')).toHaveTextContent(formatPaise(summary.today_revenue_paise))
     expect(summaryValue('Open')).toHaveTextContent(formatNumber(summary.open_count))
     expect(summaryValue('Needs attention')).toHaveTextContent(formatNumber(summary.needs_attention_count))
@@ -45,13 +47,16 @@ describe('orders list', () => {
     const attention = seededOrder('needsAttention').order
     const confirmedCod = seededOrder('confirmedCod').order
 
-    expect(await screen.findByRole('link', { name: confirmedCod.number }, { timeout: 10_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: confirmedCod.number }, slow)).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: /^Needs attention/ }))
     await waitFor(() => expect(router.state.location.search).toBe('?tab=attention'))
     expect(screen.getByRole('tab', { name: /^Needs attention/ })).toHaveAttribute('aria-selected', 'true')
-    await waitFor(() => expect(orderLink(confirmedCod.number)).not.toBeInTheDocument())
-    expect(orderLink(attention.number)).toBeInTheDocument()
+    // Checked together so a table that is still loading can't pass.
+    await waitFor(() => {
+      expect(orderLink(attention.number)).toBeInTheDocument()
+      expect(orderLink(confirmedCod.number)).not.toBeInTheDocument()
+    }, slow)
 
     await user.click(screen.getByRole('tab', { name: 'Open' }))
     await user.selectOptions(screen.getByLabelText('Payment method'), 'cod')
@@ -60,16 +65,22 @@ describe('orders list', () => {
       const params = new URLSearchParams(router.state.location.search)
       expect(Object.fromEntries(params)).toEqual({ tab: 'open', method: 'cod', payment: 'cod_pending' })
     })
-    expect(await screen.findByRole('link', { name: confirmedCod.number })).toBeInTheDocument()
-    await waitFor(() => expect(orderLink(attention.number)).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(orderLink(confirmedCod.number)).toBeInTheDocument()
+      expect(orderLink(attention.number)).not.toBeInTheDocument()
+    }, slow)
 
     await user.type(screen.getByLabelText('Search'), 'SS-0000')
-    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('q')).toBe('SS-0000'))
-    expect(await screen.findByRole('heading', { name: 'No orders match these filters' })).toBeInTheDocument()
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('q')).toBe('SS-0000'), slow)
+    expect(await screen.findByRole('heading', { name: 'No orders match these filters' }, slow)).toBeInTheDocument()
 
-    await user.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
+    // The empty state's button (the last one) must clear the search box too, or the debounce would restore it.
+    const clearButtons = screen.getAllByRole('button', { name: 'Clear filters' })
+    await user.click(clearButtons[clearButtons.length - 1])
     await waitFor(() => expect(router.state.location.search).toBe('?tab=open'))
-    expect(await screen.findByRole('link', { name: attention.number })).toBeInTheDocument()
+    expect(screen.getByLabelText('Search')).toHaveValue('')
+    expect(await screen.findByRole('link', { name: attention.number }, slow)).toBeInTheDocument()
+    expect(new URLSearchParams(router.state.location.search).get('q')).toBeNull()
   })
 
   it('reads filters from the URL on load', async () => {
@@ -77,7 +88,7 @@ describe('orders list', () => {
     renderDashboard(`${base}?tab=closed&method=cod`)
     const deliveredCod = seededOrder('deliveredCod').order
 
-    expect(await screen.findByRole('link', { name: deliveredCod.number }, { timeout: 10_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: deliveredCod.number }, slow)).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Closed' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByLabelText('Payment method')).toHaveValue('cod')
     expect(orderLink(seededOrder('shippedCod').order.number)).not.toBeInTheDocument()
@@ -87,7 +98,7 @@ describe('orders list', () => {
   it('toasts new orders from realtime and refreshes the list', async () => {
     signIn()
     renderDashboard(base)
-    expect(await screen.findByRole('link', { name: seededOrder('needsAttention').order.number }, { timeout: 10_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: seededOrder('needsAttention').order.number }, slow)).toBeInTheDocument()
 
     const record = createMockOrder(ids.sharmaSweets)
     act(() => {
@@ -99,7 +110,7 @@ describe('orders list', () => {
       })
     })
 
-    expect(await screen.findByText(`New order ${record.order.number}`)).toBeInTheDocument()
-    expect(await screen.findByRole('link', { name: record.order.number })).toHaveAttribute('href', `${base}/${record.order.id}`)
+    expect(await screen.findByText(`New order ${record.order.number}`, {}, slow)).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: record.order.number }, slow)).toHaveAttribute('href', `${base}/${record.order.id}`)
   })
 })

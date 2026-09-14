@@ -13,6 +13,13 @@ const SEARCH_DEBOUNCE_MS = 300
 
 export function OrderFiltersBar({ filters, setFilters }: OrderFiltersBarProps) {
   const [search, setSearch] = useState(filters.q)
+  // Follow search changes made elsewhere (the empty state's "Clear filters", back and forward),
+  // otherwise the debounce below would put the old text back into the URL.
+  const [syncedQ, setSyncedQ] = useState(filters.q)
+  if (filters.q !== syncedQ) {
+    setSyncedQ(filters.q)
+    setSearch(filters.q)
+  }
 
   useEffect(() => {
     if (search === filters.q) return
