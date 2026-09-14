@@ -1,7 +1,9 @@
-"""Payments API and the per-seller Razorpay webhook (docs/contracts/wave-3-commerce.md).
+"""Payments API, the buyer return page and the optional per-seller gateway webhook
+(docs/contracts/wave-3-commerce.md).
 
 The account view and the link list are implemented. Account changes, verification, webhook
-rotation and webhook processing are contract stubs answering 501 ``not_implemented``.
+rotation, the return page and webhook processing are contract stubs answering 501
+``not_implemented``.
 """
 
 import logging
@@ -9,7 +11,7 @@ import uuid
 
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers
@@ -28,7 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 class PaymentAccountViewSet(WorkspaceScopedGenericViewSet):
-    """The workspace's own Razorpay account. Secrets are never returned."""
+    """The workspace's own payment gateway account (Razorpay or Cashfree). Secrets are never
+    returned."""
 
     queryset = PaymentAccount.objects.all()
     serializer_class = PaymentAccountSerializer
@@ -46,7 +49,10 @@ class PaymentAccountViewSet(WorkspaceScopedGenericViewSet):
         operation_id="payments_account_partial_update",
         request=PaymentAccountSerializer,
         responses=PaymentAccountSerializer,
-        description="Changing a key resets status to unverified.",
+        description=(
+            "Changing the provider clears keys and secrets; changing a key, secret or mode "
+            "resets status to unverified."
+        ),
     )
     def partial_update(self, request):
         raise EndpointNotImplemented()
@@ -68,7 +74,7 @@ class PaymentAccountViewSet(WorkspaceScopedGenericViewSet):
         operation_id="payments_account_rotate_webhook_create",
         request=None,
         responses=PaymentAccountSerializer,
-        description="Issue a new webhook URL; update it in Razorpay afterwards.",
+        description="Issue a new optional webhook URL; update it in the gateway afterwards.",
     )
     def rotate_webhook(self, request):
         raise EndpointNotImplemented()
@@ -115,11 +121,24 @@ def _error(code: str, message: str, status: int) -> JsonResponse:
 @csrf_exempt
 @require_POST
 def merchant_webhook(request: HttpRequest, token: str) -> JsonResponse:
-    """``POST /webhooks/razorpay/merchants/<token>/`` (public, not in the OpenAPI schema).
+    """``POST /webhooks/payments/merchants/<token>/`` (public, optional, not in the schema).
 
     404 for an unknown token. Signature checks and event handling are not built yet.
     """
     if not PaymentAccount.objects.filter(webhook_token=token).exists():
         return _error("not_found", "Not found.", 404)
-    logger.info("Merchant Razorpay webhook received before webhook handling is implemented")
+    logger.info("Merchant gateway webhook received before webhook handling is implemented")
+    return _error("not_implemented", str(EndpointNotImplemented.default_detail), 501)
+
+
+@require_GET
+def payment_return(request: HttpRequest, payment_link_id: uuid.UUID) -> JsonResponse:
+    """``GET /pay/return/<payment_link_id>/`` (public, browser-facing, not in the schema).
+
+    The gateway sends the buyer here after paying. The implementation re-fetches the link from
+    the gateway (never trusting query parameters) and renders a short page. 404 for an unknown
+    link; otherwise not built yet.
+    """
+    if not PaymentLink.objects.filter(pk=payment_link_id).exists():
+        return _error("not_found", "Not found.", 404)
     return _error("not_implemented", str(EndpointNotImplemented.default_detail), 501)

@@ -1,7 +1,10 @@
-"""Payments: each seller's own Razorpay account and the payment links created on it.
+"""Payments: each seller's own payment gateway account (Razorpay or Cashfree) and the payment
+links created on it.
 
 Secrets (``key_secret``, ``webhook_secret``) are encrypted at rest and never serialized or
-logged. Webhooks reach ``/webhooks/razorpay/merchants/<webhook_token>/``.
+logged. Payments are confirmed without any seller webhook setup: the buyer's return to
+``/pay/return/<payment_link_id>/`` and ``payments.poll_open_links`` both re-fetch the link from
+the gateway. An optional webhook reaches ``/webhooks/payments/merchants/<webhook_token>/``.
 """
 
 import secrets
@@ -12,14 +15,17 @@ from common.fields import EncryptedTextField
 from common.models import TenantScopedModel, UUIDTimeStampedModel
 
 CURRENCY = "INR"
-WEBHOOK_EVENTS = (
-    "payment_link.paid",
-    "payment_link.partially_paid",
-    "payment_link.expired",
-    "payment_link.cancelled",
-)
-TEST_KEY_PREFIX = "rzp_test_"
-LIVE_KEY_PREFIX = "rzp_live_"
+WEBHOOK_EVENTS = {
+    "razorpay": (
+        "payment_link.paid",
+        "payment_link.partially_paid",
+        "payment_link.expired",
+        "payment_link.cancelled",
+    ),
+    "cashfree": ("PAYMENT_LINK_EVENT",),
+}
+RAZORPAY_TEST_KEY_PREFIX = "rzp_test_"
+RAZORPAY_LIVE_KEY_PREFIX = "rzp_live_"
 
 
 def new_webhook_token() -> str:
@@ -29,6 +35,11 @@ def new_webhook_token() -> str:
 class PaymentAccount(UUIDTimeStampedModel):
     class Provider(models.TextChoices):
         RAZORPAY = "razorpay", "Razorpay"
+        CASHFREE = "cashfree", "Cashfree"
+
+    class Mode(models.TextChoices):
+        TEST = "test", "Test"
+        LIVE = "live", "Live"
 
     class Status(models.TextChoices):
         NOT_CONFIGURED = "not_configured", "Not configured"
@@ -40,8 +51,11 @@ class PaymentAccount(UUIDTimeStampedModel):
         "tenants.Workspace", on_delete=models.CASCADE, related_name="payment_account"
     )
     provider = models.CharField(max_length=16, choices=Provider.choices, default=Provider.RAZORPAY)
-    key_id = models.CharField(max_length=64, blank=True)
+    mode = models.CharField(max_length=8, choices=Mode.choices, blank=True)
+    # Razorpay key id or Cashfree App ID (client id).
+    key_id = models.CharField(max_length=100, blank=True)
     key_secret = EncryptedTextField(blank=True)
+    # Razorpay only; Cashfree signs webhooks with the secret key.
     webhook_secret = EncryptedTextField(blank=True)
     webhook_token = models.CharField(max_length=64, unique=True, default=new_webhook_token)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.NOT_CONFIGURED)
@@ -53,14 +67,6 @@ class PaymentAccount(UUIDTimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.provider} account for {self.workspace_id} ({self.status})"
-
-    @property
-    def mode(self) -> str | None:
-        if self.key_id.startswith(TEST_KEY_PREFIX):
-            return "test"
-        if self.key_id.startswith(LIVE_KEY_PREFIX):
-            return "live"
-        return None
 
     @property
     def has_key_secret(self) -> bool:
@@ -93,7 +99,7 @@ class PaymentLink(TenantScopedModel):
         choices=PaymentAccount.Provider.choices,
         default=PaymentAccount.Provider.RAZORPAY,
     )
-    provider_link_id = models.CharField(max_length=64, blank=True)
+    provider_link_id = models.CharField(max_length=100, blank=True)
     reference_id = models.CharField(max_length=40)
     short_url = models.URLField(max_length=255, blank=True)
     amount_paise = models.PositiveIntegerField()
@@ -102,7 +108,10 @@ class PaymentLink(TenantScopedModel):
     expires_at = models.DateTimeField(null=True, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
-    provider_payment_id = models.CharField(max_length=64, blank=True)
+    provider_payment_id = models.CharField(max_length=100, blank=True)
+    # Status polling (payments.poll_open_links), so no seller webhook is required.
+    next_poll_at = models.DateTimeField(null=True, blank=True)
+    poll_count = models.PositiveIntegerField(default=0)
     last_error = models.TextField(blank=True)
     raw = models.JSONField(default=dict, blank=True)
 
@@ -116,6 +125,7 @@ class PaymentLink(TenantScopedModel):
             models.Index(fields=["workspace", "status"], name="payments_link_ws_status_idx"),
             models.Index(fields=["order", "created_at"], name="payments_link_order_idx"),
             models.Index(fields=["provider_link_id"], name="payments_link_provider_idx"),
+            models.Index(fields=["status", "next_poll_at"], name="payments_link_poll_idx"),
         ]
 
     def __str__(self) -> str:
@@ -123,7 +133,7 @@ class PaymentLink(TenantScopedModel):
 
 
 class PaymentWebhookEvent(TenantScopedModel):
-    """A verified merchant webhook delivery, recorded once per Razorpay event id."""
+    """A verified optional merchant webhook delivery, recorded once per gateway event id."""
 
     event_id = models.CharField(max_length=100)
     event_type = models.CharField(max_length=64, blank=True)

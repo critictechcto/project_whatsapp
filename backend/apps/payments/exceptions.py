@@ -15,9 +15,29 @@ class EndpointNotImplemented(exceptions.APIException):
 
 class PaymentAccountMissing(Conflict):
     default_code = "payment_account_missing"
-    default_detail = "Add your Razorpay API keys to accept online payments."
+    default_detail = "Connect your payment gateway to accept online payments."
 
 
 class PaymentAccountInvalid(Conflict):
     default_code = "payment_account_invalid"
-    default_detail = "Razorpay rejected these API keys. Check the key id and secret."
+    default_detail = "Your payment gateway rejected these API keys. Check the key id and secret."
+
+
+class PaymentProviderError(Exception):
+    """A gateway call failed. ``retryable`` is true for timeouts, rate limits and 5xx responses.
+
+    The message never contains credentials.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider: str,
+        status_code: int | None = None,
+        retryable: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.provider = provider
+        self.status_code = status_code
+        self.retryable = retryable

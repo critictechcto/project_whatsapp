@@ -9,7 +9,7 @@ A seller's buyers browse, order, pay and track orders inside WhatsApp on the sel
 - **Bot mode** (every seller): menus, collection lists and product cards made of interactive messages. The cart is kept on the server.
 - **Native catalog mode**: the seller connects a Meta catalog that we sync from our products. Buyers use WhatsApp's own cart, which arrives as an `order` message.
 
-Checkout: re-price from the database → confirm when the price changed → address (`address_message`, or text as a fallback) → payment choice. Buyers pay online through a Razorpay Payment Link on the **seller's own** Razorpay account, or choose cash on delivery (COD). The seller moves orders forward by hand (packed, shipped with courier and AWB, delivered); each change notifies the buyer.
+Checkout: re-price from the database → confirm when the price changed → address (`address_message`, or text as a fallback) → payment choice. Buyers pay online through a payment link created on the **seller's own** payment gateway account (Razorpay or Cashfree: the seller pastes API keys and sets up nothing else), or choose cash on delivery (COD). UpChatz never holds buyer money. The seller moves orders forward by hand (packed, shipped with courier and AWB, delivered); each change notifies the buyer.
 
 Sellers get alerts on their personal WhatsApp from the **UpChatz alerts number** (`PLATFORM_WA_*`) and can act from there: *Mark packed*, *Mark shipped* (then send the courier and AWB), *Cancel*, and the commands `ORDERS` and `HELP`.
 
@@ -22,7 +22,7 @@ Money is integer **paise**, prices include GST, and the currency is `INR`.
 | `apps.catalog` | `Product`, `Collection`, `MetaCatalog`, image upload, CSV import, Meta catalog sync, commerce settings |
 | `apps.shop` | Buyer bot: `BotSession` (per conversation: state, cart lines, paging, expiry), menus, native `order` intake, "My orders" entry |
 | `apps.orders` | `Order`, `OrderItem`, `OrderEvent`, `ShopperAddress`, `OrderCounter`, `StoreSettings`; checkout, transitions, buyer notifications, expiry, merchant and store API |
-| `apps.payments` | `PaymentAccount` (per workspace, encrypted secrets), `PaymentLink` (outbox), provider interface + Razorpay, per-seller webhook |
+| `apps.payments` | `PaymentAccount` (per workspace, encrypted secrets), `PaymentLink` (outbox), provider interface with Razorpay and Cashfree, payment confirmation (buyer return + polling, optional per-seller webhook) |
 | `apps.seller_alerts` | `AlertRecipient`, the platform number client, platform templates, alerts, seller commands |
 
 All five are registered in `LOCAL_APPS` and mounted in `config/urls.py` (lead). `apps.shop` has no REST API.
@@ -43,7 +43,7 @@ All five are registered in `LOCAL_APPS` and mounted in `config/urls.py` (lead). 
 | `OrderSourceEnum` | `bot`, `native_cart` |
 | `OrderEventTypeEnum` | `created`, `status_changed`, `price_changed`, `address_received`, `payment_link_created`, `payment_received`, `payment_link_expired`, `cod_collected`, `refunded_manual`, `stock_released`, `notification_sent`, `notification_failed`, `note` |
 | `OrderEventActorEnum` | `buyer`, `dashboard`, `seller_whatsapp`, `system` |
-| `PaymentProviderEnum` | `razorpay` |
+| `PaymentProviderEnum` | `razorpay`, `cashfree` |
 | `PaymentModeEnum` | `test`, `live` |
 | `PaymentAccountStatusEnum` | `not_configured`, `unverified`, `verified`, `invalid` |
 | `PaymentLinkStatusEnum` | `creating`, `created`, `paid`, `expired`, `cancelled`, `failed` |
@@ -60,8 +60,8 @@ Stage filter: `checkout` covers `draft` through `pending_payment`; `open` covers
 | `commerce_not_enabled` | The store is disabled (`StoreSettings.enabled` false), or the plan lacks the `commerce` feature |
 | `catalog_not_connected` | A native-catalog action runs without a connected `MetaCatalog`, or `shop_mode=native_catalog` is chosen without one |
 | `catalog_permissions_missing` | The seller's token lacks `catalog_management`/`business_management`; `details.reconnect_url` is null and the UI tells the seller to reconnect WhatsApp |
-| `payment_account_missing` | Online payment or verification is attempted without Razorpay keys |
-| `payment_account_invalid` | Razorpay rejected the keys (on verify) |
+| `payment_account_missing` | Online payment or verification is attempted without gateway keys |
+| `payment_account_invalid` | The gateway rejected the keys (on verify) |
 | `invalid_order_transition` | `details: {from_status, to_status, allowed: [..]}` |
 | `out_of_stock` | `details: {items: [{sku, name, requested, available}]}` |
 | `alert_number_unverified` | The action needs a verified alert recipient |
@@ -170,7 +170,7 @@ Sync rules:
 | POST `{id}/transition/` | agent | `OrderTransitionRequest` → `Order` |
 | POST `{id}/cancel/` | agent | `CancelOrderRequest` → `Order`; also cancels an open payment link |
 | POST `{id}/mark-cod-collected/` | agent | only COD at `shipped`/`delivered` → `Order` |
-| POST `{id}/mark-refunded/` | admin | only `paid` orders that are `cancelled`/`needs_attention` → `Order` (`refunded_manual`; the refund happens in Razorpay) |
+| POST `{id}/mark-refunded/` | admin | only `paid` orders that are `cancelled`/`needs_attention` → `Order` (`refunded_manual`; the refund happens in the seller's payment gateway) |
 | GET `summary/` | viewer | `OrderSummary` |
 
 **Transitions** (anything else is 409 `invalid_order_transition`):
@@ -216,6 +216,8 @@ Cancelling or expiring releases reserved stock (`restock`). Every change writes 
 
 UI gate: the Store area (nav and routes) is admin-only because it's for editing. Any member may read `settings/` and `checklist/`, and the home screen's store checklist card uses that read access for viewers.
 
+WhatsApp message charges: under Meta's current pricing, Meta bills the seller's own WhatsApp Business Account. UpChatz is a Tech Provider and doesn't resell message credits in wave 3. Most shop messages are replies inside the buyer's 24-hour window; the paid ones are mainly templates outside it. The Store setup screen shows a note linking to WhatsApp Manager to add a payment method. It isn't a checklist item because the API can't confirm it.
+
 ### Endpoints
 | Method + path | Role | Notes |
 |---|---|---|
@@ -233,29 +235,60 @@ UI gate: the Store area (nav and routes) is admin-only because it's for editing.
 
 Buyer notifications use an interactive or text message while the service window is open, and the mapped template otherwise. If no template is mapped outside the window, the `OrderEvent` is `notification_failed`.
 
-## Payments: `/api/v1/payments/` and `/webhooks/razorpay/merchants/{token}/`
+## Payments: `/api/v1/payments/`, `/pay/return/{payment_link_id}/` and `/webhooks/payments/merchants/{token}/`
+
+Sellers connect a gateway account they already have. Setup is: choose the provider (and the mode for Cashfree), paste the key id and secret, verify. **No webhook setup is required.** A payment is confirmed when the buyer's browser returns to UpChatz after paying, or by polling the gateway, whichever comes first. A webhook is optional and only makes confirmation faster.
+
+### Providers (`apps/payments/providers/`, owned by payments)
+```python
+class PaymentProvider(Protocol):            # one implementation per gateway, plus a Fake for tests
+    def verify_credentials(self) -> None: ...                       # PaymentAccountInvalid on 401/403
+    def create_link(self, request: LinkRequest) -> LinkState: ...    # idempotent on reference_id
+    def fetch_link(self, provider_link_id: str) -> LinkState: ...
+    def cancel_link(self, provider_link_id: str) -> LinkState: ...   # never cancels a paid link
+    def parse_webhook(self, headers: Mapping[str, str], body: bytes) -> list[WebhookLinkUpdate]: ...
+        # verifies the signature first; raises InvalidWebhookSignature
+LinkRequest(reference_id, amount_paise, currency, description, customer_name, customer_phone_e164,
+            expire_by, return_url, notes)
+LinkState(provider_link_id, short_url, status, amount_paid_paise, provider_payment_id, paid_at, raw)
+WebhookLinkUpdate(event_id, event_type, provider_link_id, state: LinkState | None)
+get_provider(account: PaymentAccount, *, transport=None) -> PaymentProvider
+```
+Errors are `PaymentProviderError(message, provider, status_code, retryable)` in `apps.payments.exceptions`. Our code uses integer paise everywhere; rupee conversion happens only inside a provider.
+
+- **Razorpay:** `common.razorpay.RazorpayTransport` with the seller's key id and secret. Payment Links API: `reference_id` ≤ 40, `expire_by` ≥ 15 minutes ahead, `callback_url` = the return URL with `callback_method=get`, SMS and email notifications off, `notes`. Mode comes from the `rzp_test_`/`rzp_live_` key prefix and must match. Optional webhook: HMAC-SHA256 of the raw body with the account's `webhook_secret` (`X-Razorpay-Signature`), deduped on `x-razorpay-event-id`.
+- **Cashfree:** PG API, sandbox for `test` and production for `live`, with `x-client-id`, `x-client-secret` and a pinned `x-api-version`. Payment Links API: `link_id` = `reference_id`, amount in rupees with 2 decimals, link expiry time, `link_meta.return_url`, Cashfree's own notifications off. The optional webhook is signed with the secret key (no separate webhook secret) and deduped on its event id, or a hash of the body when there is none.
+- The payments agent checks exact field names, status values, signature formats and the verify call against the official Razorpay and Cashfree docs, and reports any deviation.
 
 ### Components
-- `PaymentAccount`: `provider`, `mode` (null until `key_id` is set, from the `rzp_test_`/`rzp_live_` prefix), `key_id` (""), `has_key_secret`, `has_webhook_secret`, `status`, `verified_at`, `last_error`, `webhook_url` (read-only absolute URL built from `PUBLIC_API_BASE_URL`), `webhook_events: str[]` (read-only: `payment_link.paid`, `payment_link.partially_paid`, `payment_link.expired`, `payment_link.cancelled`), `updated_at`.
-- `PaymentAccountRequest` (PATCH): `key_id?`, `key_secret?` (write-only), `webhook_secret?` (write-only). Changing a key resets `status` to `unverified`.
+- `PaymentAccount`: `provider` (default `razorpay`), `mode` (null until set), `key_id` (""; Razorpay key id or Cashfree App ID), `has_key_secret`, `has_webhook_secret`, `status`, `verified_at`, `last_error`, `webhook_url` (optional; read-only absolute URL built from `PUBLIC_API_BASE_URL`, "" until saved), `webhook_events: str[]` (read-only, for the chosen provider), `updated_at`.
+- `PaymentAccountRequest` (PATCH, generated as `PatchedPaymentAccountRequest`): `provider?`, `mode?`, `key_id?`, `key_secret?` (write-only), `webhook_secret?` (write-only, Razorpay only).
+  - Changing `provider` clears keys and secrets. Changing a key, secret or mode resets `status` to `unverified`.
+  - Razorpay: `key_id` must match `^rzp_(test|live)_[A-Za-z0-9]+$` and sets `mode` (400 on `mode` when a given mode disagrees).
+  - Cashfree: `mode` is required before verify (400 on `mode`).
 - `PaymentLink`: `id`, `order_id`, `provider`, `provider_link_id` (""), `reference_id`, `short_url` (""), `amount_paise`, `status`, `expires_at`, `paid_at`, `created_at`.
 
 ### Endpoints
 | Method + path | Role | Notes |
 |---|---|---|
 | GET / PATCH / DELETE `account/` | admin / admin / owner | secrets are never returned |
-| POST `account/verify/` | admin | checks keys with `GET /v1/payment_links?count=1` → `PaymentAccount` (409 `payment_account_missing` / `payment_account_invalid`) |
-| POST `account/rotate-webhook/` | admin | new webhook token → `PaymentAccount` (the seller must update the URL in Razorpay) |
+| POST `account/verify/` | admin | one authenticated read call on the gateway → `PaymentAccount` (409 `payment_account_missing` / `payment_account_invalid`) |
+| POST `account/rotate-webhook/` | admin | new webhook token → `PaymentAccount` (only matters if the seller set up the optional webhook) |
 | GET `links/` | viewer | filter `order`, `status` |
-| POST `/webhooks/razorpay/merchants/{token}/` | public | 404 for an unknown token. HMAC of the raw body with that account's webhook secret (400 when invalid). Idempotent per workspace on `x-razorpay-event-id`. Always 200 after a valid signature. |
+| GET `/pay/return/{payment_link_id}/` | public | Where the gateway sends the buyer after paying. It never trusts query parameters: it refreshes the link from the gateway, then renders a small HTML page ("Payment received for order SS-1001, you can go back to WhatsApp" or "We're confirming your payment") with a `wa.me` button for the store number. 404 for an unknown link; throttled per IP. Not in the OpenAPI schema. |
+| POST `/webhooks/payments/merchants/{token}/` | public | Optional. 404 for an unknown token; the provider verifies the signature (400 when invalid); idempotent per workspace on the event id (`PaymentWebhookEvent`); always 200 after a valid signature. Not in the OpenAPI schema. |
+
+**Confirmation.** The return page, polling and the webhook all end in the same `LinkState` handling:
+- `payments.poll_open_links` (beat every minute) refreshes `created` links whose `next_poll_at` has passed. Polls run 2, 4, 6, 10, 15, 20, 25 and 30 minutes after creation, then once more at `expires_at` + 2 minutes. After that an unpaid link is `expired`.
+- A link becomes `paid` only when the fetched state is paid and the amount and currency match. `PaymentLinkPaid` is emitted exactly once (row lock on the link). Partial payments are logged and never confirm an order.
+- Expiry or cancellation on the gateway side emits `PaymentLinkExpired` / `PaymentLinkCancelled`.
 
 **Link rules:**
-- `reference_id` = `<order number>-<attempt>` (≤ 40 characters, unique).
+- `reference_id` = `<order number>-<attempt>` (≤ 40 characters, unique per workspace).
 - `expire_by` = now + `PAYMENT_LINK_EXPIRY_MINUTES`.
 - `notes` = `{workspace_id, order_id}`.
-- `customer` = contact name and phone; Razorpay's own SMS/email is off.
-- A paid event is honoured only when link id, amount and currency match.
-- `partially_paid` is logged and never confirms an order.
+- `customer` = contact name and phone; the gateway's own SMS and email are off.
+- The return URL is `services.return_url(payment_link)`.
 
 ## Seller alerts: `/api/v1/seller-alerts/`
 
@@ -371,13 +404,16 @@ There is one active checkout per (contact, phone number), enforced by a partial 
 ### Payments services (`apps/payments/services.py`)
 ```python
 get_account(workspace) -> PaymentAccount | None
-online_payments_ready(workspace) -> bool
+online_payments_ready(workspace) -> bool          # verified account with key id, secret and mode (no webhook needed)
 create_payment_link(*, workspace, order_id, reference_id, amount_paise, description, customer_name,
                     customer_phone_e164, expire_by) -> PaymentLink    # idempotent on reference_id;
-# raises PaymentAccountMissing / PaymentAccountInvalid (409) or common.razorpay.RazorpayError (retryable)
+# raises PaymentAccountMissing / PaymentAccountInvalid (409) or PaymentProviderError (check .retryable)
 cancel_payment_link(payment_link) -> PaymentLink                    # idempotent; never cancels a paid link
+refresh_payment_link(payment_link) -> PaymentLink                   # fetch from the gateway and apply; idempotent
+return_url(payment_link) -> str
+webhook_url(account) -> str
 ```
-Shared transport: `common/razorpay.py` (`RazorpayTransport`, `RazorpayError`, `checked_id`, `webhook_signature_is_valid`). `apps.billing.razorpay` keeps its public names and reuses these.
+Shared Razorpay transport: `common/razorpay.py` (`RazorpayTransport`, `RazorpayError`, `checked_id`, `webhook_signature_is_valid`); the Razorpay provider wraps `RazorpayError` in `PaymentProviderError`. `apps.billing.razorpay` keeps its public names and reuses these. The Cashfree transport lives in `apps/payments/providers/cashfree.py`.
 
 ### Shop (`apps/shop`)
 - The receiver on `MessageRecorded` (inbound) handles `shop` replies, menu keywords, typed quantities while awaiting one, and `order` messages (native cart → `price_items` with `CartLine(sku=product_retailer_id)` → `start_checkout(source="native_cart", source_wamid=wamid, quoted_total_paise=…)`).
@@ -386,6 +422,8 @@ Shared transport: `common/razorpay.py` (`RazorpayTransport`, `RazorpayError`, `c
 
 ### Seller alerts (`apps/seller_alerts`)
 The platform client is `get_client(settings.PLATFORM_WA_ACCESS_TOKEN)` sending from `PLATFORM_WA_PHONE_NUMBER_ID`. Its outbound log (`AlertMessage`) is platform-level and never appears in a workspace inbox. It reacts to `OrderStatusChanged` (new_status `confirmed` with old in the checkout stage → `new_order`; `needs_attention`; `cancelled` by the buyer or system) and to `PlatformInboundMessage`.
+
+Message cost: the alerts number belongs to UpChatz, so UpChatz pays for templates sent from it. `AlertRecipient` records when that phone last messaged the platform number. While that 24-hour window is open, alerts go out as free-form interactive messages (the same text, buttons and reply ids). The platform template is used only outside the window.
 
 ### Entitlements
 Feature `commerce` is added to `FEATURES` and enabled on every plan and the trial (data migration). There are no price or limit changes this wave.
@@ -409,6 +447,7 @@ Tasks and beat entries:
 | `orders.expire_checkouts` | beat every 5 min |
 | `orders.send_payment_link` | on demand |
 | `payments.create_link` | on demand |
+| `payments.poll_open_links` | beat every 1 min |
 | `seller_alerts.send_alert` | on demand |
 
 ## WebSocket frames (added)
@@ -423,14 +462,14 @@ Tasks and beat entries:
 - Everything allowed in wave 2.
 - `apps.catalog.services` and `apps.catalog.models` (read, FKs), used by shop and orders.
 - `apps.orders.services` and `apps.orders.models` (read, FKs), used by shop, seller_alerts and payments (FK only).
-- `apps.payments.services`, used by orders.
+- `apps.payments.services` and `apps.payments.exceptions`, used by orders.
 - `apps.inbox.interactive`.
 - `common.commerce` and `common.razorpay`.
 
 Everything else goes through `common/events.py` signals.
 
 ## Demo data
-`demo.py` in catalog, orders and payments seeds "Sharma Sweets": 3 collections, 12 products, orders in every status and a test-mode payment account without secrets.
+`demo.py` in catalog, orders and payments seeds "Sharma Sweets": 3 collections, 12 products, orders in every status and a test-mode Razorpay payment account without secrets.
 
 ## Out of scope for wave 3
-Pricing/plan changes, Shopify/WooCommerce sync, courier integrations, WhatsApp Pay (`order_details`), Flows, coexistence for sellers, automated refunds, buyer GST invoices, coupons, variants, abandoned-cart recovery, storefront website, AI, Razorpay OAuth, Cashfree.
+Pricing/plan changes, Shopify/WooCommerce sync, courier integrations, WhatsApp Pay (`order_details`), Flows, coexistence for sellers, automated refunds, buyer GST invoices, coupons, variants, abandoned-cart recovery, storefront website, AI, gateways other than Razorpay and Cashfree (the provider interface allows them later), gateway partner OAuth, UpChatz-collected payments (marketplace/Route), reselling WhatsApp message credits (a wallet needs Meta Solution Partner status or a multi-partner solution).

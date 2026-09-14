@@ -1,4 +1,4 @@
-"""Per-seller Razorpay webhooks: /webhooks/razorpay/merchants/<token>/."""
+"""Optional per-seller gateway webhooks: /webhooks/payments/merchants/<token>/."""
 
 from django.urls import path
 

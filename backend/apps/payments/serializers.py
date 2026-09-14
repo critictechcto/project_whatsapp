@@ -16,21 +16,39 @@ from .schema_enums import (
 
 
 class PaymentAccountSerializer(serializers.Serializer):
-    provider = serializers.ChoiceField(choices=PAYMENT_PROVIDERS, read_only=True)
+    provider = serializers.ChoiceField(
+        choices=PAYMENT_PROVIDERS,
+        required=False,
+        help_text="Changing the provider clears the saved keys and secrets.",
+    )
     mode = serializers.ChoiceField(
         choices=PAYMENT_MODES,
-        read_only=True,
+        required=False,
         allow_null=True,
-        help_text="From the rzp_test_/rzp_live_ key prefix; null until key_id is set.",
+        help_text=(
+            "Razorpay: set from the rzp_test_/rzp_live_ key prefix. Cashfree: required "
+            "(test = sandbox). Null until set."
+        ),
     )
-    key_id = serializers.RegexField(
-        r"^rzp_(test|live)_[A-Za-z0-9]{1,50}$", max_length=64, required=False, allow_blank=True
+    key_id = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        help_text="Razorpay key id or Cashfree App ID.",
     )
     key_secret = serializers.CharField(
-        max_length=128, write_only=True, required=False, style={"input_type": "password"}
+        max_length=128,
+        write_only=True,
+        required=False,
+        style={"input_type": "password"},
+        help_text="Razorpay key secret or Cashfree secret key.",
     )
     webhook_secret = serializers.CharField(
-        max_length=128, write_only=True, required=False, style={"input_type": "password"}
+        max_length=128,
+        write_only=True,
+        required=False,
+        style={"input_type": "password"},
+        help_text="Optional, Razorpay only.",
     )
     has_key_secret = serializers.BooleanField(read_only=True)
     has_webhook_secret = serializers.BooleanField(read_only=True)
@@ -38,7 +56,10 @@ class PaymentAccountSerializer(serializers.Serializer):
     verified_at = serializers.DateTimeField(read_only=True, allow_null=True)
     last_error = serializers.CharField(read_only=True)
     webhook_url = serializers.SerializerMethodField(
-        help_text='Enter this URL in Razorpay webhooks ("" until the account is saved).'
+        help_text=(
+            "Optional faster confirmation: enter this URL in the gateway's webhook settings "
+            '("" until the account is saved).'
+        )
     )
     webhook_events = serializers.SerializerMethodField()
     updated_at = serializers.DateTimeField(read_only=True, allow_null=True)
@@ -47,7 +68,12 @@ class PaymentAccountSerializer(serializers.Serializer):
         return services.webhook_url(account)
 
     def get_webhook_events(self, account) -> list[str]:
-        return list(WEBHOOK_EVENTS)
+        return list(WEBHOOK_EVENTS.get(account.provider, ()))
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["mode"] = data.get("mode") or None
+        return data
 
 
 class PaymentLinkSerializer(serializers.Serializer):

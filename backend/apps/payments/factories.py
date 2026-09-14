@@ -13,6 +13,8 @@ class PaymentAccountFactory(factory.django.DjangoModelFactory):
         model = PaymentAccount
 
     workspace = factory.SubFactory(WorkspaceFactory)
+    provider = PaymentAccount.Provider.RAZORPAY
+    mode = PaymentAccount.Mode.TEST
     key_id = factory.Sequence(lambda n: f"rzp_test_{n:014d}")
     key_secret = factory.Sequence(lambda n: f"test-key-secret-{n}")
     webhook_secret = factory.Sequence(lambda n: f"test-webhook-secret-{n}")

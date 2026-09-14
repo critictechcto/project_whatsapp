@@ -3332,7 +3332,9 @@ paths:
   /api/v1/payments/account/:
     get:
       operationId: payments_account_retrieve
-      description: The workspace's own Razorpay account. Secrets are never returned.
+      description: |-
+        The workspace's own payment gateway account (Razorpay or Cashfree). Secrets are never
+        returned.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3354,7 +3356,8 @@ paths:
           description: ''
     patch:
       operationId: payments_account_partial_update
-      description: Changing a key resets status to unverified.
+      description: Changing the provider clears keys and secrets; changing a key,
+        secret or mode resets status to unverified.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3387,7 +3390,9 @@ paths:
           description: ''
     delete:
       operationId: payments_account_destroy
-      description: The workspace's own Razorpay account. Secrets are never returned.
+      description: |-
+        The workspace's own payment gateway account (Razorpay or Cashfree). Secrets are never
+        returned.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3406,7 +3411,7 @@ paths:
   /api/v1/payments/account/rotate-webhook/:
     post:
       operationId: payments_account_rotate_webhook_create
-      description: Issue a new webhook URL; update it in Razorpay afterwards.
+      description: Issue a new optional webhook URL; update it in the gateway afterwards.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -8760,22 +8765,39 @@ components:
     PatchedPaymentAccountRequest:
       type: object
       properties:
-        key_id:
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/PaymentProviderEnum'
+          description: |-
+            Changing the provider clears the saved keys and secrets.
+
+            * `razorpay` - razorpay
+            * `cashfree` - cashfree
+        mode:
+          nullable: true
+          description: |-
+            Razorpay: set from the rzp_test_/rzp_live_ key prefix. Cashfree: required (test = sandbox). Null until set.
+
+            * `test` - test
+            * `live` - live
           oneOf:
-          - type: string
-            maxLength: 64
-            pattern: ^rzp_(test|live)_[A-Za-z0-9]{1,50}$
-          - type: string
-            maxLength: 0
+          - $ref: '#/components/schemas/PaymentModeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        key_id:
+          type: string
+          description: Razorpay key id or Cashfree App ID.
+          maxLength: 100
         key_secret:
           type: string
           writeOnly: true
           minLength: 1
+          description: Razorpay key secret or Cashfree secret key.
           maxLength: 128
         webhook_secret:
           type: string
           writeOnly: true
           minLength: 1
+          description: Optional, Razorpay only.
           maxLength: 128
     PatchedProductWriteRequest:
       type: object
@@ -8914,12 +8936,15 @@ components:
         provider:
           allOf:
           - $ref: '#/components/schemas/PaymentProviderEnum'
-          readOnly: true
+          description: |-
+            Changing the provider clears the saved keys and secrets.
+
+            * `razorpay` - razorpay
+            * `cashfree` - cashfree
         mode:
-          readOnly: true
           nullable: true
           description: |-
-            From the rzp_test_/rzp_live_ key prefix; null until key_id is set.
+            Razorpay: set from the rzp_test_/rzp_live_ key prefix. Cashfree: required (test = sandbox). Null until set.
 
             * `test` - test
             * `live` - live
@@ -8927,12 +8952,9 @@ components:
           - $ref: '#/components/schemas/PaymentModeEnum'
           - $ref: '#/components/schemas/NullEnum'
         key_id:
-          oneOf:
-          - type: string
-            maxLength: 64
-            pattern: ^rzp_(test|live)_[A-Za-z0-9]{1,50}$
-          - type: string
-            maxLength: 0
+          type: string
+          description: Razorpay key id or Cashfree App ID.
+          maxLength: 100
         has_key_secret:
           type: boolean
           readOnly: true
@@ -8954,8 +8976,8 @@ components:
         webhook_url:
           type: string
           readOnly: true
-          description: Enter this URL in Razorpay webhooks ("" until the account is
-            saved).
+          description: 'Optional faster confirmation: enter this URL in the gateway''s
+            webhook settings ("" until the account is saved).'
         webhook_events:
           type: array
           items:
@@ -8970,8 +8992,6 @@ components:
       - has_key_secret
       - has_webhook_secret
       - last_error
-      - mode
-      - provider
       - status
       - updated_at
       - verified_at
@@ -9081,8 +9101,11 @@ components:
     PaymentProviderEnum:
       enum:
       - razorpay
+      - cashfree
       type: string
-      description: '* `razorpay` - razorpay'
+      description: |-
+        * `razorpay` - razorpay
+        * `cashfree` - cashfree
     PaymentStatusEnum:
       enum:
       - unpaid

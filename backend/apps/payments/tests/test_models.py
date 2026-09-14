@@ -7,7 +7,12 @@ from apps.orders.factories import OrderFactory
 from apps.payments import services
 from apps.payments.factories import PaymentAccountFactory, PaymentLinkFactory
 from apps.payments.models import PaymentAccount, PaymentLink
-from apps.payments.schema_enums import PAYMENT_ACCOUNT_STATUSES, PAYMENT_LINK_STATUSES
+from apps.payments.schema_enums import (
+    PAYMENT_ACCOUNT_STATUSES,
+    PAYMENT_LINK_STATUSES,
+    PAYMENT_MODES,
+    PAYMENT_PROVIDERS,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -26,14 +31,6 @@ def test_webhook_tokens_are_unique_and_random(workspace, other_workspace):
 
     assert len(first.webhook_token) >= 40
     assert first.webhook_token != second.webhook_token
-
-
-@pytest.mark.parametrize(
-    ("key_id", "mode"),
-    [("rzp_test_abc", "test"), ("rzp_live_abc", "live"), ("", None), ("other", None)],
-)
-def test_mode_comes_from_the_key_prefix(key_id, mode):
-    assert PaymentAccount(key_id=key_id).mode == mode
 
 
 def test_secrets_are_encrypted_at_rest(workspace):
@@ -66,6 +63,10 @@ def test_online_payments_ready(workspace):
 
     account.webhook_secret = ""
     account.save()
+    assert services.online_payments_ready(workspace) is True
+
+    account.mode = ""
+    account.save()
     assert services.online_payments_ready(workspace) is False
 
 
@@ -73,11 +74,19 @@ def test_webhook_url(workspace):
     account = PaymentAccountFactory(workspace=workspace)
 
     assert services.webhook_url(account) == (
-        f"https://api.testserver/webhooks/razorpay/merchants/{account.webhook_token}/"
+        f"https://api.testserver/webhooks/payments/merchants/{account.webhook_token}/"
     )
     assert services.webhook_url(PaymentAccount(workspace=workspace)) == ""
+
+
+def test_return_url():
+    link = PaymentLinkFactory()
+
+    assert services.return_url(link) == f"https://api.testserver/pay/return/{link.pk}/"
 
 
 def test_model_choices_match_contract_enums():
     assert tuple(PaymentAccount.Status.values) == PAYMENT_ACCOUNT_STATUSES
     assert tuple(PaymentLink.Status.values) == PAYMENT_LINK_STATUSES
+    assert tuple(PaymentAccount.Provider.values) == PAYMENT_PROVIDERS
+    assert tuple(PaymentAccount.Mode.values) == PAYMENT_MODES

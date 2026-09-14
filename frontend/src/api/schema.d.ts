@@ -1192,15 +1192,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The workspace's own Razorpay account. Secrets are never returned. */
+        /**
+         * @description The workspace's own payment gateway account (Razorpay or Cashfree). Secrets are never
+         *     returned.
+         */
         get: operations["payments_account_retrieve"];
         put?: never;
         post?: never;
-        /** @description The workspace's own Razorpay account. Secrets are never returned. */
+        /**
+         * @description The workspace's own payment gateway account (Razorpay or Cashfree). Secrets are never
+         *     returned.
+         */
         delete: operations["payments_account_destroy"];
         options?: never;
         head?: never;
-        /** @description Changing a key resets status to unverified. */
+        /** @description Changing the provider clears keys and secrets; changing a key, secret or mode resets status to unverified. */
         patch: operations["payments_account_partial_update"];
         trace?: never;
     };
@@ -1213,7 +1219,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Issue a new webhook URL; update it in Razorpay afterwards. */
+        /** @description Issue a new optional webhook URL; update it in the gateway afterwards. */
         post: operations["payments_account_rotate_webhook_create"];
         delete?: never;
         options?: never;
@@ -3476,8 +3482,25 @@ export interface components {
             notes?: string;
         };
         PatchedPaymentAccountRequest: {
+            /**
+             * @description Changing the provider clears the saved keys and secrets.
+             *
+             *     * `razorpay` - razorpay
+             *     * `cashfree` - cashfree
+             */
+            provider?: components["schemas"]["PaymentProviderEnum"];
+            /**
+             * @description Razorpay: set from the rzp_test_/rzp_live_ key prefix. Cashfree: required (test = sandbox). Null until set.
+             *
+             *     * `test` - test
+             *     * `live` - live
+             */
+            mode?: (components["schemas"]["PaymentModeEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description Razorpay key id or Cashfree App ID. */
             key_id?: string;
+            /** @description Razorpay key secret or Cashfree secret key. */
             key_secret?: string;
+            /** @description Optional, Razorpay only. */
             webhook_secret?: string;
         };
         /** @description Create or PATCH a product. ``sku`` is accepted on create only. */
@@ -3530,14 +3553,21 @@ export interface components {
             time_zone?: string;
         };
         PaymentAccount: {
-            readonly provider: components["schemas"]["PaymentProviderEnum"];
             /**
-             * @description From the rzp_test_/rzp_live_ key prefix; null until key_id is set.
+             * @description Changing the provider clears the saved keys and secrets.
+             *
+             *     * `razorpay` - razorpay
+             *     * `cashfree` - cashfree
+             */
+            provider?: components["schemas"]["PaymentProviderEnum"];
+            /**
+             * @description Razorpay: set from the rzp_test_/rzp_live_ key prefix. Cashfree: required (test = sandbox). Null until set.
              *
              *     * `test` - test
              *     * `live` - live
              */
-            readonly mode: (components["schemas"]["PaymentModeEnum"] | components["schemas"]["NullEnum"]) | null;
+            mode?: (components["schemas"]["PaymentModeEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description Razorpay key id or Cashfree App ID. */
             key_id?: string;
             readonly has_key_secret: boolean;
             readonly has_webhook_secret: boolean;
@@ -3545,7 +3575,7 @@ export interface components {
             /** Format: date-time */
             readonly verified_at: string | null;
             readonly last_error: string;
-            /** @description Enter this URL in Razorpay webhooks ("" until the account is saved). */
+            /** @description Optional faster confirmation: enter this URL in the gateway's webhook settings ("" until the account is saved). */
             readonly webhook_url: string;
             readonly webhook_events: string[];
             /** Format: date-time */
@@ -3601,9 +3631,10 @@ export interface components {
         PaymentModeEnum: "test" | "live";
         /**
          * @description * `razorpay` - razorpay
+         *     * `cashfree` - cashfree
          * @enum {string}
          */
-        PaymentProviderEnum: "razorpay";
+        PaymentProviderEnum: "razorpay" | "cashfree";
         /**
          * @description * `unpaid` - unpaid
          *     * `paid` - paid

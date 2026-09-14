@@ -101,7 +101,7 @@ CONTRACT_ENUMS = {
         "note",
     ],
     "OrderEventActorEnum": ["buyer", "dashboard", "seller_whatsapp", "system"],
-    "PaymentProviderEnum": ["razorpay"],
+    "PaymentProviderEnum": ["razorpay", "cashfree"],
     "PaymentModeEnum": ["test", "live"],
     "PaymentAccountStatusEnum": ["not_configured", "unverified", "verified", "invalid"],
     "PaymentLinkStatusEnum": ["creating", "created", "paid", "expired", "cancelled", "failed"],
@@ -176,4 +176,4 @@ def test_secrets_are_write_only(schema):
     assert "key_secret" not in account
     assert "webhook_secret" not in account
     request = schema["components"]["schemas"]["PatchedPaymentAccountRequest"]["properties"]
-    assert {"key_id", "key_secret", "webhook_secret"} <= set(request)
+    assert {"provider", "mode", "key_id", "key_secret", "webhook_secret"} <= set(request)

@@ -1,4 +1,4 @@
-"""Payments API and the merchant webhook stub: reads, secrets, roles and tenant isolation."""
+"""Payments API, the return page and webhook stubs: reads, secrets, roles and isolation."""
 
 import pytest
 
@@ -12,7 +12,8 @@ pytestmark = pytest.mark.django_db
 
 ACCOUNT = "/api/v1/payments/account/"
 LINKS = "/api/v1/payments/links/"
-WEBHOOK = "/webhooks/razorpay/merchants/"
+WEBHOOK = "/webhooks/payments/merchants/"
+RETURN = "/pay/return/"
 
 
 def test_account_without_a_row_reads_as_not_configured(auth_client, workspace):
@@ -43,6 +44,7 @@ def test_account_without_a_row_reads_as_not_configured(auth_client, workspace):
 def test_account_never_returns_secrets(auth_client, workspace):
     account = PaymentAccountFactory(
         workspace=workspace,
+        mode="live",
         key_id="rzp_live_ABC123",
         key_secret="sk-do-not-leak",
         webhook_secret="wh-do-not-leak",
@@ -60,7 +62,7 @@ def test_account_never_returns_secrets(auth_client, workspace):
     assert data["has_webhook_secret"] is True
     assert data["status"] == "verified"
     assert data["webhook_url"] == (
-        f"https://api.testserver/webhooks/razorpay/merchants/{account.webhook_token}/"
+        f"https://api.testserver/webhooks/payments/merchants/{account.webhook_token}/"
     )
 
 
@@ -130,3 +132,31 @@ def test_merchant_webhook_known_token_is_not_implemented(api_client, workspace):
     assert response.status_code == 501
     assert response.json()["error"]["code"] == "not_implemented"
     assert api_client.get(f"{WEBHOOK}{account.webhook_token}/").status_code == 405
+
+
+def test_cashfree_account_lists_its_webhook_events(auth_client, workspace):
+    PaymentAccountFactory(
+        workspace=workspace, provider="cashfree", key_id="TEST123", webhook_secret=""
+    )
+
+    data = auth_client(Role.ADMIN).get(ACCOUNT).json()
+
+    assert data["provider"] == "cashfree"
+    assert data["mode"] == "test"
+    assert data["has_webhook_secret"] is False
+    assert data["webhook_events"] == ["PAYMENT_LINK_EVENT"]
+
+
+def test_return_page_unknown_link_is_404(api_client):
+    response = api_client.get(f"{RETURN}00000000-0000-0000-0000-000000000000/")
+
+    assert response.status_code == 404
+
+
+def test_return_page_known_link_is_not_implemented(api_client):
+    link = PaymentLinkFactory()
+
+    response = api_client.get(f"{RETURN}{link.pk}/")
+
+    assert response.status_code == 501
+    assert api_client.post(f"{RETURN}{link.pk}/").status_code == 405

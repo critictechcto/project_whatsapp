@@ -1,6 +1,6 @@
 """Contract enum names for payments (docs/contracts/wave-3-commerce.md). Values only."""
 
-PAYMENT_PROVIDERS = ("razorpay",)
+PAYMENT_PROVIDERS = ("razorpay", "cashfree")
 PAYMENT_MODES = ("test", "live")
 PAYMENT_ACCOUNT_STATUSES = ("not_configured", "unverified", "verified", "invalid")
 PAYMENT_LINK_STATUSES = ("creating", "created", "paid", "expired", "cancelled", "failed")
