@@ -89,6 +89,8 @@ Error codes: `whatsapp_not_connected`, `phone_number_not_registered`, `outside_s
 | POST `{id}/pause/`, `resume/`, `cancel/` | admin | → `Campaign`; invalid transition 409 `invalid_campaign_transition` |
 | GET `{id}/recipients/` | viewer | filter `status` |
 
+Error codes: `campaign_not_editable`, `invalid_campaign_transition`, `template_not_approved`, `whatsapp_not_connected`, `feature_not_available` (scheduling a campaign when the plan lacks `scheduled_campaigns`) (all 409), `invalid` (400).
+
 Rules: `OPTED_OUT` contacts are always skipped; MARKETING templates also require `OPTED_IN`; consent is snapshotted at materialisation and re-checked at dispatch. Template must be APPROVED at launch (409 `template_not_approved`).
 
 ## Automations — `/api/v1/automations/`
@@ -106,6 +108,8 @@ Rules: `OPTED_OUT` contacts are always skipped; MARKETING templates also require
 | GET / PATCH / DELETE `rules/{id}/` | viewer / admin | |
 | GET / PATCH `business-hours/` | viewer / admin | singleton per workspace |
 | GET `runs/` | viewer | filter `rule`, `status` |
+
+Error codes: `feature_not_available` (409, activating a keyword rule when the plan lacks `keyword_automations`), `invalid` (400).
 
 ## Billing — `/api/v1/billing/` and `/webhooks/razorpay/`
 
@@ -151,6 +155,9 @@ Error codes: `quota_exceeded` (409), `billing_profile_required` (409), `payment_
 | `conversation.updated` | `conversation_id` |
 | `campaign.progress` | `campaign_id`, `status`, `stats` (`CampaignStats`) |
 | `session.revoked` | `reason` (sent to the user group; client disconnects and refreshes memberships) |
+| `pong` | `{}` — reply to a client `{"type": "ping"}`; every other client message is ignored |
+
+Close codes: `4401` unauthenticated or bad ticket, `4403` not a member, `4001` after `session.revoked`.
 
 ## Python contracts (backend)
 

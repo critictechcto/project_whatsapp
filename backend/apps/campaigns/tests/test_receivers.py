@@ -330,8 +330,13 @@ def test_account_restriction_pauses(active, workspace, number, emit):
 def test_progress_broadcasts_are_throttled(queued, emit, monkeypatch):
     campaign, (first, second, third) = queued(3)
     frames = []
+    # Other apps (inbox) broadcast on the same events; only campaign frames matter here.
     monkeypatch.setattr(
-        realtime, "broadcast", lambda workspace_id, type, data: frames.append((type, data))
+        realtime,
+        "broadcast",
+        lambda workspace_id, type, data: (
+            frames.append((type, data)) if type == "campaign.progress" else None
+        ),
     )
     cache.delete(services._progress_key(campaign.pk))
 
