@@ -7,6 +7,7 @@ order row (:func:`lock_order`) before changing it.
 
 import logging
 from collections.abc import Iterable
+from datetime import timedelta
 from functools import partial
 
 from django.db import transaction
@@ -64,7 +65,7 @@ def record_event(
     message=None,
     metadata: dict | None = None,
 ) -> OrderEvent:
-    return OrderEvent.objects.create(
+    event = OrderEvent.objects.create(
         workspace_id=order.workspace_id,
         order=order,
         type=type,
@@ -76,6 +77,18 @@ def record_event(
         message=message,
         metadata=metadata or {},
     )
+    # Events written in the same clock tick would share ``created_at`` and the timeline would
+    # tie-break on random UUIDs; keep each order's events strictly increasing instead.
+    previous = (
+        order.events.exclude(pk=event.pk)
+        .order_by("-created_at")
+        .values_list("created_at", flat=True)
+        .first()
+    )
+    if previous is not None and event.created_at <= previous:
+        event.created_at = previous + timedelta(microseconds=1)
+        OrderEvent.objects.filter(pk=event.pk).update(created_at=event.created_at)
+    return event
 
 
 def emit_status_changed(order: Order, old_status: str, *, actor: str, user=None) -> None:
