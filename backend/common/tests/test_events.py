@@ -94,10 +94,51 @@ def test_emit_without_receivers():
         "template_quality_updated",
         "phone_number_quality_updated",
         "account_updated",
+        "message_recorded",
+        "message_delivery_updated",
+        "workspace_created",
+        "membership_role_changed",
+        "membership_removed",
     ],
 )
 def test_domain_signals_exist(name):
     assert isinstance(getattr(events, name), Signal)
+
+
+def test_every_event_has_its_own_signal():
+    signals = list(events.EVENT_SIGNALS.values())
+
+    assert len(set(map(id, signals))) == len(signals)
+    for event_class, signal in events.EVENT_SIGNALS.items():
+        assert dataclasses.is_dataclass(event_class)
+        assert event_class.__dataclass_params__.frozen
+        assert isinstance(signal, Signal)
+    assert {
+        events.WorkspaceCreated: events.workspace_created,
+        events.MembershipRoleChanged: events.membership_role_changed,
+        events.MembershipRemoved: events.membership_removed,
+    }.items() <= events.EVENT_SIGNALS.items()
+
+
+def test_tenant_event_fields():
+    workspace_id, user_id = uuid.uuid4(), uuid.uuid4()
+
+    assert dataclasses.asdict(events.WorkspaceCreated(workspace_id, user_id)) == {
+        "workspace_id": workspace_id,
+        "owner_id": user_id,
+    }
+    assert dataclasses.asdict(
+        events.MembershipRoleChanged(workspace_id, user_id, old_role="agent", new_role="admin")
+    ) == {
+        "workspace_id": workspace_id,
+        "user_id": user_id,
+        "old_role": "agent",
+        "new_role": "admin",
+    }
+    assert dataclasses.asdict(events.MembershipRemoved(workspace_id, user_id)) == {
+        "workspace_id": workspace_id,
+        "user_id": user_id,
+    }
 
 
 def test_events_are_immutable():

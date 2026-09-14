@@ -178,14 +178,18 @@ def test_session_revoked_frame_is_sent_then_the_socket_closes(layer, user, works
     assert closed == {"type": "websocket.close", "code": CLOSE_SESSION_REVOKED}
 
 
-def test_removing_a_member_revokes_their_open_socket(layer, workspace):
+def test_removing_a_member_revokes_their_open_socket(layer, user, workspace):
     member = MembershipFactory(workspace=workspace, role=Role.AGENT)
+    owner = Membership.objects.get(workspace=workspace, user=user)
     ticket = issue_ticket(member.user_id, workspace.pk)
+
+    def remove():
+        tenant_services.remove_member(actor=owner, membership=member)
 
     async def scenario():
         socket, connected, _ = await open_socket(ticket)
         assert connected
-        await database_sync_to_async(member.delete)()
+        await database_sync_to_async(remove)()
         return await socket.receive_json_from(), await socket.receive_output()
 
     frame, closed = run(scenario)

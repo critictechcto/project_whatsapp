@@ -9,20 +9,22 @@ from datetime import datetime, timedelta
 
 from django.db import transaction
 from django.db.models import F
-from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
 from apps.contacts import services as contact_services
-from apps.tenants.models import Membership
 from apps.whatsapp.models import PhoneNumber
 from common import realtime
 from common.events import (
     InboundMessage,
+    MembershipRemoved,
+    MembershipRoleChanged,
     MessageDeliveryUpdated,
     MessageRecorded,
     MessageStatus,
     inbound_message_received,
+    membership_removed,
+    membership_role_changed,
     message_delivery_updated,
     message_recorded,
     message_status_updated,
@@ -298,41 +300,29 @@ def broadcast_delivery_updated(sender, event: MessageDeliveryUpdated, **kwargs) 
 
 
 # --- Session revocation -------------------------------------------------------------------------
-# tenants emits no domain event for membership changes, so the model signals are used: a removed
-# member or a changed role closes that user's open WebSockets (they reconnect with a new ticket).
+# tenants emits MembershipRoleChanged / MembershipRemoved on commit: a removed member or a changed
+# role closes that user's open WebSockets (they reconnect with a new ticket, which re-checks).
 
 SESSION_REVOKED = "session.revoked"
-_PREVIOUS_ROLE_ATTR = "_inbox_previous_role"
 
 
-@receiver(pre_save, sender=Membership, dispatch_uid="inbox.remember_membership_role")
-def remember_membership_role(sender, instance: Membership, raw=False, update_fields=None, **kwargs):
-    if raw or instance._state.adding:
-        return
-    if update_fields is not None and "role" not in update_fields:
-        return
-    previous = Membership.objects.filter(pk=instance.pk).values_list("role", flat=True).first()
-    setattr(instance, _PREVIOUS_ROLE_ATTR, previous)
-
-
-@receiver(post_save, sender=Membership, dispatch_uid="inbox.revoke_sessions_on_role_change")
-def revoke_sessions_on_role_change(sender, instance: Membership, created, raw=False, **kwargs):
-    previous = instance.__dict__.pop(_PREVIOUS_ROLE_ATTR, None)
-    if raw or created or previous is None or previous == instance.role:
+@receiver(membership_role_changed, dispatch_uid="inbox.revoke_sessions_on_role_change")
+def revoke_sessions_on_role_change(sender, event: MembershipRoleChanged, **kwargs) -> None:
+    if event.old_role == event.new_role:
         return
     realtime.broadcast_user(
-        instance.user_id,
+        event.user_id,
         SESSION_REVOKED,
         {"reason": "role_changed"},
-        workspace_id=instance.workspace_id,
+        workspace_id=event.workspace_id,
     )
 
 
-@receiver(post_delete, sender=Membership, dispatch_uid="inbox.revoke_sessions_on_member_removed")
-def revoke_sessions_on_member_removed(sender, instance: Membership, **kwargs):
+@receiver(membership_removed, dispatch_uid="inbox.revoke_sessions_on_member_removed")
+def revoke_sessions_on_member_removed(sender, event: MembershipRemoved, **kwargs) -> None:
     realtime.broadcast_user(
-        instance.user_id,
+        event.user_id,
         SESSION_REVOKED,
         {"reason": "membership_removed"},
-        workspace_id=instance.workspace_id,
+        workspace_id=event.workspace_id,
     )
