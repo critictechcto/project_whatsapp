@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
 import { Clock, Send } from 'lucide-react'
 import { cn } from '../../../lib/cn'
-import { prefersReducedMotion } from '../../../lib/motion'
+import { CHAT_FINAL_STEP } from '../lib/useChatSequence'
 import { ChatBubble, TypingBubble } from './ChatBubble'
 import { Window } from './Window'
 
@@ -13,24 +12,15 @@ const conversations = [
   { name: 'Arjun Mehta', preview: 'Paid via UPI just now', time: '09:40' },
 ]
 
-// When `animated`, the chat plays out: template → customer question → agent typing → reply.
-const STEP_DELAYS_MS = [500, 1400, 2300, 3700]
-const FINAL_STEP = STEP_DELAYS_MS.length
+type InboxMockupProps = {
+  className?: string
+  /** Current step from `useChatSequence`. Omit for the finished, static conversation. */
+  step?: number
+}
 
-export function InboxMockup({ className, animated = false }: { className?: string; animated?: boolean }) {
-  const [step, setStep] = useState(animated ? 0 : FINAL_STEP)
-
-  useEffect(() => {
-    if (!animated) return
-    if (prefersReducedMotion()) {
-      setStep(FINAL_STEP)
-      return
-    }
-    const timers = STEP_DELAYS_MS.map((delay, i) => window.setTimeout(() => setStep(i + 1), delay))
-    return () => timers.forEach((timer) => window.clearTimeout(timer))
-  }, [animated])
-
-  const pop = animated ? 'chat-pop' : undefined
+export function InboxMockup({ className, step: sequenceStep }: InboxMockupProps) {
+  const step = sequenceStep ?? CHAT_FINAL_STEP
+  const pop = sequenceStep === undefined ? undefined : 'chat-pop'
 
   return (
     <Window
