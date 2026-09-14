@@ -25,8 +25,9 @@ jobs:
       run:
         working-directory: frontend
     env:
-      # GitHub Pages serves this project under /<repo>/. With a custom domain, use VITE_BASE=/.
-      VITE_BASE: /project_whatsapp_landing_page/
+      # Served from the custom domain root (upchatz.com, see frontend/public/CNAME).
+      # Without a custom domain Pages serves /<repo>/: use VITE_BASE=/<repo>/ instead.
+      VITE_BASE: /
       # No backend on Pages: the dashboard at /app runs on seeded demo data (MSW).
       VITE_API_MODE: mock
     steps:

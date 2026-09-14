@@ -25,7 +25,7 @@ npm test          # vitest (jsdom + MSW node server); npx vitest run src/api/err
 npm run api:types # regenerate src/api/schema.d.ts from backend/openapi.yml (commit the result)
 VITE_API_MODE=mock npm run dev   # dashboard at /app with seeded MSW data; demo login demo@upchatz.com / demo12345
 ```
-The correctness check is `npm run lint && npm test && npm run build` (the Pages workflow runs all three). Env: `VITE_BASE` (absolute deploy base, default `/`; router basename and public assets follow `import.meta.env.BASE_URL`), `VITE_API_URL`, `VITE_WS_URL`, `VITE_API_MODE` (`mock`|`live`). Deployment: `.github/workflows/deploy-pages.yml` builds in mock mode with `VITE_BASE=/project_whatsapp_landing_page/` and copies `index.html` to `404.html` for deep links; import assets from code or prefix `BASE_URL` — never hard-code `/` or `./` paths.
+The correctness check is `npm run lint && npm test && npm run build` (the Pages workflow runs all three). Env: `VITE_BASE` (absolute deploy base, default `/`; router basename and public assets follow `import.meta.env.BASE_URL`), `VITE_API_URL`, `VITE_WS_URL`, `VITE_API_MODE` (`mock`|`live`). Deployment: `.github/workflows/deploy-pages.yml` builds in mock mode with `VITE_BASE=/` for the custom domain `upchatz.com` (`public/CNAME`) and copies `index.html` to `404.html` for deep links; import assets from code or prefix `BASE_URL` — never hard-code `/` or `./` paths.
 
 Backend (Python 3.12, **uv only** — never pip/venv/poetry; run from `backend/`):
 ```bash
