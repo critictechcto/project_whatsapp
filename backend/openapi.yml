@@ -3522,7 +3522,7 @@ components:
           additionalProperties: {}
           description: 'send_text {text}; send_template {template_id, body_params:
             VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation
-            {}.'
+            {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}.'
       required:
       - type
     AutomationActionRequest:
@@ -3535,7 +3535,7 @@ components:
           additionalProperties: {}
           description: 'send_text {text}; send_template {template_id, body_params:
             VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation
-            {}.'
+            {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}.'
       required:
       - type
     AutomationActionTypeEnum:
@@ -3545,6 +3545,9 @@ components:
       - add_tags
       - assign
       - close_conversation
+      - send_shop_menu
+      - send_catalog
+      - send_collection
       type: string
       description: |-
         * `send_text` - send_text
@@ -3552,6 +3555,9 @@ components:
         * `add_tags` - add_tags
         * `assign` - assign
         * `close_conversation` - close_conversation
+        * `send_shop_menu` - send_shop_menu
+        * `send_catalog` - send_catalog
+        * `send_collection` - send_collection
     AutomationRule:
       type: object
       properties:
@@ -5161,6 +5167,19 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        interactive:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+          nullable: true
+          description: The Cloud API interactive object of an outbound interactive
+            message, else null.
+        order:
+          allOf:
+          - $ref: '#/components/schemas/MessageOrder'
+          readOnly: true
+          nullable: true
+          description: The cart of an inbound order message, else null.
       required:
       - conversation_id
       - created_at
@@ -5170,7 +5189,9 @@ components:
       - error_message
       - failed_at
       - id
+      - interactive
       - media
+      - order
       - read_at
       - reply_to_message_id
       - sent_at
@@ -5211,6 +5232,44 @@ components:
       - file_name
       - mime_type
       - size
+    MessageOrder:
+      type: object
+      properties:
+        catalog_id:
+          type: string
+          readOnly: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageOrderItem'
+          readOnly: true
+      required:
+      - catalog_id
+      - items
+    MessageOrderItem:
+      type: object
+      properties:
+        product_retailer_id:
+          type: string
+          readOnly: true
+          description: The product SKU.
+        quantity:
+          type: integer
+          readOnly: true
+        item_price:
+          type: number
+          format: double
+          readOnly: true
+          description: Unit price in rupees as the buyer's app sent it. Display only,
+            never trusted.
+        currency:
+          type: string
+          readOnly: true
+      required:
+      - currency
+      - item_price
+      - product_retailer_id
+      - quantity
     MessagePreview:
       type: object
       properties:
@@ -5451,6 +5510,7 @@ components:
       - button
       - reaction
       - template
+      - order
       - unsupported
       type: string
       description: |-
@@ -5466,6 +5526,7 @@ components:
         * `button` - button
         * `reaction` - reaction
         * `template` - template
+        * `order` - order
         * `unsupported` - unsupported
     OptInRequestRequest:
       type: object
