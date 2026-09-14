@@ -199,14 +199,45 @@ def test_system_message_does_not_open_the_window(number, commit):
 
 
 def test_unknown_types_are_stored_as_unsupported(number, commit):
-    payload = {"id": "wamid.ORDER", "type": "order", "order": {"catalog_id": "1"}}
+    payload = {"id": "wamid.NEW", "type": "ephemeral", "ephemeral": {}}
 
     with commit():
-        receive(inbound(number, wamid="wamid.ORDER", type="order", text=None, payload=payload))
+        receive(inbound(number, wamid="wamid.NEW", type="ephemeral", text=None, payload=payload))
 
     message = Message.objects.get()
     assert message.type == Message.Type.UNSUPPORTED
     assert message.payload == payload
+
+
+def test_order_messages_are_stored_as_orders(number, commit, recorded):
+    order = {
+        "catalog_id": "807010401234567",
+        "text": "Deliver by Friday",
+        "product_items": [
+            {"product_retailer_id": "KAJU-500", "quantity": 2, "item_price": 650, "currency": "INR"}
+        ],
+    }
+    payload = {"from": WA_ID, "id": "wamid.ORDER", "type": "order", "order": order}
+
+    with commit():
+        receive(
+            inbound(
+                number,
+                wamid="wamid.ORDER",
+                type="order",
+                text="Cart: 2 items, ₹1,300.00",
+                payload=payload,
+            )
+        )
+
+    message = Message.objects.get()
+    assert message.type == Message.Type.ORDER
+    assert message.text == "Cart: 2 items, ₹1,300.00"
+    assert message.payload == payload
+    [recorded_event] = recorded.of(MessageRecorded)
+    assert (recorded_event.type, recorded_event.reply_id) == ("order", None)
+    conversation = message.conversation
+    assert conversation.service_window_expires_at is not None  # a cart opens the window
 
 
 def test_reply_context_links_the_original_message(number, commit, recorded):
@@ -369,6 +400,17 @@ def test_failed_status_records_the_error(outbound, commit, recorded):
     assert outbound.failed_at is not None
     [event] = recorded.of(MessageDeliveryUpdated)
     assert (event.status, event.error_code) == ("failed", "131026")
+
+
+def test_address_message_unsupported_by_the_client_fails_with_1026(outbound, commit, recorded):
+    error = MetaError(code=1026, title="Receiver incapable", details="")
+
+    with commit():
+        deliver(message_status_updated, status(outbound, "failed", errors=(error,)))
+
+    outbound.refresh_from_db()
+    assert (outbound.status, outbound.error_code) == (Message.Status.FAILED, "1026")
+    assert [event.error_code for event in recorded.of(MessageDeliveryUpdated)] == ["1026"]
 
 
 def test_later_delivery_wins_over_failed(outbound, commit, recorded):

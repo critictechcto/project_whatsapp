@@ -180,6 +180,21 @@ class MessageMediaSerializer(serializers.Serializer):
     download_url = serializers.CharField(read_only=True, allow_null=True)
 
 
+class MessageOrderItemSerializer(serializers.Serializer):
+    product_retailer_id = serializers.CharField(read_only=True, help_text="The product SKU.")
+    quantity = serializers.IntegerField(read_only=True)
+    item_price = serializers.FloatField(
+        read_only=True,
+        help_text="Unit price in rupees as the buyer's app sent it. Display only, never trusted.",
+    )
+    currency = serializers.CharField(read_only=True)
+
+
+class MessageOrderSerializer(serializers.Serializer):
+    catalog_id = serializers.CharField(read_only=True)
+    items = MessageOrderItemSerializer(many=True, read_only=True)
+
+
 class MessageSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
     conversation_id = serializers.UUIDField(read_only=True)
@@ -200,11 +215,58 @@ class MessageSerializer(serializers.Serializer):
     delivered_at = serializers.DateTimeField(read_only=True, allow_null=True)
     read_at = serializers.DateTimeField(read_only=True, allow_null=True)
     failed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    interactive = serializers.DictField(
+        read_only=True,
+        allow_null=True,
+        required=False,
+        help_text="The Cloud API interactive object of an outbound interactive message, else null.",
+    )
+    order = MessageOrderSerializer(
+        read_only=True,
+        allow_null=True,
+        required=False,
+        help_text="The cart of an inbound order message, else null.",
+    )
 
     def to_representation(self, instance):
         if isinstance(instance, Message):
             instance = message_data(instance, self.context.get("request"))
         return super().to_representation(instance)
+
+
+def _interactive_data(message: Message) -> dict | None:
+    if message.direction != Message.Direction.OUTBOUND or message.type != Message.Type.INTERACTIVE:
+        return None
+    interactive = (message.payload or {}).get("interactive")
+    return interactive if isinstance(interactive, dict) else None
+
+
+def _order_data(message: Message) -> dict | None:
+    if message.type != Message.Type.ORDER:
+        return None
+    order = (message.payload or {}).get("order")
+    if not isinstance(order, dict):
+        return None
+    items = []
+    for item in order.get("product_items") or ():
+        if not isinstance(item, dict) or not item.get("product_retailer_id"):
+            continue
+        try:
+            quantity = int(item.get("quantity"))
+            item_price = float(item.get("item_price"))
+        except (TypeError, ValueError):
+            continue
+        if item_price != item_price or item_price in (float("inf"), float("-inf")):
+            continue
+        items.append(
+            {
+                "product_retailer_id": str(item["product_retailer_id"]),
+                "quantity": quantity,
+                "item_price": item_price,
+                "currency": str(item.get("currency") or ""),
+            }
+        )
+    return {"catalog_id": str(order.get("catalog_id") or ""), "items": items}
 
 
 def message_data(message: Message, request=None) -> dict:
@@ -249,6 +311,8 @@ def message_data(message: Message, request=None) -> dict:
         "delivered_at": message.delivered_at,
         "read_at": message.read_at,
         "failed_at": message.failed_at,
+        "interactive": _interactive_data(message),
+        "order": _order_data(message),
     }
 
 

@@ -6,7 +6,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.contacts.factories import ContactFactory
 from apps.contacts.models import Contact
-from apps.inbox import sending
+from apps.inbox import interactive, sending
 from apps.inbox.factories import ConversationFactory, MediaAssetFactory, MessageFactory
 from apps.inbox.models import Conversation, Message
 from apps.message_templates import services as template_services
@@ -485,6 +485,83 @@ def test_media_from_another_workspace_is_invalid(workspace, other_workspace, con
 )
 def test_media_type_for(mime_type, expected):
     assert sending.media_type_for(mime_type) == expected
+
+
+# --- Interactive -------------------------------------------------------------------------------
+
+
+def test_interactive_message_is_stored_and_sent(
+    workspace, contact, conversation, fake_graph, commit, recorded
+):
+    content = interactive.reply_buttons(
+        "Confirm your order of ₹1,450?", [("upc:chk:confirm:o1", "Confirm")]
+    )
+
+    with commit():
+        message = send(workspace, contact, content, source=Message.Source.AUTOMATION)
+
+    message.refresh_from_db()
+    assert message.status == Message.Status.SENT
+    assert (message.type, message.text) == ("interactive", "Confirm your order of ₹1,450?")
+    assert message.payload == {"type": "interactive", "interactive": content.interactive}
+    [sent] = fake_graph.sent_messages
+    assert sent["type"] == "interactive"
+    assert sent["interactive"] == content.interactive
+    assert sent["to"] == contact.wa_id
+    [created] = recorded.of(MessageRecorded)
+    assert created.type == "interactive"
+
+
+def test_interactive_summary_is_truncated_to_the_text_limit(workspace, contact, conversation):
+    content = sending.InteractiveContent({"type": "button"}, summary="x" * 5000)
+
+    message = send(workspace, contact, content, dispatch=False)
+
+    assert len(message.text) == sending.MAX_TEXT_LENGTH
+
+
+def test_interactive_is_a_session_message(workspace, contact, number):
+    ConversationFactory(
+        workspace=workspace,
+        contact=contact,
+        phone_number=number,
+        service_window_expires_at=timezone.now() - timedelta(minutes=1),
+    )
+
+    with pytest.raises(sending.OutsideServiceWindow) as exc_info:
+        send(workspace, contact, interactive.address_message("Where should we deliver?"))
+
+    assert_policy_error(exc_info, "outside_service_window")
+    assert not Message.objects.exists()
+
+
+def test_interactive_idempotency_returns_the_first_message(
+    workspace, contact, conversation, fake_graph, commit
+):
+    content = interactive.catalog_message("Browse our menu")
+
+    with commit():
+        first = send(workspace, contact, content, idempotency_key="automation:r1:wamid.A:0")
+    with commit():
+        again = send(workspace, contact, content, idempotency_key="automation:r1:wamid.A:0")
+
+    assert again.pk == first.pk
+    assert len(fake_graph.calls_to("send_message")) == 1
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        sending.InteractiveContent({"body": {"text": "no type"}}, summary="Hi"),
+        sending.InteractiveContent("not a mapping", summary="Hi"),
+        sending.InteractiveContent({"type": "button"}, summary="   "),
+    ],
+)
+def test_malformed_interactive_content_is_rejected(workspace, contact, conversation, content):
+    with pytest.raises(interactive.InvalidInteractiveContent):
+        send(workspace, contact, content)
+
+    assert not Message.objects.exists()
 
 
 # --- Input guards ------------------------------------------------------------------------------

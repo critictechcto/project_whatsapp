@@ -6,7 +6,7 @@ from django.utils import timezone
 from apps.contacts import services as contact_services
 from apps.contacts.factories import ContactFactory
 from apps.contacts.models import ConsentEvent
-from apps.inbox import sending
+from apps.inbox import interactive, sending
 from apps.inbox.factories import ConversationFactory, MediaAssetFactory, MessageFactory
 from apps.inbox.limiter import override_limiter
 from apps.inbox.models import Message
@@ -23,6 +23,7 @@ from apps.whatsapp.client.errors import (
     OutsideWindowError,
     RateLimitedError,
     TransientError,
+    error_from_response,
 )
 from common.events import MessageDeliveryUpdated
 
@@ -121,6 +122,30 @@ def test_non_retryable_error_fails_with_meta_code(conversation, fake_graph, comm
     assert message.error_code == "131047"
     assert message.error_message == "Re-engagement message"
     assert [e.error_code for e in recorded.of(MessageDeliveryUpdated)] == ["131047"]
+
+
+def test_unsupported_interactive_fails_with_1026(conversation, fake_graph, commit, recorded):
+    message = sending.send_message(
+        workspace=conversation.workspace,
+        contact=conversation.contact,
+        content=interactive.address_message("Where should we deliver?"),
+        conversation=conversation,
+        source=Message.Source.AUTOMATION,
+        dispatch=False,
+    )
+    error = error_from_response(
+        400, {"error": {"code": 1026, "message": "Receiver incapable", "type": "OAuthException"}}
+    )
+    assert error.retryable is False
+    fake_graph.fail("send_message", error)
+
+    with commit():
+        run(message)
+
+    message.refresh_from_db()
+    assert (message.status, message.error_code) == (Message.Status.FAILED, "1026")
+    assert len(fake_graph.calls_to("send_message")) == 1
+    assert [e.error_code for e in recorded.of(MessageDeliveryUpdated)] == ["1026"]
 
 
 def test_response_without_wamid_fails(conversation, fake_graph, monkeypatch):

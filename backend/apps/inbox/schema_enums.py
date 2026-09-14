@@ -19,6 +19,7 @@ MESSAGE_TYPES = (
     "button",
     "reaction",
     "template",
+    "order",  # wave 3: a native WhatsApp cart (docs/contracts/wave-3-commerce.md)
     "unsupported",
 )
 MESSAGE_STATUSES = ("queued", "sending", "sent", "delivered", "read", "failed", "received")

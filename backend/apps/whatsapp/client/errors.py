@@ -120,6 +120,7 @@ _CODE_MAP: dict[int, type[GraphAPIError]] = {
     131047: OutsideWindowError,
     131050: RecipientOptedOutError,
     131026: RecipientUnavailableError,
+    1026: RecipientUnavailableError,  # the recipient's client can't show this interactive type
     131049: RecipientUnavailableError,
     131031: AccountRestrictedError,
     131048: AccountRestrictedError,
