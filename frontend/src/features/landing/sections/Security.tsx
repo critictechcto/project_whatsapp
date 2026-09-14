@@ -42,7 +42,7 @@ export function Security() {
     <section id="security" className="py-20 md:py-28">
       <Container>
         <SectionHeader
-          index="09"
+          index="10"
           eyebrow="Security & data"
           title="Your customers’ data, handled with care."
           description="WhatsApp conversations are personal. We treat access to them that way."

@@ -11,6 +11,7 @@ import { MessagingRules } from './sections/MessagingRules'
 import { Navbar } from './sections/Navbar'
 import { OfficialVsUnofficial } from './sections/OfficialVsUnofficial'
 import { Pricing } from './sections/Pricing'
+import { SellOnWhatsApp } from './sections/SellOnWhatsApp'
 import { Security } from './sections/Security'
 import { UseCases } from './sections/UseCases'
 
@@ -30,6 +31,7 @@ export function LandingPage() {
         <OfficialVsUnofficial />
         <HowItWorks />
         <Features />
+        <SellOnWhatsApp />
         <GettingConnected />
         <MessagingRules />
         <UseCases />

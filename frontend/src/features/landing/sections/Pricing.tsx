@@ -19,7 +19,7 @@ export function Pricing() {
       <Container>
         <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <SectionHeader
-            index="07"
+            index="08"
             eyebrow="Pricing"
             title="Simple plans. Meta’s fees at cost."
             description={`Every plan includes a ${site.trialDays}-day free trial with no card required. Prices are in INR and exclude ${site.gstRate}% GST.`}

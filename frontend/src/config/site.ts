@@ -18,6 +18,7 @@ export const site = {
   },
   nav: [
     { label: 'Product', href: '#product' },
+    { label: 'Sell on WhatsApp', href: '#sell' },
     { label: 'How it works', href: '#how-it-works' },
     { label: 'Pricing', href: '#pricing' },
     { label: 'Developers', href: '#developers' },
