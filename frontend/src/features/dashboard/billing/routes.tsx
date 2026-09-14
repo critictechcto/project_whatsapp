@@ -1,12 +1,20 @@
-import { comingSoonRoute } from '../shell/comingSoon'
 import type { AreaRoute } from '../registry/types'
 
-/**
- * Routes under /app/w/:workspaceId/. Owned by the billing feature agent.
- * Replace the placeholder with lazy routes, for example:
- *
- *   { path: 'billing', handle: { title: 'Billing' }, lazy: async () => ({ Component: (await import('./BillingPage')).BillingPage }) }
- */
+/** Routes under /app/w/:workspaceId/. Billing is for admins and owners; only owners can pay or edit. */
 export const routes: AreaRoute[] = [
-  comingSoonRoute('billing/*', 'Billing', "Plans, invoices with GST and usage."),
+  {
+    path: 'billing',
+    handle: { title: 'Billing', minRole: 'admin' },
+    lazy: async () => ({ Component: (await import('./BillingPage')).BillingPage }),
+  },
+  {
+    path: 'billing/plans',
+    handle: { title: 'Plans', minRole: 'admin' },
+    lazy: async () => ({ Component: (await import('./PlansPage')).PlansPage }),
+  },
+  {
+    path: 'billing/profile',
+    handle: { title: 'Billing details', minRole: 'admin' },
+    lazy: async () => ({ Component: (await import('./BillingProfilePage')).BillingProfilePage }),
+  },
 ]

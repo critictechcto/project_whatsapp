@@ -1,12 +1,20 @@
-import { comingSoonRoute } from '../shell/comingSoon'
 import type { AreaRoute } from '../registry/types'
 
-/**
- * Routes under /app/w/:workspaceId/. Owned by the settings feature agent.
- * Replace the placeholder with lazy routes, for example:
- *
- *   { path: 'settings', handle: { title: 'Settings' }, lazy: async () => ({ Component: (await import('./SettingsPage')).SettingsPage }) }
- */
+/** Routes under /app/w/:workspaceId/. Workspace settings live in `../workspaces/` but mount here. */
 export const routes: AreaRoute[] = [
-  comingSoonRoute('settings/*', 'Settings', "Workspace name, time zone and your profile."),
+  {
+    path: 'settings',
+    handle: { title: 'Settings' },
+    lazy: async () => ({ Component: (await import('./SettingsPage')).SettingsPage }),
+  },
+  {
+    path: 'settings/profile',
+    handle: { title: 'Your profile' },
+    lazy: async () => ({ Component: (await import('./ProfilePage')).ProfilePage }),
+  },
+  {
+    path: 'settings/workspace',
+    handle: { title: 'Workspace settings' },
+    lazy: async () => ({ Component: (await import('../workspaces/WorkspaceSettingsPage')).WorkspaceSettingsPage }),
+  },
 ]

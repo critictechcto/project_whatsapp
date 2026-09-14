@@ -11,10 +11,11 @@ import { Input } from '../../../components/app/Input'
 import { site } from '../../../config/site'
 import { AuthLayout, AuthLink } from './AuthLayout'
 import { FormError } from './FormError'
+import { PasswordInput } from './PasswordInput'
 import { safeNext, startSession } from './session'
 
 const schema = z.object({
-  full_name: z.string().trim().min(1, 'Enter your name.').max(150),
+  full_name: z.string().trim().min(1, 'Enter your name.').max(150, 'Use 150 characters or fewer.'),
   email: z.email('Enter a valid email address.'),
   password: z.string().min(8, 'Use at least 8 characters.'),
 })
@@ -45,27 +46,32 @@ export function RegisterPage() {
   })
 
   const loginHref = next ? `/app/login?next=${encodeURIComponent(next)}` : '/app/login'
+  const joiningWorkspace = next?.startsWith('/app/invitations/accept')
 
   return (
     <AuthLayout
       title="Create your account"
-      description={`Start your ${site.trialDays}-day free trial. No card needed.`}
+      description={
+        joiningWorkspace
+          ? 'Use the email address your invitation was sent to.'
+          : `Start your ${site.trialDays}-day free trial. No card needed.`
+      }
       footer={
         <>
           Already have an account? <AuthLink to={loginHref}>Log in</AuthLink>
         </>
       }
     >
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4" aria-busy={isSubmitting || undefined}>
         <FormError message={errors.root?.server?.message} />
         <Field label="Your name" error={errors.full_name?.message} required>
           <Input autoComplete="name" {...register('full_name')} />
         </Field>
         <Field label="Work email" error={errors.email?.message} required>
-          <Input type="email" autoComplete="email" {...register('email')} />
+          <Input type="email" autoComplete="email" inputMode="email" {...register('email')} />
         </Field>
         <Field label="Password" hint="At least 8 characters." error={errors.password?.message} required>
-          <Input type="password" autoComplete="new-password" {...register('password')} />
+          <PasswordInput autoComplete="new-password" {...register('password')} />
         </Field>
         <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
           Create account
