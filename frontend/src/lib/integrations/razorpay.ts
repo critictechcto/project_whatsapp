@@ -1,13 +1,7 @@
+import type { Schemas } from '../../api/types'
 import { loadScript } from './loadScript'
 
-// TODO(wave-2): replace with Schemas['CheckoutSession'] once the billing schema lands in openapi.yml.
-export type CheckoutSession = {
-  key_id: string
-  subscription_id: string
-  name: string
-  description: string
-  prefill: { name: string; email: string }
-}
+export type CheckoutSession = Schemas['CheckoutSession']
 
 /** Post this to `POST /api/v1/billing/subscription/verify/`. */
 export type CheckoutResult = {

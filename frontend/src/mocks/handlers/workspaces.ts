@@ -2,7 +2,6 @@ import { HttpResponse } from 'msw'
 import type { RoleEnum, Schemas } from '../../api/types'
 import { db, type MockInvitation, type MockMembership, type MockWorkspace } from '../db'
 import {
-  apiUrl,
   authenticate,
   authorize,
   errorResponse,
@@ -238,10 +237,9 @@ export const workspaceHandlers = [
     })
   }),
 
-  // TODO(wave-2): typed once `POST /api/v1/inbox/ws-ticket/` is in openapi.yml.
-  http.untyped.post(apiUrl('/api/v1/inbox/ws-ticket/'), ({ request }) => {
+  http.post('/api/v1/inbox/ws-ticket/', ({ request, response }) => {
     const ctx = authorize(request)
-    if (ctx instanceof Response) return ctx
-    return HttpResponse.json({ ticket: `mock-ticket.${uuid()}`, expires_in: 30, path: '/ws/v1/' })
+    if (ctx instanceof Response) return response.untyped(ctx)
+    return response(200).json({ ticket: `mock-ticket.${uuid()}`, expires_in: 30, path: '/ws/v1/' })
   }),
 ]

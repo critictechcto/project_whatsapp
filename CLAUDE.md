@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 UpChatz ([upchatz.com](https://upchatz.com)) — a multi-tenant WhatsApp SaaS for Indian businesses. Businesses connect their own number via **Meta Embedded Signup** and send/schedule/automate messages through the **official WhatsApp Business Platform (Cloud API)**. Unofficial WhatsApp Web automation (whatsapp-web.js, Baileys, QR-code tools) is out of scope — never suggest it.
 
-Current state: the marketing landing page (`frontend/`) is built. The backend is being built in waves: wave 0 (foundation: settings, `common/`, accounts, tenants, whatsapp models + Graph client contract) is done; wave 1 builds whatsapp onboarding, webhooks, message_templates and contacts. The dashboard UI comes after the backend. Only build what the user has approved.
+Current state: the marketing landing page (`frontend/`) is built. The backend is built in waves: wave 0 (foundation) and wave 1 (whatsapp onboarding, webhooks, message_templates, contacts) are merged. Wave 2 builds backend and dashboard together against the frozen contract in `docs/contracts/wave-2.md`: the inbox messaging core, API stubs for inbox/campaigns/automations/billing, realtime and the dashboard foundation are merged (tag `wave-2-foundation`); feature apps and screens are in progress. Only build what the user has approved.
 
 ## Workflow
 
@@ -20,8 +20,12 @@ npm install
 npm run dev       # Vite dev server, http://localhost:5173
 npm run build     # tsc --noEmit (type-check) + vite build → dist/
 npm run preview   # serve the production build
+npm run lint      # eslint (flat config)
+npm test          # vitest (jsdom + MSW node server); npx vitest run src/api/errors.test.ts for one file
+npm run api:types # regenerate src/api/schema.d.ts from backend/openapi.yml (commit the result)
+VITE_API_MODE=mock npm run dev   # dashboard at /app with seeded MSW data; demo login demo@upchatz.com / demo12345
 ```
-The frontend has no linter or test suite yet; `npm run build` is the correctness check (CI runs the same). Deployment: `.github/workflows/deploy-pages.yml` publishes `frontend/dist` to GitHub Pages on push to `main`; `vite.config.ts` uses `base: './'` so assets resolve under a project subpath — keep asset URLs relative (no leading `/` in code).
+The correctness check is `npm run lint && npm test && npm run build` (the Pages workflow runs all three). Env: `VITE_BASE` (absolute deploy base, default `/`; router basename and public assets follow `import.meta.env.BASE_URL`), `VITE_API_URL`, `VITE_WS_URL`, `VITE_API_MODE` (`mock`|`live`). Deployment: `.github/workflows/deploy-pages.yml` builds in mock mode with `VITE_BASE=/project_whatsapp_landing_page/` and copies `index.html` to `404.html` for deep links; import assets from code or prefix `BASE_URL` — never hard-code `/` or `./` paths.
 
 Backend (Python 3.12, **uv only** — never pip/venv/poetry; run from `backend/`):
 ```bash
@@ -46,7 +50,10 @@ Copy `.env.example` to `.env` (repo root) for secrets (Meta app, Postgres, Redis
 - `config/site.ts` is the single source for brand name, contact emails, nav links, trial length, GST rate and pricing `plans`. Brand/prices must not be hard-coded in components. (Brand also appears in `index.html` meta tags and `public/*.svg`.)
 - `features/landing/LandingPage.tsx` composes one component per page section from `features/landing/sections/`, in page order. Sections use `components/ui/` primitives (`Container`, `SectionHeader` with numbered eyebrow, `Button` rendered as `<a>`, accessible `Tabs` and `Accordion`).
 - `features/landing/mockups/` are product-UI illustrations built in HTML/CSS (inbox, campaign, templates, signup flow). They are decorative — wrapped with `aria-hidden` via `Window` — so put any meaningful text for screen readers outside them (see `UseCases.tsx`).
-- `features/dashboard/` is reserved for the future app UI.
+- The dashboard is a lazy chunk under `/app` (`App.tsx` switches on the path, so the landing bundle never loads router, react-query, MSW or charts). Routes: `/app/login`, `/app/register`, `/app/invitations/accept`, `/app/w/:workspaceId/*` inside `shell/AppShell`.
+  - Each area (`features/dashboard/<area>/` — home, inbox, contacts, templates, campaigns, automations, whatsapp, team, billing, settings) exports `routes.tsx` (lazy, relative to `/app/w/:workspaceId/`), `nav.ts` and `mocks.ts`; `registry/` aggregates them, so feature work never edits shared files.
+  - Data: `api/` (`api` openapi-fetch client + `unwrap`, `applyApiErrorToForm`, `workspaceKeys` — query keys always include the workspace id, `useCursorQuery`, `idempotencyHeaders`). Auth in `lib/auth` (access token in memory, refresh in localStorage, single-flight refresh across tabs). Realtime in `lib/realtime` (`useRealtimeEvent(type, handler)`; ticket via `POST /api/v1/inbox/ws-ticket/`). Mocks in `mocks/` (typed `openapi-msw` handlers, seeded Indian demo data, `mockRealtime.emit`).
+  - UI kit in `components/app` (real `<button>` Button, form controls, Dialog/Drawer/Table/Toast…, `whatsapp/` preview + TemplatePicker); landing keeps `components/ui`. Forms use zod + react-hook-form. Tests render with `renderDashboard(path)` from `src/test/render.tsx`.
 - Fonts are self-hosted via Fontsource imports in `main.tsx` (no CDN): Schibsted Grotesk (`font-display`, used semibold with negative tracking), IBM Plex Sans (body), IBM Plex Mono (labels/code). The user rejected Instrument Serif + Geist as looking AI-generated — avoid common template pairings (Inter, Geist, Instrument Serif, Fraunces).
 - Motion: scroll reveals use `components/ui/Reveal` (IntersectionObserver via `lib/useInView`, CSS in `.reveal`); keyframe classes (`chat-pop`, `fade-up`, `grow-x`, `typing-dot`, `caret`, `pulse-ring`) live in `index.css`. A `prefers-reduced-motion` block disables all animation — JS-driven motion (`useCountUp`, the shared hero chat sequence in `features/landing/lib/useChatSequence.ts`) must check `lib/motion.ts` and jump to the final state. Depth effects use CSS 3D only (no WebGL): `features/landing/scenes/` (layered `HeroScene`, `MessageJourney`) and the `components/ui` primitives `TiltCard`/`usePointerTilt` (fine pointer only) and `ScrollDepth` (`animation-timeline: view()` with a Reveal fallback); loops pause offscreen via `features/landing/lib/useOnScreen`. Don't put hover `transition-*` utilities on the same element as `Reveal` — the unlayered `.reveal` transition overrides them; wrap an inner element instead.
 

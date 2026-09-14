@@ -3,20 +3,12 @@
  * Server → client frame: `{ v: 1, type, workspace_id, data }`.
  */
 
-type MessageStatus = 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'received'
-type CampaignStatus = 'draft' | 'scheduled' | 'running' | 'paused' | 'completed' | 'cancelled' | 'failed'
+import type { Schemas } from '../../api/types'
 
-// TODO(wave-2): switch to components['schemas']['CampaignStats'] once the campaigns schema lands in openapi.yml.
-export type CampaignStats = {
-  total: number
-  skipped: number
-  queued: number
-  sent: number
-  delivered: number
-  read: number
-  failed: number
-  replied: number
-}
+type MessageStatus = Schemas['MessageStatusEnum']
+type CampaignStatus = Schemas['CampaignStatusEnum']
+
+export type CampaignStats = Schemas['CampaignStats']
 
 export type RealtimeEventMap = {
   'message.created': { conversation_id: string; message_id: string; direction: 'inbound' | 'outbound' }

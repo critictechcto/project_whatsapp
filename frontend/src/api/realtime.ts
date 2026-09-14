@@ -1,14 +1,8 @@
 import { apiFetch, WORKSPACE_HEADER } from './client'
+import type { Schemas } from './types'
 
-// TODO(wave-2): `POST /api/v1/inbox/ws-ticket/` is in docs/contracts/wave-2.md but not in openapi.yml yet.
-// Replace with `unwrap(api.POST('/api/v1/inbox/ws-ticket/'))` and `Schemas['WsTicket']` after regenerating types.
-export type WsTicket = {
-  ticket: string
-  /** Seconds until the single-use ticket expires. */
-  expires_in: number
-  /** WebSocket path, `/ws/v1/`. */
-  path: string
-}
+/** Single-use ticket (`expires_in` seconds) for the WebSocket at `path` (`/ws/v1/`). */
+export type WsTicket = Schemas['WsTicket']
 
 export function createWsTicket(workspaceId: string): Promise<WsTicket> {
   return apiFetch<WsTicket>('/api/v1/inbox/ws-ticket/', {

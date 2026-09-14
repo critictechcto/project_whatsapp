@@ -103,6 +103,354 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/automations/business-hours/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's business hours (one per workspace). */
+        get: operations["automations_business_hours_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description The workspace's business hours (one per workspace). */
+        patch: operations["automations_business_hours_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/automations/rules/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Rules that react to inbound messages, e.g. keyword auto-replies. */
+        get: operations["automations_rules_list"];
+        put?: never;
+        /** @description Rules that react to inbound messages, e.g. keyword auto-replies. */
+        post: operations["automations_rules_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automations/rules/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Rules that react to inbound messages, e.g. keyword auto-replies. */
+        get: operations["automations_rules_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Rules that react to inbound messages, e.g. keyword auto-replies. */
+        delete: operations["automations_rules_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Rules that react to inbound messages, e.g. keyword auto-replies. */
+        patch: operations["automations_rules_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/automations/runs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description History of rule executions. */
+        get: operations["automations_runs_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/billing-profile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Details printed on GST invoices. Admins can read it; only the owner can change it. */
+        get: operations["billing_profile_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Details printed on GST invoices. Admins can read it; only the owner can change it. */
+        patch: operations["billing_profile_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/billing/invoices/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["billing_invoices_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/plans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Plans a workspace can subscribe to (prices before GST). */
+        get: operations["billing_plans_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/subscription/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's subscription; changes are owner-only. */
+        get: operations["billing_subscription_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/subscription/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The workspace's subscription; changes are owner-only. */
+        post: operations["billing_subscription_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/subscription/checkout/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Create a Razorpay subscription and return options for Razorpay Checkout. */
+        post: operations["billing_subscription_checkout_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/subscription/verify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Verify the Checkout signature. Status may stay pending until the webhook. */
+        post: operations["billing_subscription_verify_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Current usage against the plan's limits. */
+        get: operations["billing_usage_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Bulk template sends to an audience of opted-in contacts. */
+        get: operations["campaigns_list"];
+        put?: never;
+        /** @description Create a draft campaign. */
+        post: operations["campaigns_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Bulk template sends to an audience of opted-in contacts. */
+        get: operations["campaigns_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Only drafts can be deleted. */
+        delete: operations["campaigns_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Only draft and scheduled campaigns can change (409 campaign_not_editable). */
+        patch: operations["campaigns_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/audience-preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Count who would receive the campaign and who would be skipped. */
+        post: operations["campaigns_audience_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bulk template sends to an audience of opted-in contacts. */
+        post: operations["campaigns_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/launch/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Schedule or start sending. The template must be approved by Meta. */
+        post: operations["campaigns_launch_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/pause/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bulk template sends to an audience of opted-in contacts. */
+        post: operations["campaigns_pause_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/recipients/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Bulk template sends to an audience of opted-in contacts. */
+        get: operations["campaigns_recipients_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{id}/resume/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bulk template sends to an audience of opted-in contacts. */
+        post: operations["campaigns_resume_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contacts/": {
         parameters: {
             query?: never;
@@ -278,6 +626,196 @@ export interface paths {
         head?: never;
         /** @description Turn a unique-constraint race on save into 409 (serializers pre-check the common case). */
         patch: operations["contacts_tags_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Conversations with contacts, newest activity first. */
+        get: operations["inbox_conversations_list"];
+        put?: never;
+        /** @description Get or create the conversation with a contact (201 when created). */
+        post: operations["inbox_conversations_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Conversations with contacts, newest activity first. */
+        get: operations["inbox_conversations_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/{id}/assign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Conversations with contacts, newest activity first. */
+        post: operations["inbox_conversations_assign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/{id}/close/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Conversations with contacts, newest activity first. */
+        post: operations["inbox_conversations_close_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/{id}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Messages in the conversation, newest first. */
+        get: operations["inbox_conversations_messages_list"];
+        put?: never;
+        /** @description Queue a message. Outside the service window only approved templates send. */
+        post: operations["inbox_conversations_messages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/{id}/notes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Conversations with contacts, newest activity first. */
+        get: operations["inbox_conversations_notes_list"];
+        put?: never;
+        /** @description Conversations with contacts, newest activity first. */
+        post: operations["inbox_conversations_notes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/{id}/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Reset the unread count and send a read receipt for the latest inbound. */
+        post: operations["inbox_conversations_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/conversations/{id}/reopen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Conversations with contacts, newest activity first. */
+        post: operations["inbox_conversations_reopen_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/media/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Uploaded media for outgoing messages. */
+        post: operations["inbox_media_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/messages/{id}/media/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Stream the message's stored media file. */
+        get: operations["inbox_messages_media_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/ws-ticket/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Issue a single-use ticket for opening the realtime WebSocket (any member). */
+        post: operations["inbox_ws_ticket_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/templates/": {
@@ -696,6 +1234,171 @@ export interface components {
             workspace: components["schemas"]["WorkspaceSummary"];
             role: components["schemas"]["RoleEnum"];
         };
+        AssignConversationRequest: {
+            /**
+             * Format: uuid
+             * @description A member's user id, or null to unassign.
+             */
+            assignee_id: string | null;
+        };
+        /**
+         * @description * `any` - any
+         *     * `all` - all
+         * @enum {string}
+         */
+        AudienceMatchEnum: "any" | "all";
+        AudiencePreview: {
+            readonly total: number;
+            readonly eligible: number;
+            readonly skipped: components["schemas"]["AudienceSkipped"];
+        };
+        AudienceSkipped: {
+            readonly opted_out: number;
+            readonly not_opted_in: number;
+            readonly invalid: number;
+        };
+        AutomationAction: {
+            type: components["schemas"]["AutomationActionTypeEnum"];
+            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}. */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        AutomationActionRequest: {
+            type: components["schemas"]["AutomationActionTypeEnum"];
+            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}. */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * @description * `send_text` - send_text
+         *     * `send_template` - send_template
+         *     * `add_tags` - add_tags
+         *     * `assign` - assign
+         *     * `close_conversation` - close_conversation
+         * @enum {string}
+         */
+        AutomationActionTypeEnum: "send_text" | "send_template" | "add_tags" | "assign" | "close_conversation";
+        AutomationRule: {
+            /** Format: uuid */
+            readonly id: string;
+            name: string;
+            /** @default true */
+            is_active: boolean;
+            trigger: components["schemas"]["AutomationTriggerEnum"];
+            /** @description Required for the keyword trigger. Matching ignores case. */
+            keywords?: string[];
+            /** @default exact */
+            keyword_match: components["schemas"]["KeywordMatchEnum"];
+            /**
+             * Format: uuid
+             * @description Null applies to every number.
+             */
+            phone_number_id?: string | null;
+            actions: components["schemas"]["AutomationAction"][];
+            /** @default 0 */
+            cooldown_minutes: number;
+            /**
+             * @description Lower runs first.
+             * @default 0
+             */
+            priority: number;
+            /**
+             * @description Skip lower-priority rules after this one runs.
+             * @default false
+             */
+            stop_processing: boolean;
+            readonly run_count: number;
+            /** Format: date-time */
+            readonly last_triggered_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        AutomationRuleRef: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+        };
+        AutomationRuleRequest: {
+            name: string;
+            /** @default true */
+            is_active: boolean;
+            trigger: components["schemas"]["AutomationTriggerEnum"];
+            /** @description Required for the keyword trigger. Matching ignores case. */
+            keywords?: string[];
+            /** @default exact */
+            keyword_match: components["schemas"]["KeywordMatchEnum"];
+            /**
+             * Format: uuid
+             * @description Null applies to every number.
+             */
+            phone_number_id?: string | null;
+            actions: components["schemas"]["AutomationActionRequest"][];
+            /** @default 0 */
+            cooldown_minutes: number;
+            /**
+             * @description Lower runs first.
+             * @default 0
+             */
+            priority: number;
+            /**
+             * @description Skip lower-priority rules after this one runs.
+             * @default false
+             */
+            stop_processing: boolean;
+        };
+        AutomationRun: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly rule: components["schemas"]["AutomationRuleRef"];
+            /** Format: uuid */
+            readonly conversation_id: string;
+            /** Format: uuid */
+            readonly message_id: string;
+            readonly status: components["schemas"]["AutomationRunStatusEnum"];
+            readonly detail: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `succeeded` - succeeded
+         *     * `skipped` - skipped
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        AutomationRunStatusEnum: "succeeded" | "skipped" | "failed";
+        /**
+         * @description * `keyword` - keyword
+         *     * `first_inbound` - first_inbound
+         *     * `new_contact` - new_contact
+         *     * `outside_business_hours` - outside_business_hours
+         * @enum {string}
+         */
+        AutomationTriggerEnum: "keyword" | "first_inbound" | "new_contact" | "outside_business_hours";
+        /**
+         * @description * `monthly` - monthly
+         *     * `annual` - annual
+         * @enum {string}
+         */
+        BillingIntervalEnum: "monthly" | "annual";
+        BillingProfile: {
+            legal_name: string;
+            /** @description 15-character GSTIN, or "" if unregistered. */
+            gstin: string;
+            /** Format: email */
+            email: string;
+            address_line1: string;
+            /** @default  */
+            address_line2: string;
+            city: string;
+            /** @description 2-digit GST state code. */
+            state_code: string;
+            /** @description 6-digit PIN code. */
+            postal_code: string;
+        };
         BulkTagRequest: {
             contact_ids: string[];
             add_tag_ids?: string[];
@@ -707,6 +1410,162 @@ export interface components {
             added: number;
             /** @description Tag links removed. */
             removed: number;
+        };
+        BusinessHours: {
+            enabled: boolean;
+            /** @description The workspace time zone. */
+            readonly time_zone: string;
+            schedule: components["schemas"]["BusinessHoursSlot"][];
+        };
+        BusinessHoursSlot: {
+            /** @description 0 = Monday … 6 = Sunday. */
+            day: number;
+            /** @description HH:MM */
+            start: string;
+            /** @description HH:MM. Earlier than start means the slot runs overnight. */
+            end: string;
+        };
+        BusinessHoursSlotRequest: {
+            /** @description 0 = Monday … 6 = Sunday. */
+            day: number;
+            /** @description HH:MM */
+            start: string;
+            /** @description HH:MM. Earlier than start means the slot runs overnight. */
+            end: string;
+        };
+        Campaign: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly status: components["schemas"]["CampaignStatusEnum"];
+            readonly template: components["schemas"]["CampaignTemplate"];
+            readonly phone_number: components["schemas"]["ConversationPhoneNumber"];
+            readonly audience: components["schemas"]["CampaignAudience"];
+            readonly variable_mapping: components["schemas"]["VariableMapping"];
+            /** Format: date-time */
+            readonly scheduled_at: string | null;
+            /** Format: date-time */
+            readonly started_at: string | null;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+            readonly consent_attested: boolean;
+            readonly stats: components["schemas"]["CampaignStats"];
+            readonly estimated_cost: components["schemas"]["CostEstimate"] | null;
+            readonly last_error: string;
+            readonly created_by: components["schemas"]["UserSummary"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        CampaignAudience: {
+            tag_ids?: string[];
+            /**
+             * @description Contacts with any of the tags, or all of them.
+             *
+             *     * `any` - any
+             *     * `all` - all
+             * @default any
+             */
+            match: components["schemas"]["AudienceMatchEnum"];
+            contact_ids?: string[];
+        };
+        CampaignAudienceRequest: {
+            tag_ids?: string[];
+            /**
+             * @description Contacts with any of the tags, or all of them.
+             *
+             *     * `any` - any
+             *     * `all` - all
+             * @default any
+             */
+            match: components["schemas"]["AudienceMatchEnum"];
+            contact_ids?: string[];
+        };
+        CampaignRecipient: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly contact: components["schemas"]["ConversationContact"];
+            readonly status: components["schemas"]["RecipientStatusEnum"];
+            readonly skip_reason: string;
+            readonly error_code: string;
+            /** Format: uuid */
+            readonly message_id: string | null;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        CampaignStats: {
+            readonly total: number;
+            readonly skipped: number;
+            readonly queued: number;
+            readonly sent: number;
+            readonly delivered: number;
+            readonly read: number;
+            readonly failed: number;
+            readonly replied: number;
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `scheduled` - scheduled
+         *     * `running` - running
+         *     * `paused` - paused
+         *     * `completed` - completed
+         *     * `cancelled` - cancelled
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        CampaignStatusEnum: "draft" | "scheduled" | "running" | "paused" | "completed" | "cancelled" | "failed";
+        CampaignTemplate: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly language: string;
+            readonly category: components["schemas"]["MessageTemplateCategoryEnum"];
+        };
+        /** @description Create (always a draft) or PATCH a draft/scheduled campaign. */
+        CampaignWriteRequest: {
+            name: string;
+            /** Format: uuid */
+            template_id: string;
+            /**
+             * Format: uuid
+             * @description Workspace default number when omitted.
+             */
+            phone_number_id?: string | null;
+            audience: components["schemas"]["CampaignAudienceRequest"];
+            variable_mapping: components["schemas"]["VariableMappingRequest"];
+            /** Format: date-time */
+            scheduled_at?: string | null;
+        };
+        CancelSubscriptionRequest: {
+            /**
+             * @description Keep access until the paid period ends.
+             * @default true
+             */
+            at_period_end: boolean;
+        };
+        CheckoutPrefill: {
+            readonly name: string;
+            /** Format: email */
+            readonly email: string;
+        };
+        CheckoutRequest: {
+            /** @description Plan slug: starter, growth or pro. */
+            plan_id: string;
+            interval: components["schemas"]["BillingIntervalEnum"];
+        };
+        /** @description Options for Razorpay Checkout in subscription mode. */
+        CheckoutSession: {
+            readonly key_id: string;
+            readonly subscription_id: string;
+            readonly name: string;
+            readonly description: string;
+            readonly prefill: components["schemas"]["CheckoutPrefill"];
+        };
+        CheckoutVerifyRequest: {
+            razorpay_payment_id: string;
+            razorpay_subscription_id: string;
+            razorpay_signature: string;
         };
         /**
          * @description * `opt_in` - Opt in
@@ -840,6 +1699,68 @@ export interface components {
             };
             tags?: string[];
         };
+        Conversation: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly contact: components["schemas"]["ConversationContact"];
+            readonly phone_number: components["schemas"]["ConversationPhoneNumber"];
+            readonly status: components["schemas"]["ConversationStatusEnum"];
+            readonly assignee: components["schemas"]["UserSummary"] | null;
+            readonly unread_count: number;
+            /** Format: date-time */
+            readonly last_message_at: string | null;
+            /** Format: date-time */
+            readonly last_inbound_at: string | null;
+            /**
+             * Format: date-time
+             * @description End of the 24-hour customer service window; free-form replies need it open.
+             */
+            readonly service_window_expires_at: string | null;
+            readonly window_open: boolean;
+            readonly last_message: components["schemas"]["MessagePreview"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        ConversationContact: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly phone_e164: string;
+            readonly marketing_opt_in_status: components["schemas"]["ContactOptInStatusEnum"];
+        };
+        ConversationNote: {
+            /** Format: uuid */
+            readonly id: string;
+            body: string;
+            readonly author: components["schemas"]["UserSummary"];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        ConversationNoteRequest: {
+            body: string;
+        };
+        ConversationPhoneNumber: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly display_phone_number: string;
+            readonly verified_name: string;
+        };
+        /**
+         * @description * `open` - open
+         *     * `pending` - pending
+         *     * `closed` - closed
+         * @enum {string}
+         */
+        ConversationStatusEnum: "open" | "pending" | "closed";
+        CostEstimate: {
+            /** @description Always INR. */
+            readonly currency: string;
+            /** Format: decimal */
+            readonly amount: string;
+            readonly note: string;
+        };
         EmbeddedSignupRequest: {
             code: string;
             waba_id: string;
@@ -882,6 +1803,46 @@ export interface components {
          * @enum {string}
          */
         InvitationStatusEnum: "pending" | "accepted" | "revoked" | "expired";
+        Invoice: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly number: string;
+            readonly status: components["schemas"]["InvoiceStatusEnum"];
+            /** Format: date-time */
+            readonly issued_at: string;
+            /** Format: date-time */
+            readonly period_start: string;
+            /** Format: date-time */
+            readonly period_end: string;
+            readonly subtotal_paise: number;
+            readonly cgst_paise: number;
+            readonly sgst_paise: number;
+            readonly igst_paise: number;
+            readonly total_paise: number;
+            readonly download_url: string | null;
+        };
+        /**
+         * @description * `issued` - issued
+         *     * `paid` - paid
+         *     * `void` - void
+         * @enum {string}
+         */
+        InvoiceStatusEnum: "issued" | "paid" | "void";
+        /**
+         * @description * `exact` - exact
+         *     * `contains` - contains
+         * @enum {string}
+         */
+        KeywordMatchEnum: "exact" | "contains";
+        LaunchCampaignRequest: {
+            /** @description Confirms every recipient agreed to receive these messages. Must be true. */
+            consent_attested: boolean;
+            /**
+             * Format: date-time
+             * @description Null or omitted sends now.
+             */
+            scheduled_at?: string | null;
+        };
         Me: {
             /** Format: uuid */
             readonly id: string;
@@ -896,6 +1857,23 @@ export interface components {
             /** Format: date-time */
             readonly email_verified_at: string | null;
             readonly memberships: components["schemas"]["WorkspaceMembershipSummary"][];
+        };
+        MediaAsset: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly mime_type: string;
+            readonly file_name: string;
+            /** @description Bytes. */
+            readonly size: number;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        MediaUploadRequest: {
+            /**
+             * Format: binary
+             * @description Within Meta's size limit for the media type.
+             */
+            file: string;
         };
         MemberUser: {
             /** Format: uuid */
@@ -923,6 +1901,77 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        Message: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly conversation_id: string;
+            readonly direction: components["schemas"]["MessageDirectionEnum"];
+            readonly type: components["schemas"]["MessageTypeEnum"];
+            readonly text: string;
+            readonly status: components["schemas"]["MessageStatusEnum"];
+            readonly source: components["schemas"]["MessageSourceEnum"];
+            /** @description "" when there is no error. */
+            readonly error_code: string;
+            readonly error_message: string;
+            readonly template: components["schemas"]["MessageTemplateRef"] | null;
+            readonly media: components["schemas"]["MessageMedia"] | null;
+            /** Format: uuid */
+            readonly reply_to_message_id: string | null;
+            readonly sent_by: components["schemas"]["UserSummary"] | null;
+            readonly wamid: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly sent_at: string | null;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+            /** Format: date-time */
+            readonly read_at: string | null;
+            /** Format: date-time */
+            readonly failed_at: string | null;
+        };
+        /**
+         * @description * `inbound` - inbound
+         *     * `outbound` - outbound
+         * @enum {string}
+         */
+        MessageDirectionEnum: "inbound" | "outbound";
+        MessageMedia: {
+            readonly mime_type: string;
+            readonly file_name: string;
+            /** @description Bytes. */
+            readonly size: number;
+            readonly download_url: string | null;
+        };
+        MessagePreview: {
+            readonly direction: components["schemas"]["MessageDirectionEnum"];
+            readonly type: components["schemas"]["MessageTypeEnum"];
+            readonly text: string;
+            readonly status: components["schemas"]["MessageStatusEnum"];
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `inbound` - inbound
+         *     * `inbox` - inbox
+         *     * `campaign` - campaign
+         *     * `automation` - automation
+         *     * `api` - api
+         * @enum {string}
+         */
+        MessageSourceEnum: "inbound" | "inbox" | "campaign" | "automation" | "api";
+        /**
+         * @description * `queued` - queued
+         *     * `sending` - sending
+         *     * `sent` - sent
+         *     * `delivered` - delivered
+         *     * `read` - read
+         *     * `failed` - failed
+         *     * `received` - received
+         * @enum {string}
+         */
+        MessageStatusEnum: "queued" | "sending" | "sent" | "delivered" | "read" | "failed" | "received";
         MessageTemplate: {
             /** Format: uuid */
             readonly id: string;
@@ -958,6 +2007,12 @@ export interface components {
          * @enum {string}
          */
         MessageTemplateCategoryEnum: "MARKETING" | "UTILITY" | "AUTHENTICATION";
+        MessageTemplateRef: {
+            /** Format: uuid */
+            readonly id: string | null;
+            readonly name: string;
+            readonly language: string;
+        };
         MessageTemplateRequest: {
             /** Format: uuid */
             waba: string;
@@ -984,11 +2039,80 @@ export interface components {
          * @enum {string}
          */
         MessageTemplateStatusEnum: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "PAUSED" | "DISABLED" | "IN_APPEAL" | "PENDING_DELETION" | "DELETED" | "LIMIT_EXCEEDED" | "ARCHIVED";
+        /**
+         * @description * `text` - text
+         *     * `image` - image
+         *     * `video` - video
+         *     * `audio` - audio
+         *     * `document` - document
+         *     * `sticker` - sticker
+         *     * `location` - location
+         *     * `contacts` - contacts
+         *     * `interactive` - interactive
+         *     * `button` - button
+         *     * `reaction` - reaction
+         *     * `template` - template
+         *     * `unsupported` - unsupported
+         * @enum {string}
+         */
+        MessageTypeEnum: "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts" | "interactive" | "button" | "reaction" | "template" | "unsupported";
         OptInRequestRequest: {
             /** @default manual */
             source: components["schemas"]["ConsentRequestSourceEnum"];
             /** @description How and when the customer agreed to receive marketing messages. Required. */
             evidence?: string;
+        };
+        PaginatedAutomationRuleList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["AutomationRule"][];
+        };
+        PaginatedAutomationRunList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["AutomationRun"][];
+        };
+        PaginatedCampaignList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Campaign"][];
+        };
+        PaginatedCampaignRecipientList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CampaignRecipient"][];
         };
         PaginatedConsentEventList: {
             /**
@@ -1029,6 +2153,32 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Contact"][];
         };
+        PaginatedConversationList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Conversation"][];
+        };
+        PaginatedConversationNoteList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ConversationNote"][];
+        };
         PaginatedInvitationList: {
             /**
              * Format: uri
@@ -1042,6 +2192,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Invitation"][];
         };
+        PaginatedInvoiceList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Invoice"][];
+        };
         PaginatedMembershipList: {
             /**
              * Format: uri
@@ -1054,6 +2217,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Membership"][];
+        };
+        PaginatedMessageList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Message"][];
         };
         PaginatedMessageTemplateList: {
             /**
@@ -1123,6 +2299,68 @@ export interface components {
         PasswordChangeRequest: {
             current_password: string;
             new_password: string;
+        };
+        PatchedAutomationRuleRequest: {
+            name?: string;
+            /** @default true */
+            is_active: boolean;
+            trigger?: components["schemas"]["AutomationTriggerEnum"];
+            /** @description Required for the keyword trigger. Matching ignores case. */
+            keywords?: string[];
+            /** @default exact */
+            keyword_match: components["schemas"]["KeywordMatchEnum"];
+            /**
+             * Format: uuid
+             * @description Null applies to every number.
+             */
+            phone_number_id?: string | null;
+            actions?: components["schemas"]["AutomationActionRequest"][];
+            /** @default 0 */
+            cooldown_minutes: number;
+            /**
+             * @description Lower runs first.
+             * @default 0
+             */
+            priority: number;
+            /**
+             * @description Skip lower-priority rules after this one runs.
+             * @default false
+             */
+            stop_processing: boolean;
+        };
+        PatchedBillingProfileRequest: {
+            legal_name?: string;
+            /** @description 15-character GSTIN, or "" if unregistered. */
+            gstin?: string;
+            /** Format: email */
+            email?: string;
+            address_line1?: string;
+            /** @default  */
+            address_line2: string;
+            city?: string;
+            /** @description 2-digit GST state code. */
+            state_code?: string;
+            /** @description 6-digit PIN code. */
+            postal_code?: string;
+        };
+        PatchedBusinessHoursRequest: {
+            enabled?: boolean;
+            schedule?: components["schemas"]["BusinessHoursSlotRequest"][];
+        };
+        /** @description Create (always a draft) or PATCH a draft/scheduled campaign. */
+        PatchedCampaignWriteRequest: {
+            name?: string;
+            /** Format: uuid */
+            template_id?: string;
+            /**
+             * Format: uuid
+             * @description Workspace default number when omitted.
+             */
+            phone_number_id?: string | null;
+            audience?: components["schemas"]["CampaignAudienceRequest"];
+            variable_mapping?: components["schemas"]["VariableMappingRequest"];
+            /** Format: date-time */
+            scheduled_at?: string | null;
         };
         PatchedContactRequest: {
             /** @description Any common format; Indian local numbers are accepted. Stored as E.164. */
@@ -1203,6 +2441,23 @@ export interface components {
          * @enum {string}
          */
         PhoneRegistrationStatusEnum: "pending" | "registered" | "failed" | "deregistered";
+        Plan: {
+            /** @description Plan slug: starter, growth or pro. */
+            readonly id: string;
+            readonly name: string;
+            /** @description Before GST. */
+            readonly monthly_price_paise: number;
+            /** @description Before GST. */
+            readonly annual_price_paise: number;
+            /** @description null means unlimited. */
+            readonly limits: components["schemas"]["PlanLimits"];
+            readonly features: string[];
+        };
+        PlanLimits: {
+            readonly whatsapp_numbers: number | null;
+            readonly members: number | null;
+            readonly contacts: number | null;
+        };
         Preview: {
             header: components["schemas"]["PreviewHeader"] | null;
             body: string;
@@ -1223,6 +2478,17 @@ export interface components {
             variables?: string[];
             header_variables?: string[];
         };
+        /**
+         * @description * `pending` - pending
+         *     * `skipped` - skipped
+         *     * `queued` - queued
+         *     * `sent` - sent
+         *     * `delivered` - delivered
+         *     * `read` - read
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        RecipientStatusEnum: "pending" | "skipped" | "queued" | "sent" | "delivered" | "read" | "failed";
         RegisterRequest: {
             /** Format: email */
             email: string;
@@ -1241,11 +2507,72 @@ export interface components {
          * @enum {string}
          */
         RoleEnum: "owner" | "admin" | "agent" | "viewer";
+        /** @description Body of ``POST conversations/{id}/messages/``; required fields depend on ``type``. */
+        SendMessageRequest: {
+            type: components["schemas"]["SendMessageTypeEnum"];
+            text?: string;
+            /** @default false */
+            preview_url: boolean;
+            /** Format: uuid */
+            template_id?: string;
+            body_params?: string[];
+            header_param?: string;
+            /** @description Button parameters keyed by button index ('0', '1', ...). */
+            button_params?: {
+                [key: string]: string;
+            };
+            /**
+             * Format: uuid
+             * @description Id from POST media/.
+             */
+            media_id?: string;
+            caption?: string;
+            /** Format: uuid */
+            reply_to_message_id?: string | null;
+        };
+        /**
+         * @description * `text` - text
+         *     * `template` - template
+         *     * `media` - media
+         * @enum {string}
+         */
+        SendMessageTypeEnum: "text" | "template" | "media";
         SignupConfig: {
             app_id: string;
             config_id: string;
             graph_api_version: string;
         };
+        StartConversationRequest: {
+            /** Format: uuid */
+            contact_id: string;
+            /**
+             * Format: uuid
+             * @description Business number to use; the workspace default number when omitted.
+             */
+            phone_number_id?: string | null;
+        };
+        Subscription: {
+            readonly plan: components["schemas"]["Plan"];
+            readonly status: components["schemas"]["SubscriptionStatusEnum"];
+            readonly interval: components["schemas"]["BillingIntervalEnum"];
+            /** Format: date-time */
+            readonly trial_ends_at: string | null;
+            /** Format: date-time */
+            readonly current_period_start: string | null;
+            /** Format: date-time */
+            readonly current_period_end: string | null;
+            readonly cancel_at_period_end: boolean;
+        };
+        /**
+         * @description * `trialing` - trialing
+         *     * `pending` - pending
+         *     * `active` - active
+         *     * `halted` - halted
+         *     * `cancelled` - cancelled
+         *     * `expired` - expired
+         * @enum {string}
+         */
+        SubscriptionStatusEnum: "trialing" | "pending" | "active" | "halted" | "cancelled" | "expired";
         SyncQueued: {
             queued: string[];
         };
@@ -1295,6 +2622,16 @@ export interface components {
         TokenRefreshRequest: {
             refresh: string;
         };
+        Usage: {
+            readonly metrics: components["schemas"]["UsageMetric"][];
+        };
+        UsageMetric: {
+            /** @description whatsapp_numbers, members or contacts. */
+            readonly key: string;
+            readonly used: number;
+            /** @description null = unlimited. */
+            readonly limit: number | null;
+        };
         User: {
             /** Format: uuid */
             readonly id: string;
@@ -1309,6 +2646,56 @@ export interface components {
             /** Format: date-time */
             readonly email_verified_at: string | null;
         };
+        UserSummary: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly full_name: string;
+            /** Format: email */
+            readonly email: string;
+        };
+        VariableMapping: {
+            body?: components["schemas"]["VariableSource"][];
+            header?: components["schemas"]["VariableSource"] | null;
+            /** @description Button variables keyed by button index ('0', '1', ...). */
+            buttons?: {
+                [key: string]: components["schemas"]["VariableSource"];
+            };
+        };
+        VariableMappingRequest: {
+            body?: components["schemas"]["VariableSourceRequest"][];
+            header?: components["schemas"]["VariableSourceRequest"] | null;
+            /** @description Button variables keyed by button index ('0', '1', ...). */
+            buttons?: {
+                [key: string]: components["schemas"]["VariableSourceRequest"];
+            };
+        };
+        VariableSource: {
+            source: components["schemas"]["VariableSourceTypeEnum"];
+            /** @description Contact field (name, phone_e164, email), attribute key, or static text. */
+            value: string;
+            /**
+             * @description Used when the value is empty.
+             * @default
+             */
+            fallback: string;
+        };
+        VariableSourceRequest: {
+            source: components["schemas"]["VariableSourceTypeEnum"];
+            /** @description Contact field (name, phone_e164, email), attribute key, or static text. */
+            value: string;
+            /**
+             * @description Used when the value is empty.
+             * @default
+             */
+            fallback: string;
+        };
+        /**
+         * @description * `contact_field` - contact_field
+         *     * `attribute` - attribute
+         *     * `static` - static
+         * @enum {string}
+         */
+        VariableSourceTypeEnum: "contact_field" | "attribute" | "static";
         /**
          * @description * `code_exchanged` - Code exchanged
          *     * `subscribing` - Subscribing to webhooks
@@ -1378,6 +2765,14 @@ export interface components {
             readonly id: string;
             name: string;
             slug: string;
+        };
+        WsTicket: {
+            /** @description Single use. */
+            readonly ticket: string;
+            /** @description Seconds. */
+            readonly expires_in: number;
+            /** @description Connect to <path>?ticket=<ticket>. */
+            readonly path: string;
         };
     };
     responses: never;
@@ -1551,6 +2946,736 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TokenRefresh"];
+                };
+            };
+        };
+    };
+    automations_business_hours_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessHours"];
+                };
+            };
+        };
+    };
+    automations_business_hours_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBusinessHoursRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBusinessHoursRequest"];
+                "multipart/form-data": components["schemas"]["PatchedBusinessHoursRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessHours"];
+                };
+            };
+        };
+    };
+    automations_rules_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_active?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                trigger?: "first_inbound" | "keyword" | "new_contact" | "outside_business_hours";
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedAutomationRuleList"];
+                };
+            };
+        };
+    };
+    automations_rules_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationRuleRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AutomationRuleRequest"];
+                "multipart/form-data": components["schemas"]["AutomationRuleRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRule"];
+                };
+            };
+        };
+    };
+    automations_rules_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRule"];
+                };
+            };
+        };
+    };
+    automations_rules_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    automations_rules_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedAutomationRuleRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedAutomationRuleRequest"];
+                "multipart/form-data": components["schemas"]["PatchedAutomationRuleRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRule"];
+                };
+            };
+        };
+    };
+    automations_runs_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Rule id. */
+                rule?: string;
+                status?: "failed" | "skipped" | "succeeded";
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedAutomationRunList"];
+                };
+            };
+        };
+    };
+    billing_profile_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingProfile"];
+                };
+            };
+        };
+    };
+    billing_profile_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedBillingProfileRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedBillingProfileRequest"];
+                "multipart/form-data": components["schemas"]["PatchedBillingProfileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingProfile"];
+                };
+            };
+        };
+    };
+    billing_invoices_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedInvoiceList"];
+                };
+            };
+        };
+    };
+    billing_plans_list: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    billing_subscription_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    billing_subscription_cancel_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CancelSubscriptionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CancelSubscriptionRequest"];
+                "multipart/form-data": components["schemas"]["CancelSubscriptionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    billing_subscription_checkout_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CheckoutRequest"];
+                "multipart/form-data": components["schemas"]["CheckoutRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutSession"];
+                };
+            };
+        };
+    };
+    billing_subscription_verify_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutVerifyRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CheckoutVerifyRequest"];
+                "multipart/form-data": components["schemas"]["CheckoutVerifyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subscription"];
+                };
+            };
+        };
+    };
+    billing_usage_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Usage"];
+                };
+            };
+        };
+    };
+    campaigns_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                status?: "cancelled" | "completed" | "draft" | "failed" | "paused" | "running" | "scheduled";
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCampaignList"];
+                };
+            };
+        };
+    };
+    campaigns_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CampaignWriteRequest"];
+                "multipart/form-data": components["schemas"]["CampaignWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+        };
+    };
+    campaigns_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+        };
+    };
+    campaigns_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    campaigns_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCampaignWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCampaignWriteRequest"];
+                "multipart/form-data": components["schemas"]["PatchedCampaignWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+        };
+    };
+    campaigns_audience_preview_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudiencePreview"];
+                };
+            };
+        };
+    };
+    campaigns_cancel_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+        };
+    };
+    campaigns_launch_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchCampaignRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LaunchCampaignRequest"];
+                "multipart/form-data": components["schemas"]["LaunchCampaignRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+        };
+    };
+    campaigns_pause_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+        };
+    };
+    campaigns_recipients_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                status?: "delivered" | "failed" | "pending" | "queued" | "read" | "sent" | "skipped";
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCampaignRecipientList"];
+                };
+            };
+        };
+    };
+    campaigns_resume_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
                 };
             };
         };
@@ -2029,6 +4154,396 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Tag"];
+                };
+            };
+        };
+    };
+    inbox_conversations_list: {
+        parameters: {
+            query?: {
+                /** @description A member's user id, `me` or `none`. */
+                assignee?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Business phone number id. */
+                phone_number?: string;
+                /** @description Contact name or phone number. */
+                search?: string;
+                status?: "closed" | "open" | "pending";
+                /** @description Only conversations with unread. */
+                unread?: boolean;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedConversationList"];
+                };
+            };
+        };
+    };
+    inbox_conversations_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartConversationRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StartConversationRequest"];
+                "multipart/form-data": components["schemas"]["StartConversationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+        };
+    };
+    inbox_conversations_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+        };
+    };
+    inbox_conversations_assign_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignConversationRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AssignConversationRequest"];
+                "multipart/form-data": components["schemas"]["AssignConversationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+        };
+    };
+    inbox_conversations_close_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+        };
+    };
+    inbox_conversations_messages_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMessageList"];
+                };
+            };
+        };
+    };
+    inbox_conversations_messages_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Retrying with the same key returns the original message instead of resending. */
+                "Idempotency-Key"?: string;
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SendMessageRequest"];
+                "multipart/form-data": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    inbox_conversations_notes_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedConversationNoteList"];
+                };
+            };
+        };
+    };
+    inbox_conversations_notes_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationNoteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ConversationNoteRequest"];
+                "multipart/form-data": components["schemas"]["ConversationNoteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationNote"];
+                };
+            };
+        };
+    };
+    inbox_conversations_read_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+        };
+    };
+    inbox_conversations_reopen_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+        };
+    };
+    inbox_media_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["MediaUploadRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAsset"];
+                };
+            };
+        };
+    };
+    inbox_messages_media_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+        };
+    };
+    inbox_ws_ticket_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsTicket"];
                 };
             };
         };
