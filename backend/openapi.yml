@@ -1093,6 +1093,731 @@ paths:
               schema:
                 $ref: '#/components/schemas/Campaign'
           description: ''
+  /api/v1/catalog/collections/:
+    get:
+      operationId: catalog_collections_list
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCollectionList'
+          description: ''
+    post:
+      operationId: catalog_collections_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionWriteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+          description: ''
+  /api/v1/catalog/collections/{id}/:
+    get:
+      operationId: catalog_collections_retrieve
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+          description: ''
+    patch:
+      operationId: catalog_collections_partial_update
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCollectionWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCollectionWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCollectionWriteRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+          description: ''
+    delete:
+      operationId: catalog_collections_destroy
+      description: Its products move out of the collection.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/catalog/collections/reorder/:
+    post:
+      operationId: catalog_collections_reorder_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/catalog/meta-catalogs/:
+    get:
+      operationId: catalog_meta_catalogs_list
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMetaCatalogList'
+          description: ''
+    post:
+      operationId: catalog_meta_catalogs_create
+      description: 409 catalog_permissions_missing when the token lacks catalog permissions.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetaCatalogConnectRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MetaCatalogConnectRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MetaCatalogConnectRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCatalog'
+          description: ''
+  /api/v1/catalog/meta-catalogs/{id}/:
+    get:
+      operationId: catalog_meta_catalogs_retrieve
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCatalog'
+          description: ''
+    delete:
+      operationId: catalog_meta_catalogs_destroy
+      description: Disconnects locally; the store falls back to bot mode.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/catalog/meta-catalogs/{id}/commerce-settings/:
+    patch:
+      operationId: catalog_meta_catalogs_commerce_settings_partial_update
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceSettingsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceSettingsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCommerceSettingsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCatalog'
+          description: ''
+  /api/v1/catalog/meta-catalogs/{id}/sync/:
+    post:
+      operationId: catalog_meta_catalogs_sync_create
+      description: Queue a full resync.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCatalog'
+          description: ''
+  /api/v1/catalog/meta-catalogs/available/:
+    get:
+      operationId: catalog_meta_catalogs_available_list
+      description: Catalogs owned by the seller's Meta business (unpaginated).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: waba_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableCatalog'
+          description: ''
+  /api/v1/catalog/products/:
+    get:
+      operationId: catalog_products_list
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: availability
+        schema:
+          type: string
+          enum:
+          - in_stock
+          - out_of_stock
+      - in: query
+        name: collection
+        schema:
+          type: string
+        description: Collection id, or none.
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - in: query
+        name: meta_review_status
+        schema:
+          type: string
+          enum:
+          - approved
+          - none
+          - outdated
+          - pending
+          - rejected
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Name or SKU.
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProductList'
+          description: ''
+    post:
+      operationId: catalog_products_create
+      description: '409-free: a duplicate SKU is a 400 invalid error on sku.'
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+  /api/v1/catalog/products/{id}/:
+    get:
+      operationId: catalog_products_retrieve
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    patch:
+      operationId: catalog_products_partial_update
+      description: sku is read-only after create.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProductWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProductWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProductWriteRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    delete:
+      operationId: catalog_products_destroy
+      description: Queues a Meta catalog delete; past order items keep their snapshots.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/catalog/products/{id}/image/:
+    post:
+      operationId: catalog_products_image_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductImageUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+          description: ''
+    delete:
+      operationId: catalog_products_image_destroy
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/catalog/products/import/:
+    post:
+      operationId: catalog_products_import_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductImportUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductImportResult'
+          description: ''
+  /api/v1/catalog/products/reorder/:
+    post:
+      operationId: catalog_products_reorder_create
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReorderRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/contacts/:
     get:
       operationId: contacts_list
@@ -2243,6 +2968,831 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WsTicket'
+          description: ''
+  /api/v1/orders/:
+    get:
+      operationId: orders_list
+      description: The workspace's orders, newest first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: contact
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: created_after
+        schema:
+          type: string
+          format: date-time
+        description: Inclusive lower bound.
+      - in: query
+        name: created_before
+        schema:
+          type: string
+          format: date-time
+        description: Exclusive upper bound.
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: payment_method
+        schema:
+          type: string
+          enum:
+          - cod
+          - online
+      - in: query
+        name: payment_status
+        schema:
+          type: string
+          enum:
+          - cod_collected
+          - cod_pending
+          - paid
+          - refunded_manual
+          - unpaid
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Order number, contact name or phone.
+      - in: query
+        name: stage
+        schema:
+          type: string
+          enum:
+          - checkout
+          - closed
+          - open
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Comma-separated OrderStatusEnum values. Drafts are listed only
+          when asked for here.
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrderListItemList'
+          description: ''
+  /api/v1/orders/{id}/:
+    get:
+      operationId: orders_retrieve
+      description: The workspace's orders, newest first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+    patch:
+      operationId: orders_partial_update
+      description: Update the seller-internal notes.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOrderNotesRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOrderNotesRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOrderNotesRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/{id}/cancel/:
+    post:
+      operationId: orders_cancel_create
+      description: Also cancels an open payment link.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/{id}/events/:
+    get:
+      operationId: orders_events_list
+      description: The order timeline, oldest first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrderEventList'
+          description: ''
+  /api/v1/orders/{id}/mark-cod-collected/:
+    post:
+      operationId: orders_mark_cod_collected_create
+      description: Only COD orders that are shipped or delivered.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/{id}/mark-refunded/:
+    post:
+      operationId: orders_mark_refunded_create
+      description: Only paid orders that are cancelled or need attention; refund in
+        Razorpay.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/{id}/transition/:
+    post:
+      operationId: orders_transition_create
+      description: 409 invalid_order_transition when the move isn't allowed.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderTransitionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrderTransitionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrderTransitionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/summary/:
+    get:
+      operationId: orders_summary_retrieve
+      description: The workspace's orders, newest first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderSummary'
+          description: ''
+  /api/v1/payments/account/:
+    get:
+      operationId: payments_account_retrieve
+      description: The workspace's own Razorpay account. Secrets are never returned.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAccount'
+          description: ''
+    patch:
+      operationId: payments_account_partial_update
+      description: Changing a key resets status to unverified.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - payments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPaymentAccountRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPaymentAccountRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPaymentAccountRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAccount'
+          description: ''
+    delete:
+      operationId: payments_account_destroy
+      description: The workspace's own Razorpay account. Secrets are never returned.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/payments/account/rotate-webhook/:
+    post:
+      operationId: payments_account_rotate_webhook_create
+      description: Issue a new webhook URL; update it in Razorpay afterwards.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAccount'
+          description: ''
+  /api/v1/payments/account/verify/:
+    post:
+      operationId: payments_account_verify_create
+      description: 409 payment_account_missing or payment_account_invalid.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentAccount'
+          description: ''
+  /api/v1/payments/links/:
+    get:
+      operationId: payments_links_list
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: order
+        schema:
+          type: string
+          format: uuid
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - cancelled
+          - created
+          - creating
+          - expired
+          - failed
+          - paid
+      tags:
+      - payments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPaymentLinkList'
+          description: ''
+  /api/v1/seller-alerts/platform/:
+    get:
+      operationId: seller_alerts_platform_retrieve
+      description: Compose with DRF mixins (ListModelMixin, ...) for partial CRUD.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - seller-alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformAlertsInfo'
+          description: ''
+  /api/v1/seller-alerts/recipients/:
+    get:
+      operationId: seller_alerts_recipients_list
+      description: Personal WhatsApp numbers that get order alerts from the UpChatz
+        number (at most 3).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - seller-alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAlertRecipientList'
+          description: ''
+    post:
+      operationId: seller_alerts_recipients_create
+      description: Sends the verification template from the UpChatz number (409 platform_alerts_unavailable,
+        alert_recipient_limit).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - seller-alerts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRecipientRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlertRecipientRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlertRecipientRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRecipient'
+          description: ''
+  /api/v1/seller-alerts/recipients/{id}/:
+    patch:
+      operationId: seller_alerts_recipients_partial_update
+      description: phone_e164 can't change after create.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - seller-alerts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAlertRecipientRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAlertRecipientRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAlertRecipientRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRecipient'
+          description: ''
+    delete:
+      operationId: seller_alerts_recipients_destroy
+      description: Personal WhatsApp numbers that get order alerts from the UpChatz
+        number (at most 3).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - seller-alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/seller-alerts/recipients/{id}/resend-verification/:
+    post:
+      operationId: seller_alerts_recipients_resend_verification_create
+      description: 409 verification_recently_sent within 5 minutes of the last one.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - seller-alerts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRecipient'
+          description: ''
+  /api/v1/store/checklist/:
+    get:
+      operationId: store_checklist_retrieve
+      description: Store settings (one per workspace), the setup checklist and starter
+        templates.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - store
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreChecklist'
+          description: ''
+  /api/v1/store/settings/:
+    get:
+      operationId: store_settings_retrieve
+      description: Store settings (one per workspace), the setup checklist and starter
+        templates.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - store
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreSettings'
+          description: ''
+    patch:
+      operationId: store_settings_partial_update
+      description: Turning on enabled needs the commerce feature, an active product
+        and a connected number (409 commerce_not_enabled).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - store
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStoreSettingsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStoreSettingsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStoreSettingsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreSettings'
+          description: ''
+  /api/v1/store/starter-templates/:
+    post:
+      operationId: store_starter_templates_create
+      description: Create missing order templates in the store number's WABA and map
+        them.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - store
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarterTemplatesResult'
           description: ''
   /api/v1/templates/:
     get:
@@ -3461,6 +5011,91 @@ components:
       required:
       - role
       - workspace
+    AlertEventEnum:
+      enum:
+      - new_order
+      - needs_attention
+      - order_cancelled
+      type: string
+      description: |-
+        * `new_order` - new_order
+        * `needs_attention` - needs_attention
+        * `order_cancelled` - order_cancelled
+    AlertRecipient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 60
+        phone_e164:
+          type: string
+          description: Create only.
+          maxLength: 20
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AlertRecipientStatusEnum'
+          readOnly: true
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEventEnum'
+          description: Defaults to all events.
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_sent_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - last_sent_at
+      - name
+      - phone_e164
+      - status
+      - verified_at
+    AlertRecipientRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        phone_e164:
+          type: string
+          minLength: 1
+          description: Create only.
+          maxLength: 20
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEventEnum'
+          description: Defaults to all events.
+      required:
+      - name
+      - phone_e164
+    AlertRecipientStatusEnum:
+      enum:
+      - pending
+      - verified
+      - opted_out
+      type: string
+      description: |-
+        * `pending` - pending
+        * `verified` - verified
+        * `opted_out` - opted_out
     AssignConversationRequest:
       type: object
       properties:
@@ -3752,6 +5387,19 @@ components:
         * `first_inbound` - first_inbound
         * `new_contact` - new_contact
         * `outside_business_hours` - outside_business_hours
+    AvailableCatalog:
+      type: object
+      properties:
+        id:
+          type: string
+          readOnly: true
+          description: Meta catalog id.
+        name:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - name
     BillingIntervalEnum:
       enum:
       - monthly
@@ -4179,6 +5827,19 @@ components:
       - name
       - template_id
       - variable_mapping
+    CancelOrderRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          default: ''
+          maxLength: 200
+        restock:
+          type: boolean
+          default: true
+        notify_buyer:
+          type: boolean
+          default: true
     CancelSubscriptionRequest:
       type: object
       properties:
@@ -4186,6 +5847,18 @@ components:
           type: boolean
           default: true
           description: Keep access until the paid period ends.
+    CatalogSyncStatusEnum:
+      enum:
+      - not_synced
+      - pending
+      - synced
+      - failed
+      type: string
+      description: |-
+        * `not_synced` - not_synced
+        * `pending` - pending
+        * `synced` - synced
+        * `failed` - failed
     CheckoutPrefill:
       type: object
       properties:
@@ -4257,6 +5930,94 @@ components:
       - razorpay_payment_id
       - razorpay_signature
       - razorpay_subscription_id
+    Collection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        position:
+          type: integer
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        product_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - description
+      - id
+      - is_active
+      - name
+      - position
+      - product_count
+      - updated_at
+    CollectionRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - name
+    CollectionWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Shown as a list row title.
+          maxLength: 24
+        description:
+          type: string
+          maxLength: 72
+        position:
+          type: integer
+        is_active:
+          type: boolean
+      required:
+      - name
+    CommerceSettings:
+      type: object
+      description: |-
+        Per-number cart and catalog visibility. As a PATCH body only ``phone_number_id`` and the
+        booleans are read.
+      properties:
+        phone_number_id:
+          type: string
+          format: uuid
+        display_phone_number:
+          type: string
+          readOnly: true
+        is_cart_enabled:
+          type: boolean
+        is_catalog_visible:
+          type: boolean
+      required:
+      - display_phone_number
+      - phone_number_id
     ConsentActionEnum:
       enum:
       - opt_in
@@ -5528,6 +7289,150 @@ components:
         * `template` - template
         * `order` - order
         * `unsupported` - unsupported
+    MetaCatalog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        waba:
+          allOf:
+          - $ref: '#/components/schemas/MetaCatalogWaba'
+          readOnly: true
+        catalog_id:
+          type: string
+          readOnly: true
+        catalog_name:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/MetaCatalogStatusEnum'
+          readOnly: true
+        last_synced_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_sync_error:
+          type: string
+          readOnly: true
+        product_counts:
+          allOf:
+          - $ref: '#/components/schemas/MetaCatalogCounts'
+          readOnly: true
+        phone_numbers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommerceSettings'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - catalog_id
+      - catalog_name
+      - created_at
+      - id
+      - last_sync_error
+      - last_synced_at
+      - phone_numbers
+      - product_counts
+      - status
+      - updated_at
+      - waba
+    MetaCatalogConnectRequest:
+      type: object
+      description: Connect an existing catalog (``catalog_id``) or create one (``create_name``).
+      properties:
+        waba_id:
+          type: string
+          format: uuid
+          description: Id of the WhatsAppBusinessAccount.
+        catalog_id:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{1,64}$
+        create_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - waba_id
+    MetaCatalogCounts:
+      type: object
+      properties:
+        synced:
+          type: integer
+          readOnly: true
+        pending:
+          type: integer
+          readOnly: true
+        failed:
+          type: integer
+          readOnly: true
+        approved:
+          type: integer
+          readOnly: true
+        rejected:
+          type: integer
+          readOnly: true
+      required:
+      - approved
+      - failed
+      - pending
+      - rejected
+      - synced
+    MetaCatalogStatusEnum:
+      enum:
+      - connected
+      - permissions_missing
+      - error
+      type: string
+      description: |-
+        * `connected` - connected
+        * `permissions_missing` - permissions_missing
+        * `error` - error
+    MetaCatalogWaba:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        waba_id:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - name
+      - waba_id
+    MetaReviewStatusEnum:
+      enum:
+      - none
+      - pending
+      - approved
+      - rejected
+      - outdated
+      type: string
+      description: |-
+        * `none` - none
+        * `pending` - pending
+        * `approved` - approved
+        * `rejected` - rejected
+        * `outdated` - outdated
+    NullEnum:
+      enum:
+      - null
     OptInRequestRequest:
       type: object
       properties:
@@ -5540,6 +7445,618 @@ components:
           description: How and when the customer agreed to receive marketing messages.
             Required.
           maxLength: 2000
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+          description: e.g. SS-1001
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+        payment_status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentStatusEnum'
+          readOnly: true
+        payment_method:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        source:
+          allOf:
+          - $ref: '#/components/schemas/OrderSourceEnum'
+          readOnly: true
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ConversationContact'
+          readOnly: true
+        total_paise:
+          type: integer
+          readOnly: true
+        item_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        conversation_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        phone_number:
+          allOf:
+          - $ref: '#/components/schemas/ConversationPhoneNumber'
+          readOnly: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          readOnly: true
+        subtotal_paise:
+          type: integer
+          readOnly: true
+        shipping_paise:
+          type: integer
+          readOnly: true
+        cod_fee_paise:
+          type: integer
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        address:
+          allOf:
+          - $ref: '#/components/schemas/OrderAddress'
+          readOnly: true
+          nullable: true
+        courier_name:
+          type: string
+          readOnly: true
+        awb_number:
+          type: string
+          readOnly: true
+        tracking_url:
+          type: string
+          readOnly: true
+        payment_link:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentLink'
+          nullable: true
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+          description: Seller-internal.
+        cancel_reason:
+          type: string
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: Checkout deadline.
+        confirmed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        packed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        shipped_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        allowed_transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+      required:
+      - address
+      - allowed_transitions
+      - awb_number
+      - cancel_reason
+      - cancelled_at
+      - cod_fee_paise
+      - confirmed_at
+      - contact
+      - conversation_id
+      - courier_name
+      - created_at
+      - currency
+      - delivered_at
+      - expires_at
+      - id
+      - item_count
+      - items
+      - notes
+      - number
+      - packed_at
+      - payment_link
+      - payment_method
+      - payment_status
+      - phone_number
+      - shipped_at
+      - shipping_paise
+      - source
+      - status
+      - subtotal_paise
+      - total_paise
+      - tracking_url
+      - updated_at
+    OrderAddress:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        phone_e164:
+          type: string
+          maxLength: 16
+        line1:
+          type: string
+          maxLength: 200
+        line2:
+          type: string
+          default: ''
+          maxLength: 200
+        landmark:
+          type: string
+          default: ''
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          maxLength: 100
+        pincode:
+          type: string
+          description: 6 digits.
+          pattern: ^[0-9]{6}$
+        country:
+          type: string
+          default: IN
+          maxLength: 2
+      required:
+      - city
+      - line1
+      - name
+      - phone_e164
+      - pincode
+      - state
+    OrderEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        type:
+          allOf:
+          - $ref: '#/components/schemas/OrderEventTypeEnum'
+          readOnly: true
+        from_status:
+          type: string
+          readOnly: true
+          description: '"" when not a status change.'
+        to_status:
+          type: string
+          readOnly: true
+          description: '"" when not a status change.'
+        actor:
+          allOf:
+          - $ref: '#/components/schemas/OrderEventActorEnum'
+          readOnly: true
+        user:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+          nullable: true
+        detail:
+          type: string
+          readOnly: true
+        message_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - actor
+      - created_at
+      - detail
+      - from_status
+      - id
+      - message_id
+      - to_status
+      - type
+      - user
+    OrderEventActorEnum:
+      enum:
+      - buyer
+      - dashboard
+      - seller_whatsapp
+      - system
+      type: string
+      description: |-
+        * `buyer` - buyer
+        * `dashboard` - dashboard
+        * `seller_whatsapp` - seller_whatsapp
+        * `system` - system
+    OrderEventTypeEnum:
+      enum:
+      - created
+      - status_changed
+      - price_changed
+      - address_received
+      - payment_link_created
+      - payment_received
+      - payment_link_expired
+      - cod_collected
+      - refunded_manual
+      - stock_released
+      - notification_sent
+      - notification_failed
+      - note
+      type: string
+      description: |-
+        * `created` - created
+        * `status_changed` - status_changed
+        * `price_changed` - price_changed
+        * `address_received` - address_received
+        * `payment_link_created` - payment_link_created
+        * `payment_received` - payment_received
+        * `payment_link_expired` - payment_link_expired
+        * `cod_collected` - cod_collected
+        * `refunded_manual` - refunded_manual
+        * `stock_released` - stock_released
+        * `notification_sent` - notification_sent
+        * `notification_failed` - notification_failed
+        * `note` - note
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        product_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+          description: Null once the product is deleted.
+        sku:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        image_url:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        unit_price_paise:
+          type: integer
+          readOnly: true
+        quantity:
+          type: integer
+          readOnly: true
+        line_total_paise:
+          type: integer
+          readOnly: true
+      required:
+      - id
+      - image_url
+      - line_total_paise
+      - name
+      - product_id
+      - quantity
+      - sku
+      - unit_price_paise
+    OrderListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+          description: e.g. SS-1001
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+        payment_status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentStatusEnum'
+          readOnly: true
+        payment_method:
+          readOnly: true
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        source:
+          allOf:
+          - $ref: '#/components/schemas/OrderSourceEnum'
+          readOnly: true
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ConversationContact'
+          readOnly: true
+        total_paise:
+          type: integer
+          readOnly: true
+        item_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - contact
+      - created_at
+      - id
+      - item_count
+      - number
+      - payment_method
+      - payment_status
+      - source
+      - status
+      - total_paise
+      - updated_at
+    OrderNotificationTemplates:
+      type: object
+      properties:
+        confirmed:
+          type: string
+          format: uuid
+          nullable: true
+        packed:
+          type: string
+          format: uuid
+          nullable: true
+        shipped:
+          type: string
+          format: uuid
+          nullable: true
+        delivered:
+          type: string
+          format: uuid
+          nullable: true
+        cancelled:
+          type: string
+          format: uuid
+          nullable: true
+        payment_reminder:
+          type: string
+          format: uuid
+          nullable: true
+    OrderNotificationTemplatesRequest:
+      type: object
+      properties:
+        confirmed:
+          type: string
+          format: uuid
+          nullable: true
+        packed:
+          type: string
+          format: uuid
+          nullable: true
+        shipped:
+          type: string
+          format: uuid
+          nullable: true
+        delivered:
+          type: string
+          format: uuid
+          nullable: true
+        cancelled:
+          type: string
+          format: uuid
+          nullable: true
+        payment_reminder:
+          type: string
+          format: uuid
+          nullable: true
+    OrderPaymentLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        short_url:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentLinkStatusEnum'
+          readOnly: true
+        amount_paise:
+          type: integer
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        paid_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - amount_paise
+      - expires_at
+      - id
+      - paid_at
+      - short_url
+      - status
+    OrderSourceEnum:
+      enum:
+      - bot
+      - native_cart
+      type: string
+      description: |-
+        * `bot` - bot
+        * `native_cart` - native_cart
+    OrderStatusEnum:
+      enum:
+      - draft
+      - awaiting_confirmation
+      - awaiting_address
+      - awaiting_payment_method
+      - pending_payment
+      - confirmed
+      - packed
+      - shipped
+      - delivered
+      - cancelled
+      - expired
+      - needs_attention
+      type: string
+      description: |-
+        * `draft` - draft
+        * `awaiting_confirmation` - awaiting_confirmation
+        * `awaiting_address` - awaiting_address
+        * `awaiting_payment_method` - awaiting_payment_method
+        * `pending_payment` - pending_payment
+        * `confirmed` - confirmed
+        * `packed` - packed
+        * `shipped` - shipped
+        * `delivered` - delivered
+        * `cancelled` - cancelled
+        * `expired` - expired
+        * `needs_attention` - needs_attention
+    OrderSummary:
+      type: object
+      properties:
+        today_count:
+          type: integer
+          readOnly: true
+        today_revenue_paise:
+          type: integer
+          readOnly: true
+        open_count:
+          type: integer
+          readOnly: true
+        needs_attention_count:
+          type: integer
+          readOnly: true
+        awaiting_payment_count:
+          type: integer
+          readOnly: true
+      required:
+      - awaiting_payment_count
+      - needs_attention_count
+      - open_count
+      - today_count
+      - today_revenue_paise
+    OrderTransitionRequest:
+      type: object
+      properties:
+        to_status:
+          allOf:
+          - $ref: '#/components/schemas/OrderTransitionTargetEnum'
+          description: |-
+            confirmed only from needs_attention.
+
+            * `confirmed` - confirmed
+            * `packed` - packed
+            * `shipped` - shipped
+            * `delivered` - delivered
+        courier_name:
+          type: string
+          maxLength: 100
+        awb_number:
+          type: string
+          maxLength: 64
+        tracking_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        notify_buyer:
+          type: boolean
+          default: true
+      required:
+      - to_status
+    OrderTransitionTargetEnum:
+      enum:
+      - confirmed
+      - packed
+      - shipped
+      - delivered
+      type: string
+      description: |-
+        * `confirmed` - confirmed
+        * `packed` - packed
+        * `shipped` - shipped
+        * `delivered` - delivered
+    PaginatedAlertRecipientList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertRecipient'
     PaginatedAutomationRuleList:
       type: object
       required:
@@ -5616,6 +8133,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CampaignRecipient'
+    PaginatedCollectionList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Collection'
     PaginatedConsentEventList:
       type: object
       required:
@@ -5806,6 +8342,82 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MessageTemplate'
+    PaginatedMetaCatalogList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MetaCatalog'
+    PaginatedOrderEventList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderEvent'
+    PaginatedOrderListItemList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderListItem'
+    PaginatedPaymentLinkList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentLink'
     PaginatedPhoneNumberList:
       type: object
       required:
@@ -5825,6 +8437,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PhoneNumber'
+    PaginatedProductList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
     PaginatedTagList:
       type: object
       required:
@@ -5896,6 +8527,23 @@ components:
       required:
       - current_password
       - new_password
+    PatchedAlertRecipientRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        phone_e164:
+          type: string
+          minLength: 1
+          description: Create only.
+          maxLength: 20
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertEventEnum'
+          description: Defaults to all events.
     PatchedAutomationRuleRequest:
       type: object
       properties:
@@ -6014,6 +8662,34 @@ components:
           type: string
           format: date-time
           nullable: true
+    PatchedCollectionWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Shown as a list row title.
+          maxLength: 24
+        description:
+          type: string
+          maxLength: 72
+        position:
+          type: integer
+        is_active:
+          type: boolean
+    PatchedCommerceSettingsRequest:
+      type: object
+      description: |-
+        Per-number cart and catalog visibility. As a PATCH body only ``phone_number_id`` and the
+        booleans are read.
+      properties:
+        phone_number_id:
+          type: string
+          format: uuid
+        is_cart_enabled:
+          type: boolean
+        is_catalog_visible:
+          type: boolean
     PatchedContactRequest:
       type: object
       properties:
@@ -6075,6 +8751,138 @@ components:
             additionalProperties: true
           description: Template components in Meta's format (HEADER, BODY, FOOTER,
             BUTTONS).
+    PatchedOrderNotesRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          maxLength: 2000
+    PatchedPaymentAccountRequest:
+      type: object
+      properties:
+        key_id:
+          oneOf:
+          - type: string
+            maxLength: 64
+            pattern: ^rzp_(test|live)_[A-Za-z0-9]{1,50}$
+          - type: string
+            maxLength: 0
+        key_secret:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        webhook_secret:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+    PatchedProductWriteRequest:
+      type: object
+      description: Create or PATCH a product. ``sku`` is accepted on create only.
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          description: Create only.
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_-]{1,100}$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        price_paise:
+          type: integer
+          minimum: 100
+        sale_price_paise:
+          type: integer
+          minimum: 1
+          nullable: true
+        collection_id:
+          type: string
+          format: uuid
+          nullable: true
+        availability:
+          $ref: '#/components/schemas/ProductAvailabilityEnum'
+        stock_qty:
+          type: integer
+          minimum: 0
+          nullable: true
+        max_qty_per_order:
+          type: integer
+          maximum: 99
+          minimum: 1
+        position:
+          type: integer
+        is_active:
+          type: boolean
+    PatchedStoreSettingsRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        shop_mode:
+          $ref: '#/components/schemas/ShopModeEnum'
+        store_name:
+          type: string
+          maxLength: 60
+        welcome_message:
+          type: string
+          maxLength: 1024
+        menu_keywords:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 30
+          description: Case-insensitive exact matches that open the store menu.
+          maxItems: 20
+        order_prefix:
+          type: string
+          minLength: 1
+          pattern: ^[A-Z]{2,5}$
+        min_order_paise:
+          type: integer
+          minimum: 0
+        shipping_fee_paise:
+          type: integer
+          minimum: 0
+        free_shipping_above_paise:
+          type: integer
+          minimum: 0
+          nullable: true
+        cod_enabled:
+          type: boolean
+        cod_fee_paise:
+          type: integer
+          minimum: 0
+        cod_max_order_paise:
+          type: integer
+          minimum: 0
+          nullable: true
+        serviceable_pincodes:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            pattern: ^[0-9]{6}$
+          description: Empty means everywhere.
+          maxItems: 5000
+        support_message:
+          type: string
+          maxLength: 1024
+        powered_by_footer:
+          type: boolean
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null uses the workspace default number.
+        notification_templates:
+          $ref: '#/components/schemas/OrderNotificationTemplatesRequest'
     PatchedTagRequest:
       type: object
       properties:
@@ -6100,6 +8908,195 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+    PaymentAccount:
+      type: object
+      properties:
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/PaymentProviderEnum'
+          readOnly: true
+        mode:
+          readOnly: true
+          nullable: true
+          description: |-
+            From the rzp_test_/rzp_live_ key prefix; null until key_id is set.
+
+            * `test` - test
+            * `live` - live
+          oneOf:
+          - $ref: '#/components/schemas/PaymentModeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        key_id:
+          oneOf:
+          - type: string
+            maxLength: 64
+            pattern: ^rzp_(test|live)_[A-Za-z0-9]{1,50}$
+          - type: string
+            maxLength: 0
+        has_key_secret:
+          type: boolean
+          readOnly: true
+        has_webhook_secret:
+          type: boolean
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentAccountStatusEnum'
+          readOnly: true
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_error:
+          type: string
+          readOnly: true
+        webhook_url:
+          type: string
+          readOnly: true
+          description: Enter this URL in Razorpay webhooks ("" until the account is
+            saved).
+        webhook_events:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - has_key_secret
+      - has_webhook_secret
+      - last_error
+      - mode
+      - provider
+      - status
+      - updated_at
+      - verified_at
+      - webhook_events
+      - webhook_url
+    PaymentAccountStatusEnum:
+      enum:
+      - not_configured
+      - unverified
+      - verified
+      - invalid
+      type: string
+      description: |-
+        * `not_configured` - not_configured
+        * `unverified` - unverified
+        * `verified` - verified
+        * `invalid` - invalid
+    PaymentLink:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        order_id:
+          type: string
+          format: uuid
+          readOnly: true
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/PaymentProviderEnum'
+          readOnly: true
+        provider_link_id:
+          type: string
+          readOnly: true
+        reference_id:
+          type: string
+          readOnly: true
+        short_url:
+          type: string
+          readOnly: true
+        amount_paise:
+          type: integer
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentLinkStatusEnum'
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        paid_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount_paise
+      - created_at
+      - expires_at
+      - id
+      - order_id
+      - paid_at
+      - provider
+      - provider_link_id
+      - reference_id
+      - short_url
+      - status
+    PaymentLinkStatusEnum:
+      enum:
+      - creating
+      - created
+      - paid
+      - expired
+      - cancelled
+      - failed
+      type: string
+      description: |-
+        * `creating` - creating
+        * `created` - created
+        * `paid` - paid
+        * `expired` - expired
+        * `cancelled` - cancelled
+        * `failed` - failed
+    PaymentMethodEnum:
+      enum:
+      - online
+      - cod
+      type: string
+      description: |-
+        * `online` - online
+        * `cod` - cod
+    PaymentModeEnum:
+      enum:
+      - test
+      - live
+      type: string
+      description: |-
+        * `test` - test
+        * `live` - live
+    PaymentProviderEnum:
+      enum:
+      - razorpay
+      type: string
+      description: '* `razorpay` - razorpay'
+    PaymentStatusEnum:
+      enum:
+      - unpaid
+      - paid
+      - cod_pending
+      - cod_collected
+      - refunded_manual
+      type: string
+      description: |-
+        * `unpaid` - unpaid
+        * `paid` - paid
+        * `cod_pending` - cod_pending
+        * `cod_collected` - cod_collected
+        * `refunded_manual` - refunded_manual
     PhoneNumber:
       type: object
       description: Never exposes the registration PIN.
@@ -6271,6 +9268,18 @@ components:
       - contacts
       - members
       - whatsapp_numbers
+    PlatformAlertsInfo:
+      type: object
+      properties:
+        available:
+          type: boolean
+          readOnly: true
+        display_phone_number:
+          type: string
+          readOnly: true
+      required:
+      - available
+      - display_phone_number
     Preview:
       type: object
       properties:
@@ -6328,6 +9337,217 @@ components:
           type: array
           items:
             type: string
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sku:
+          type: string
+          readOnly: true
+          description: Meta retailer_id; read-only.
+        name:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        price_paise:
+          type: integer
+          readOnly: true
+        sale_price_paise:
+          type: integer
+          readOnly: true
+          nullable: true
+        effective_price_paise:
+          type: integer
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+          description: Always INR.
+        image_url:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        collection:
+          allOf:
+          - $ref: '#/components/schemas/CollectionRef'
+          readOnly: true
+          nullable: true
+        availability:
+          allOf:
+          - $ref: '#/components/schemas/ProductAvailabilityEnum'
+          readOnly: true
+        stock_qty:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Null means stock is not tracked.
+        max_qty_per_order:
+          type: integer
+          readOnly: true
+        position:
+          type: integer
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        meta_sync_status:
+          allOf:
+          - $ref: '#/components/schemas/CatalogSyncStatusEnum'
+          readOnly: true
+        meta_review_status:
+          allOf:
+          - $ref: '#/components/schemas/MetaReviewStatusEnum'
+          readOnly: true
+        meta_rejection_reasons:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - availability
+      - collection
+      - created_at
+      - currency
+      - description
+      - effective_price_paise
+      - id
+      - image_url
+      - is_active
+      - max_qty_per_order
+      - meta_rejection_reasons
+      - meta_review_status
+      - meta_sync_status
+      - name
+      - position
+      - price_paise
+      - sale_price_paise
+      - sku
+      - stock_qty
+      - updated_at
+    ProductAvailabilityEnum:
+      enum:
+      - in_stock
+      - out_of_stock
+      type: string
+      description: |-
+        * `in_stock` - in_stock
+        * `out_of_stock` - out_of_stock
+    ProductImageUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: JPEG or PNG, at most 8 MB, at least 500x500 px.
+      required:
+      - file
+    ProductImportResult:
+      type: object
+      properties:
+        created_count:
+          type: integer
+          readOnly: true
+        updated_count:
+          type: integer
+          readOnly: true
+        skipped_count:
+          type: integer
+          readOnly: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImportRowError'
+          readOnly: true
+      required:
+      - created_count
+      - errors
+      - skipped_count
+      - updated_count
+    ProductImportRowError:
+      type: object
+      properties:
+        row:
+          type: integer
+          readOnly: true
+        sku:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+      required:
+      - reason
+      - row
+      - sku
+    ProductImportUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+          description: CSV, at most 2 MB and 5,000 rows.
+      required:
+      - file
+    ProductWriteRequest:
+      type: object
+      description: Create or PATCH a product. ``sku`` is accepted on create only.
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          description: Create only.
+          maxLength: 100
+          pattern: ^[A-Za-z0-9_-]{1,100}$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        price_paise:
+          type: integer
+          minimum: 100
+        sale_price_paise:
+          type: integer
+          minimum: 1
+          nullable: true
+        collection_id:
+          type: string
+          format: uuid
+          nullable: true
+        availability:
+          $ref: '#/components/schemas/ProductAvailabilityEnum'
+        stock_qty:
+          type: integer
+          minimum: 0
+          nullable: true
+        max_qty_per_order:
+          type: integer
+          maximum: 99
+          minimum: 1
+        position:
+          type: integer
+        is_active:
+          type: boolean
+      required:
+      - name
+      - price_paise
+      - sku
     RecipientStatusEnum:
       enum:
       - pending
@@ -6373,6 +9593,18 @@ components:
       required:
       - tokens
       - user
+    ReorderRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The full ordering; positions are rewritten 0..n.
+          maxItems: 5000
+      required:
+      - ids
     RoleEnum:
       enum:
       - owner
@@ -6438,6 +9670,14 @@ components:
         * `text` - text
         * `template` - template
         * `media` - media
+    ShopModeEnum:
+      enum:
+      - bot
+      - native_catalog
+      type: string
+      description: |-
+        * `bot` - bot
+        * `native_catalog` - native_catalog
     SignupConfig:
       type: object
       properties:
@@ -6464,6 +9704,123 @@ components:
           description: Business number to use; the workspace default number when omitted.
       required:
       - contact_id
+    StarterTemplatesResult:
+      type: object
+      properties:
+        created:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        existing:
+          type: array
+          items:
+            type: string
+          readOnly: true
+      required:
+      - created
+      - existing
+    StoreChecklist:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreChecklistItem'
+          readOnly: true
+      required:
+      - items
+    StoreChecklistItem:
+      type: object
+      properties:
+        key:
+          type: string
+          readOnly: true
+          description: whatsapp_connected, products_added, payments_configured, order_templates_ready,
+            alert_number_verified or store_enabled
+        done:
+          type: boolean
+          readOnly: true
+        detail:
+          type: string
+          readOnly: true
+      required:
+      - detail
+      - done
+      - key
+    StoreSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        shop_mode:
+          $ref: '#/components/schemas/ShopModeEnum'
+        store_name:
+          type: string
+          maxLength: 60
+        welcome_message:
+          type: string
+          maxLength: 1024
+        menu_keywords:
+          type: array
+          items:
+            type: string
+            maxLength: 30
+          description: Case-insensitive exact matches that open the store menu.
+          maxItems: 20
+        order_prefix:
+          type: string
+          pattern: ^[A-Z]{2,5}$
+        min_order_paise:
+          type: integer
+          minimum: 0
+        shipping_fee_paise:
+          type: integer
+          minimum: 0
+        free_shipping_above_paise:
+          type: integer
+          minimum: 0
+          nullable: true
+        cod_enabled:
+          type: boolean
+        cod_fee_paise:
+          type: integer
+          minimum: 0
+        cod_max_order_paise:
+          type: integer
+          minimum: 0
+          nullable: true
+        serviceable_pincodes:
+          type: array
+          items:
+            type: string
+            pattern: ^[0-9]{6}$
+          description: Empty means everywhere.
+          maxItems: 5000
+        support_message:
+          type: string
+          maxLength: 1024
+        powered_by_footer:
+          type: boolean
+        phone_number_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null uses the workspace default number.
+        store_link:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        notification_templates:
+          $ref: '#/components/schemas/OrderNotificationTemplates'
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - store_link
+      - updated_at
     Subscription:
       type: object
       properties:

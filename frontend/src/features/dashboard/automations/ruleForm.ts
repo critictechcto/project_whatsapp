@@ -3,7 +3,9 @@ import type { VariableSource } from '../campaigns/api'
 import { variableSourceSchema } from '../campaigns/wizardSchema'
 import type { AutomationActionType, AutomationRule, RuleWrite } from './api'
 
-export const actionTypes = ['send_text', 'send_template', 'add_tags', 'assign', 'close_conversation'] as const
+export const actionTypes = ['send_text', 'send_template', 'add_tags', 'assign', 'close_conversation', 'send_shop_menu', 'send_catalog', 'send_collection'] as const
+/** Action types the editor can configure today; the shop actions get their fields with the store screens. */
+export const editableActionTypes = ['send_text', 'send_template', 'add_tags', 'assign', 'close_conversation'] as const
 export const MAX_ACTIONS = 5
 export const MAX_KEYWORDS = 50
 
@@ -15,6 +17,7 @@ const actionSchema = z
     body_params: z.array(variableSourceSchema),
     tag_ids: z.array(z.string()),
     user_id: z.string(),
+    collection_id: z.string(),
   })
   .superRefine((action, ctx) => {
     const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message })
@@ -25,6 +28,7 @@ const actionSchema = z
     if (action.type === 'send_template' && !action.template_id) issue('template_id', 'Choose an approved template.')
     if (action.type === 'add_tags' && !action.tag_ids.length) issue('tag_ids', 'Choose at least one tag.')
     if (action.type === 'assign' && !action.user_id) issue('user_id', 'Choose a team member.')
+    if (action.type === 'send_collection' && !action.collection_id) issue('collection_id', 'Choose a collection.')
   })
 
 export const ruleSchema = z
@@ -50,7 +54,7 @@ export type RuleFormValues = z.infer<typeof ruleSchema>
 export type ActionFormValues = RuleFormValues['actions'][number]
 
 export function emptyAction(type: AutomationActionType = 'send_text'): ActionFormValues {
-  return { type, text: '', template_id: '', body_params: [], tag_ids: [], user_id: '' }
+  return { type, text: '', template_id: '', body_params: [], tag_ids: [], user_id: '', collection_id: '' }
 }
 
 const text = (value: unknown) => (typeof value === 'string' ? value : '')
@@ -80,6 +84,7 @@ export function ruleToForm(rule: AutomationRule | null): RuleFormValues {
           body_params: sources(action.config?.body_params),
           tag_ids: strings(action.config?.tag_ids),
           user_id: text(action.config?.user_id),
+          collection_id: text(action.config?.collection_id),
         }))
       : [emptyAction()],
     cooldown_minutes: rule?.cooldown_minutes ?? 0,
@@ -98,7 +103,11 @@ export function actionConfig(action: ActionFormValues): Record<string, unknown> 
     case 'assign':
       return { user_id: action.user_id }
     case 'close_conversation':
+    case 'send_shop_menu':
+    case 'send_catalog':
       return {}
+    case 'send_collection':
+      return { collection_id: action.collection_id }
   }
 }
 
@@ -124,6 +133,9 @@ export const actionConfigKeys: Record<AutomationActionType, string | null> = {
   add_tags: 'tag_ids',
   assign: 'user_id',
   close_conversation: null,
+  send_shop_menu: null,
+  send_catalog: null,
+  send_collection: 'collection_id',
 }
 
 /** Maps API error paths such as `actions.0.config` onto form fields such as `actions.0.text`. */

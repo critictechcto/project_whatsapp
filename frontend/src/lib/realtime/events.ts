@@ -10,25 +10,10 @@ type CampaignStatus = Schemas['CampaignStatusEnum']
 
 export type CampaignStats = Schemas['CampaignStats']
 
-// Wave-3 commerce enums, copied from the contract until they are in the generated schema.
-// TODO(wave-3 merge): switch to Schemas['OrderStatusEnum'] etc.
-export type OrderStatus =
-  | 'draft'
-  | 'awaiting_confirmation'
-  | 'awaiting_address'
-  | 'awaiting_payment_method'
-  | 'pending_payment'
-  | 'confirmed'
-  | 'packed'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled'
-  | 'expired'
-  | 'needs_attention'
-export type PaymentStatus = 'unpaid' | 'paid' | 'cod_pending' | 'cod_collected' | 'refunded_manual'
-/** `CatalogSyncStatusEnum` or `MetaCatalogStatusEnum`: the contract doesn't say which one the frame carries. */
-export type CatalogSyncFrameStatus = 'not_synced' | 'pending' | 'synced' | 'failed' | 'connected' | 'permissions_missing' | 'error'
-export type AlertRecipientStatus = 'pending' | 'verified' | 'opted_out'
+export type OrderStatus = Schemas['OrderStatusEnum']
+export type PaymentStatus = Schemas['PaymentStatusEnum']
+export type CatalogSyncFrameStatus = Schemas['CatalogSyncStatusEnum']
+export type AlertRecipientStatus = Schemas['AlertRecipientStatusEnum']
 
 export type RealtimeEventMap = {
   'message.created': { conversation_id: string; message_id: string; direction: 'inbound' | 'outbound' }

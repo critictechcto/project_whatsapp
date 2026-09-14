@@ -451,6 +451,236 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/collections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["catalog_collections_list"];
+        put?: never;
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        post: operations["catalog_collections_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/collections/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["catalog_collections_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Its products move out of the collection. */
+        delete: operations["catalog_collections_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        patch: operations["catalog_collections_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/catalog/collections/reorder/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        post: operations["catalog_collections_reorder_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/meta-catalogs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["catalog_meta_catalogs_list"];
+        put?: never;
+        /** @description 409 catalog_permissions_missing when the token lacks catalog permissions. */
+        post: operations["catalog_meta_catalogs_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/meta-catalogs/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["catalog_meta_catalogs_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Disconnects locally; the store falls back to bot mode. */
+        delete: operations["catalog_meta_catalogs_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/meta-catalogs/{id}/commerce-settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        patch: operations["catalog_meta_catalogs_commerce_settings_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/catalog/meta-catalogs/{id}/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queue a full resync. */
+        post: operations["catalog_meta_catalogs_sync_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/meta-catalogs/available/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Catalogs owned by the seller's Meta business (unpaginated). */
+        get: operations["catalog_meta_catalogs_available_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/products/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["catalog_products_list"];
+        put?: never;
+        /** @description 409-free: a duplicate SKU is a 400 invalid error on sku. */
+        post: operations["catalog_products_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/products/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["catalog_products_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Queues a Meta catalog delete; past order items keep their snapshots. */
+        delete: operations["catalog_products_destroy"];
+        options?: never;
+        head?: never;
+        /** @description sku is read-only after create. */
+        patch: operations["catalog_products_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/catalog/products/{id}/image/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        post: operations["catalog_products_image_create"];
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        delete: operations["catalog_products_image_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/products/import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        post: operations["catalog_products_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/products/reorder/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        post: operations["catalog_products_reorder_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/contacts/": {
         parameters: {
             query?: never;
@@ -812,6 +1042,335 @@ export interface paths {
         put?: never;
         /** @description Issue a single-use ticket for opening the realtime WebSocket (any member). */
         post: operations["inbox_ws_ticket_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's orders, newest first. */
+        get: operations["orders_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's orders, newest first. */
+        get: operations["orders_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Update the seller-internal notes. */
+        patch: operations["orders_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Also cancels an open payment link. */
+        post: operations["orders_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The order timeline, oldest first. */
+        get: operations["orders_events_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/mark-cod-collected/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Only COD orders that are shipped or delivered. */
+        post: operations["orders_mark_cod_collected_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/mark-refunded/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Only paid orders that are cancelled or need attention; refund in Razorpay. */
+        post: operations["orders_mark_refunded_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/transition/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 409 invalid_order_transition when the move isn't allowed. */
+        post: operations["orders_transition_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's orders, newest first. */
+        get: operations["orders_summary_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/account/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's own Razorpay account. Secrets are never returned. */
+        get: operations["payments_account_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description The workspace's own Razorpay account. Secrets are never returned. */
+        delete: operations["payments_account_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Changing a key resets status to unverified. */
+        patch: operations["payments_account_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/payments/account/rotate-webhook/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Issue a new webhook URL; update it in Razorpay afterwards. */
+        post: operations["payments_account_rotate_webhook_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/account/verify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 409 payment_account_missing or payment_account_invalid. */
+        post: operations["payments_account_verify_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["payments_links_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seller-alerts/platform/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Compose with DRF mixins (ListModelMixin, ...) for partial CRUD. */
+        get: operations["seller_alerts_platform_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seller-alerts/recipients/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Personal WhatsApp numbers that get order alerts from the UpChatz number (at most 3). */
+        get: operations["seller_alerts_recipients_list"];
+        put?: never;
+        /** @description Sends the verification template from the UpChatz number (409 platform_alerts_unavailable, alert_recipient_limit). */
+        post: operations["seller_alerts_recipients_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seller-alerts/recipients/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Personal WhatsApp numbers that get order alerts from the UpChatz number (at most 3). */
+        delete: operations["seller_alerts_recipients_destroy"];
+        options?: never;
+        head?: never;
+        /** @description phone_e164 can't change after create. */
+        patch: operations["seller_alerts_recipients_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/seller-alerts/recipients/{id}/resend-verification/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 409 verification_recently_sent within 5 minutes of the last one. */
+        post: operations["seller_alerts_recipients_resend_verification_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/checklist/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Store settings (one per workspace), the setup checklist and starter templates. */
+        get: operations["store_checklist_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Store settings (one per workspace), the setup checklist and starter templates. */
+        get: operations["store_settings_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Turning on enabled needs the commerce feature, an active product and a connected number (409 commerce_not_enabled). */
+        patch: operations["store_settings_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/store/starter-templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Create missing order templates in the store number's WABA and map them. */
+        post: operations["store_starter_templates_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1234,6 +1793,43 @@ export interface components {
             workspace: components["schemas"]["WorkspaceSummary"];
             role: components["schemas"]["RoleEnum"];
         };
+        /**
+         * @description * `new_order` - new_order
+         *     * `needs_attention` - needs_attention
+         *     * `order_cancelled` - order_cancelled
+         * @enum {string}
+         */
+        AlertEventEnum: "new_order" | "needs_attention" | "order_cancelled";
+        AlertRecipient: {
+            /** Format: uuid */
+            readonly id: string;
+            name: string;
+            /** @description Create only. */
+            phone_e164: string;
+            readonly status: components["schemas"]["AlertRecipientStatusEnum"];
+            /** @description Defaults to all events. */
+            events?: components["schemas"]["AlertEventEnum"][];
+            /** Format: date-time */
+            readonly verified_at: string | null;
+            /** Format: date-time */
+            readonly last_sent_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        AlertRecipientRequest: {
+            name: string;
+            /** @description Create only. */
+            phone_e164: string;
+            /** @description Defaults to all events. */
+            events?: components["schemas"]["AlertEventEnum"][];
+        };
+        /**
+         * @description * `pending` - pending
+         *     * `verified` - verified
+         *     * `opted_out` - opted_out
+         * @enum {string}
+         */
+        AlertRecipientStatusEnum: "pending" | "verified" | "opted_out";
         AssignConversationRequest: {
             /**
              * Format: uuid
@@ -1259,14 +1855,14 @@ export interface components {
         };
         AutomationAction: {
             type: components["schemas"]["AutomationActionTypeEnum"];
-            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}. */
+            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}. */
             config?: {
                 [key: string]: unknown;
             };
         };
         AutomationActionRequest: {
             type: components["schemas"]["AutomationActionTypeEnum"];
-            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}. */
+            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}. */
             config?: {
                 [key: string]: unknown;
             };
@@ -1277,9 +1873,12 @@ export interface components {
          *     * `add_tags` - add_tags
          *     * `assign` - assign
          *     * `close_conversation` - close_conversation
+         *     * `send_shop_menu` - send_shop_menu
+         *     * `send_catalog` - send_catalog
+         *     * `send_collection` - send_collection
          * @enum {string}
          */
-        AutomationActionTypeEnum: "send_text" | "send_template" | "add_tags" | "assign" | "close_conversation";
+        AutomationActionTypeEnum: "send_text" | "send_template" | "add_tags" | "assign" | "close_conversation" | "send_shop_menu" | "send_catalog" | "send_collection";
         AutomationRule: {
             /** Format: uuid */
             readonly id: string;
@@ -1378,6 +1977,11 @@ export interface components {
          * @enum {string}
          */
         AutomationTriggerEnum: "keyword" | "first_inbound" | "new_contact" | "outside_business_hours";
+        AvailableCatalog: {
+            /** @description Meta catalog id. */
+            readonly id: string;
+            readonly name: string;
+        };
         /**
          * @description * `monthly` - monthly
          *     * `annual` - annual
@@ -1537,6 +2141,14 @@ export interface components {
             /** Format: date-time */
             scheduled_at?: string | null;
         };
+        CancelOrderRequest: {
+            /** @default  */
+            reason: string;
+            /** @default true */
+            restock: boolean;
+            /** @default true */
+            notify_buyer: boolean;
+        };
         CancelSubscriptionRequest: {
             /**
              * @description Keep access until the paid period ends.
@@ -1544,6 +2156,14 @@ export interface components {
              */
             at_period_end: boolean;
         };
+        /**
+         * @description * `not_synced` - not_synced
+         *     * `pending` - pending
+         *     * `synced` - synced
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        CatalogSyncStatusEnum: "not_synced" | "pending" | "synced" | "failed";
         CheckoutPrefill: {
             readonly name: string;
             /** Format: email */
@@ -1566,6 +2186,42 @@ export interface components {
             razorpay_payment_id: string;
             razorpay_subscription_id: string;
             razorpay_signature: string;
+        };
+        Collection: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly description: string;
+            readonly position: number;
+            readonly is_active: boolean;
+            readonly product_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        CollectionRef: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+        };
+        CollectionWriteRequest: {
+            /** @description Shown as a list row title. */
+            name: string;
+            description?: string;
+            position?: number;
+            is_active?: boolean;
+        };
+        /**
+         * @description Per-number cart and catalog visibility. As a PATCH body only ``phone_number_id`` and the
+         *     booleans are read.
+         */
+        CommerceSettings: {
+            /** Format: uuid */
+            phone_number_id: string;
+            readonly display_phone_number: string;
+            is_cart_enabled?: boolean;
+            is_catalog_visible?: boolean;
         };
         /**
          * @description * `opt_in` - Opt in
@@ -1932,6 +2588,12 @@ export interface components {
             readonly read_at: string | null;
             /** Format: date-time */
             readonly failed_at: string | null;
+            /** @description The Cloud API interactive object of an outbound interactive message, else null. */
+            readonly interactive: {
+                [key: string]: unknown;
+            } | null;
+            /** @description The cart of an inbound order message, else null. */
+            readonly order: components["schemas"]["MessageOrder"] | null;
         };
         /**
          * @description * `inbound` - inbound
@@ -1945,6 +2607,21 @@ export interface components {
             /** @description Bytes. */
             readonly size: number;
             readonly download_url: string | null;
+        };
+        MessageOrder: {
+            readonly catalog_id: string;
+            readonly items: components["schemas"]["MessageOrderItem"][];
+        };
+        MessageOrderItem: {
+            /** @description The product SKU. */
+            readonly product_retailer_id: string;
+            readonly quantity: number;
+            /**
+             * Format: double
+             * @description Unit price in rupees as the buyer's app sent it. Display only, never trusted.
+             */
+            readonly item_price: number;
+            readonly currency: string;
         };
         MessagePreview: {
             readonly direction: components["schemas"]["MessageDirectionEnum"];
@@ -2054,15 +2731,317 @@ export interface components {
          *     * `button` - button
          *     * `reaction` - reaction
          *     * `template` - template
+         *     * `order` - order
          *     * `unsupported` - unsupported
          * @enum {string}
          */
-        MessageTypeEnum: "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts" | "interactive" | "button" | "reaction" | "template" | "unsupported";
+        MessageTypeEnum: "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts" | "interactive" | "button" | "reaction" | "template" | "order" | "unsupported";
+        MetaCatalog: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly waba: components["schemas"]["MetaCatalogWaba"];
+            readonly catalog_id: string;
+            readonly catalog_name: string;
+            readonly status: components["schemas"]["MetaCatalogStatusEnum"];
+            /** Format: date-time */
+            readonly last_synced_at: string | null;
+            readonly last_sync_error: string;
+            readonly product_counts: components["schemas"]["MetaCatalogCounts"];
+            readonly phone_numbers: components["schemas"]["CommerceSettings"][];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description Connect an existing catalog (``catalog_id``) or create one (``create_name``). */
+        MetaCatalogConnectRequest: {
+            /**
+             * Format: uuid
+             * @description Id of the WhatsAppBusinessAccount.
+             */
+            waba_id: string;
+            catalog_id?: string;
+            create_name?: string;
+        };
+        MetaCatalogCounts: {
+            readonly synced: number;
+            readonly pending: number;
+            readonly failed: number;
+            readonly approved: number;
+            readonly rejected: number;
+        };
+        /**
+         * @description * `connected` - connected
+         *     * `permissions_missing` - permissions_missing
+         *     * `error` - error
+         * @enum {string}
+         */
+        MetaCatalogStatusEnum: "connected" | "permissions_missing" | "error";
+        MetaCatalogWaba: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly waba_id: string;
+            readonly name: string;
+        };
+        /**
+         * @description * `none` - none
+         *     * `pending` - pending
+         *     * `approved` - approved
+         *     * `rejected` - rejected
+         *     * `outdated` - outdated
+         * @enum {string}
+         */
+        MetaReviewStatusEnum: "none" | "pending" | "approved" | "rejected" | "outdated";
+        /** @enum {unknown} */
+        NullEnum: null;
         OptInRequestRequest: {
             /** @default manual */
             source: components["schemas"]["ConsentRequestSourceEnum"];
             /** @description How and when the customer agreed to receive marketing messages. Required. */
             evidence?: string;
+        };
+        Order: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description e.g. SS-1001 */
+            readonly number: string;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly payment_status: components["schemas"]["PaymentStatusEnum"];
+            readonly payment_method: (components["schemas"]["PaymentMethodEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly source: components["schemas"]["OrderSourceEnum"];
+            readonly contact: components["schemas"]["ConversationContact"];
+            readonly total_paise: number;
+            readonly item_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            /** Format: uuid */
+            readonly conversation_id: string | null;
+            readonly phone_number: components["schemas"]["ConversationPhoneNumber"];
+            readonly items: components["schemas"]["OrderItem"][];
+            readonly subtotal_paise: number;
+            readonly shipping_paise: number;
+            readonly cod_fee_paise: number;
+            readonly currency: string;
+            readonly address: components["schemas"]["OrderAddress"] | null;
+            readonly courier_name: string;
+            readonly awb_number: string;
+            readonly tracking_url: string;
+            readonly payment_link: components["schemas"]["OrderPaymentLink"] | null;
+            /** @description Seller-internal. */
+            readonly notes: string;
+            readonly cancel_reason: string;
+            /**
+             * Format: date-time
+             * @description Checkout deadline.
+             */
+            readonly expires_at: string | null;
+            /** Format: date-time */
+            readonly confirmed_at: string | null;
+            /** Format: date-time */
+            readonly packed_at: string | null;
+            /** Format: date-time */
+            readonly shipped_at: string | null;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+            /** Format: date-time */
+            readonly cancelled_at: string | null;
+            readonly allowed_transitions: components["schemas"]["OrderStatusEnum"][];
+        };
+        OrderAddress: {
+            name: string;
+            phone_e164: string;
+            line1: string;
+            /** @default  */
+            line2: string;
+            /** @default  */
+            landmark: string;
+            city: string;
+            state: string;
+            /** @description 6 digits. */
+            pincode: string;
+            /** @default IN */
+            country: string;
+        };
+        OrderEvent: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly type: components["schemas"]["OrderEventTypeEnum"];
+            /** @description "" when not a status change. */
+            readonly from_status: string;
+            /** @description "" when not a status change. */
+            readonly to_status: string;
+            readonly actor: components["schemas"]["OrderEventActorEnum"];
+            readonly user: components["schemas"]["UserSummary"] | null;
+            readonly detail: string;
+            /** Format: uuid */
+            readonly message_id: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `buyer` - buyer
+         *     * `dashboard` - dashboard
+         *     * `seller_whatsapp` - seller_whatsapp
+         *     * `system` - system
+         * @enum {string}
+         */
+        OrderEventActorEnum: "buyer" | "dashboard" | "seller_whatsapp" | "system";
+        /**
+         * @description * `created` - created
+         *     * `status_changed` - status_changed
+         *     * `price_changed` - price_changed
+         *     * `address_received` - address_received
+         *     * `payment_link_created` - payment_link_created
+         *     * `payment_received` - payment_received
+         *     * `payment_link_expired` - payment_link_expired
+         *     * `cod_collected` - cod_collected
+         *     * `refunded_manual` - refunded_manual
+         *     * `stock_released` - stock_released
+         *     * `notification_sent` - notification_sent
+         *     * `notification_failed` - notification_failed
+         *     * `note` - note
+         * @enum {string}
+         */
+        OrderEventTypeEnum: "created" | "status_changed" | "price_changed" | "address_received" | "payment_link_created" | "payment_received" | "payment_link_expired" | "cod_collected" | "refunded_manual" | "stock_released" | "notification_sent" | "notification_failed" | "note";
+        OrderItem: {
+            /** Format: uuid */
+            readonly id: string;
+            /**
+             * Format: uuid
+             * @description Null once the product is deleted.
+             */
+            readonly product_id: string | null;
+            readonly sku: string;
+            readonly name: string;
+            /** Format: uri */
+            readonly image_url: string | null;
+            readonly unit_price_paise: number;
+            readonly quantity: number;
+            readonly line_total_paise: number;
+        };
+        OrderListItem: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description e.g. SS-1001 */
+            readonly number: string;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly payment_status: components["schemas"]["PaymentStatusEnum"];
+            readonly payment_method: (components["schemas"]["PaymentMethodEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly source: components["schemas"]["OrderSourceEnum"];
+            readonly contact: components["schemas"]["ConversationContact"];
+            readonly total_paise: number;
+            readonly item_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        OrderNotificationTemplates: {
+            /** Format: uuid */
+            confirmed?: string | null;
+            /** Format: uuid */
+            packed?: string | null;
+            /** Format: uuid */
+            shipped?: string | null;
+            /** Format: uuid */
+            delivered?: string | null;
+            /** Format: uuid */
+            cancelled?: string | null;
+            /** Format: uuid */
+            payment_reminder?: string | null;
+        };
+        OrderNotificationTemplatesRequest: {
+            /** Format: uuid */
+            confirmed?: string | null;
+            /** Format: uuid */
+            packed?: string | null;
+            /** Format: uuid */
+            shipped?: string | null;
+            /** Format: uuid */
+            delivered?: string | null;
+            /** Format: uuid */
+            cancelled?: string | null;
+            /** Format: uuid */
+            payment_reminder?: string | null;
+        };
+        OrderPaymentLink: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly short_url: string;
+            readonly status: components["schemas"]["PaymentLinkStatusEnum"];
+            readonly amount_paise: number;
+            /** Format: date-time */
+            readonly expires_at: string | null;
+            /** Format: date-time */
+            readonly paid_at: string | null;
+        };
+        /**
+         * @description * `bot` - bot
+         *     * `native_cart` - native_cart
+         * @enum {string}
+         */
+        OrderSourceEnum: "bot" | "native_cart";
+        /**
+         * @description * `draft` - draft
+         *     * `awaiting_confirmation` - awaiting_confirmation
+         *     * `awaiting_address` - awaiting_address
+         *     * `awaiting_payment_method` - awaiting_payment_method
+         *     * `pending_payment` - pending_payment
+         *     * `confirmed` - confirmed
+         *     * `packed` - packed
+         *     * `shipped` - shipped
+         *     * `delivered` - delivered
+         *     * `cancelled` - cancelled
+         *     * `expired` - expired
+         *     * `needs_attention` - needs_attention
+         * @enum {string}
+         */
+        OrderStatusEnum: "draft" | "awaiting_confirmation" | "awaiting_address" | "awaiting_payment_method" | "pending_payment" | "confirmed" | "packed" | "shipped" | "delivered" | "cancelled" | "expired" | "needs_attention";
+        OrderSummary: {
+            readonly today_count: number;
+            readonly today_revenue_paise: number;
+            readonly open_count: number;
+            readonly needs_attention_count: number;
+            readonly awaiting_payment_count: number;
+        };
+        OrderTransitionRequest: {
+            /**
+             * @description confirmed only from needs_attention.
+             *
+             *     * `confirmed` - confirmed
+             *     * `packed` - packed
+             *     * `shipped` - shipped
+             *     * `delivered` - delivered
+             */
+            to_status: components["schemas"]["OrderTransitionTargetEnum"];
+            courier_name?: string;
+            awb_number?: string;
+            tracking_url?: string;
+            /** @default true */
+            notify_buyer: boolean;
+        };
+        /**
+         * @description * `confirmed` - confirmed
+         *     * `packed` - packed
+         *     * `shipped` - shipped
+         *     * `delivered` - delivered
+         * @enum {string}
+         */
+        OrderTransitionTargetEnum: "confirmed" | "packed" | "shipped" | "delivered";
+        PaginatedAlertRecipientList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["AlertRecipient"][];
         };
         PaginatedAutomationRuleList: {
             /**
@@ -2115,6 +3094,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["CampaignRecipient"][];
+        };
+        PaginatedCollectionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Collection"][];
         };
         PaginatedConsentEventList: {
             /**
@@ -2246,6 +3238,58 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["MessageTemplate"][];
         };
+        PaginatedMetaCatalogList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["MetaCatalog"][];
+        };
+        PaginatedOrderEventList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["OrderEvent"][];
+        };
+        PaginatedOrderListItemList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["OrderListItem"][];
+        };
+        PaginatedPaymentLinkList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["PaymentLink"][];
+        };
         PaginatedPhoneNumberList: {
             /**
              * Format: uri
@@ -2258,6 +3302,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["PhoneNumber"][];
+        };
+        PaginatedProductList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Product"][];
         };
         PaginatedTagList: {
             /**
@@ -2301,6 +3358,13 @@ export interface components {
         PasswordChangeRequest: {
             current_password: string;
             new_password: string;
+        };
+        PatchedAlertRecipientRequest: {
+            name?: string;
+            /** @description Create only. */
+            phone_e164?: string;
+            /** @description Defaults to all events. */
+            events?: components["schemas"]["AlertEventEnum"][];
         };
         PatchedAutomationRuleRequest: {
             name?: string;
@@ -2364,6 +3428,23 @@ export interface components {
             /** Format: date-time */
             scheduled_at?: string | null;
         };
+        PatchedCollectionWriteRequest: {
+            /** @description Shown as a list row title. */
+            name?: string;
+            description?: string;
+            position?: number;
+            is_active?: boolean;
+        };
+        /**
+         * @description Per-number cart and catalog visibility. As a PATCH body only ``phone_number_id`` and the
+         *     booleans are read.
+         */
+        PatchedCommerceSettingsRequest: {
+            /** Format: uuid */
+            phone_number_id?: string;
+            is_cart_enabled?: boolean;
+            is_catalog_visible?: boolean;
+        };
         PatchedContactRequest: {
             /** @description Any common format; Indian local numbers are accepted. Stored as E.164. */
             phone_e164?: string;
@@ -2391,6 +3472,55 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        PatchedOrderNotesRequest: {
+            notes?: string;
+        };
+        PatchedPaymentAccountRequest: {
+            key_id?: string;
+            key_secret?: string;
+            webhook_secret?: string;
+        };
+        /** @description Create or PATCH a product. ``sku`` is accepted on create only. */
+        PatchedProductWriteRequest: {
+            /** @description Create only. */
+            sku?: string;
+            name?: string;
+            description?: string;
+            price_paise?: number;
+            sale_price_paise?: number | null;
+            /** Format: uuid */
+            collection_id?: string | null;
+            availability?: components["schemas"]["ProductAvailabilityEnum"];
+            stock_qty?: number | null;
+            max_qty_per_order?: number;
+            position?: number;
+            is_active?: boolean;
+        };
+        PatchedStoreSettingsRequest: {
+            enabled?: boolean;
+            shop_mode?: components["schemas"]["ShopModeEnum"];
+            store_name?: string;
+            welcome_message?: string;
+            /** @description Case-insensitive exact matches that open the store menu. */
+            menu_keywords?: string[];
+            order_prefix?: string;
+            min_order_paise?: number;
+            shipping_fee_paise?: number;
+            free_shipping_above_paise?: number | null;
+            cod_enabled?: boolean;
+            cod_fee_paise?: number;
+            cod_max_order_paise?: number | null;
+            /** @description Empty means everywhere. */
+            serviceable_pincodes?: string[];
+            support_message?: string;
+            powered_by_footer?: boolean;
+            /**
+             * Format: uuid
+             * @description Null uses the workspace default number.
+             */
+            phone_number_id?: string | null;
+            notification_templates?: components["schemas"]["OrderNotificationTemplatesRequest"];
+        };
         PatchedTagRequest: {
             name?: string;
             color?: string;
@@ -2399,6 +3529,90 @@ export interface components {
             name?: string;
             time_zone?: string;
         };
+        PaymentAccount: {
+            readonly provider: components["schemas"]["PaymentProviderEnum"];
+            /**
+             * @description From the rzp_test_/rzp_live_ key prefix; null until key_id is set.
+             *
+             *     * `test` - test
+             *     * `live` - live
+             */
+            readonly mode: (components["schemas"]["PaymentModeEnum"] | components["schemas"]["NullEnum"]) | null;
+            key_id?: string;
+            readonly has_key_secret: boolean;
+            readonly has_webhook_secret: boolean;
+            readonly status: components["schemas"]["PaymentAccountStatusEnum"];
+            /** Format: date-time */
+            readonly verified_at: string | null;
+            readonly last_error: string;
+            /** @description Enter this URL in Razorpay webhooks ("" until the account is saved). */
+            readonly webhook_url: string;
+            readonly webhook_events: string[];
+            /** Format: date-time */
+            readonly updated_at: string | null;
+        };
+        /**
+         * @description * `not_configured` - not_configured
+         *     * `unverified` - unverified
+         *     * `verified` - verified
+         *     * `invalid` - invalid
+         * @enum {string}
+         */
+        PaymentAccountStatusEnum: "not_configured" | "unverified" | "verified" | "invalid";
+        PaymentLink: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly order_id: string;
+            readonly provider: components["schemas"]["PaymentProviderEnum"];
+            readonly provider_link_id: string;
+            readonly reference_id: string;
+            readonly short_url: string;
+            readonly amount_paise: number;
+            readonly status: components["schemas"]["PaymentLinkStatusEnum"];
+            /** Format: date-time */
+            readonly expires_at: string | null;
+            /** Format: date-time */
+            readonly paid_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `creating` - creating
+         *     * `created` - created
+         *     * `paid` - paid
+         *     * `expired` - expired
+         *     * `cancelled` - cancelled
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        PaymentLinkStatusEnum: "creating" | "created" | "paid" | "expired" | "cancelled" | "failed";
+        /**
+         * @description * `online` - online
+         *     * `cod` - cod
+         * @enum {string}
+         */
+        PaymentMethodEnum: "online" | "cod";
+        /**
+         * @description * `test` - test
+         *     * `live` - live
+         * @enum {string}
+         */
+        PaymentModeEnum: "test" | "live";
+        /**
+         * @description * `razorpay` - razorpay
+         * @enum {string}
+         */
+        PaymentProviderEnum: "razorpay";
+        /**
+         * @description * `unpaid` - unpaid
+         *     * `paid` - paid
+         *     * `cod_pending` - cod_pending
+         *     * `cod_collected` - cod_collected
+         *     * `refunded_manual` - refunded_manual
+         * @enum {string}
+         */
+        PaymentStatusEnum: "unpaid" | "paid" | "cod_pending" | "cod_collected" | "refunded_manual";
         /** @description Never exposes the registration PIN. */
         PhoneNumber: {
             /** Format: uuid */
@@ -2460,6 +3674,10 @@ export interface components {
             readonly members: number | null;
             readonly contacts: number | null;
         };
+        PlatformAlertsInfo: {
+            readonly available: boolean;
+            readonly display_phone_number: string;
+        };
         Preview: {
             header: components["schemas"]["PreviewHeader"] | null;
             body: string;
@@ -2479,6 +3697,82 @@ export interface components {
         PreviewRequestRequest: {
             variables?: string[];
             header_variables?: string[];
+        };
+        Product: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description Meta retailer_id; read-only. */
+            readonly sku: string;
+            readonly name: string;
+            readonly description: string;
+            readonly price_paise: number;
+            readonly sale_price_paise: number | null;
+            readonly effective_price_paise: number;
+            /** @description Always INR. */
+            readonly currency: string;
+            /** Format: uri */
+            readonly image_url: string | null;
+            readonly collection: components["schemas"]["CollectionRef"] | null;
+            readonly availability: components["schemas"]["ProductAvailabilityEnum"];
+            /** @description Null means stock is not tracked. */
+            readonly stock_qty: number | null;
+            readonly max_qty_per_order: number;
+            readonly position: number;
+            readonly is_active: boolean;
+            readonly meta_sync_status: components["schemas"]["CatalogSyncStatusEnum"];
+            readonly meta_review_status: components["schemas"]["MetaReviewStatusEnum"];
+            readonly meta_rejection_reasons: string[];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description * `in_stock` - in_stock
+         *     * `out_of_stock` - out_of_stock
+         * @enum {string}
+         */
+        ProductAvailabilityEnum: "in_stock" | "out_of_stock";
+        ProductImageUploadRequest: {
+            /**
+             * Format: binary
+             * @description JPEG or PNG, at most 8 MB, at least 500x500 px.
+             */
+            file: string;
+        };
+        ProductImportResult: {
+            readonly created_count: number;
+            readonly updated_count: number;
+            readonly skipped_count: number;
+            readonly errors: components["schemas"]["ProductImportRowError"][];
+        };
+        ProductImportRowError: {
+            readonly row: number;
+            readonly sku: string;
+            readonly reason: string;
+        };
+        ProductImportUploadRequest: {
+            /**
+             * Format: binary
+             * @description CSV, at most 2 MB and 5,000 rows.
+             */
+            file: string;
+        };
+        /** @description Create or PATCH a product. ``sku`` is accepted on create only. */
+        ProductWriteRequest: {
+            /** @description Create only. */
+            sku: string;
+            name: string;
+            description?: string;
+            price_paise: number;
+            sale_price_paise?: number | null;
+            /** Format: uuid */
+            collection_id?: string | null;
+            availability?: components["schemas"]["ProductAvailabilityEnum"];
+            stock_qty?: number | null;
+            max_qty_per_order?: number;
+            position?: number;
+            is_active?: boolean;
         };
         /**
          * @description * `pending` - pending
@@ -2500,6 +3794,10 @@ export interface components {
         RegisterResponse: {
             user: components["schemas"]["User"];
             tokens: components["schemas"]["TokenPair"];
+        };
+        ReorderRequest: {
+            /** @description The full ordering; positions are rewritten 0..n. */
+            ids: string[];
         };
         /**
          * @description * `owner` - Owner
@@ -2539,6 +3837,12 @@ export interface components {
          * @enum {string}
          */
         SendMessageTypeEnum: "text" | "template" | "media";
+        /**
+         * @description * `bot` - bot
+         *     * `native_catalog` - native_catalog
+         * @enum {string}
+         */
+        ShopModeEnum: "bot" | "native_catalog";
         SignupConfig: {
             app_id: string;
             config_id: string;
@@ -2552,6 +3856,48 @@ export interface components {
              * @description Business number to use; the workspace default number when omitted.
              */
             phone_number_id?: string | null;
+        };
+        StarterTemplatesResult: {
+            readonly created: string[];
+            readonly existing: string[];
+        };
+        StoreChecklist: {
+            readonly items: components["schemas"]["StoreChecklistItem"][];
+        };
+        StoreChecklistItem: {
+            /** @description whatsapp_connected, products_added, payments_configured, order_templates_ready, alert_number_verified or store_enabled */
+            readonly key: string;
+            readonly done: boolean;
+            readonly detail: string;
+        };
+        StoreSettings: {
+            enabled?: boolean;
+            shop_mode?: components["schemas"]["ShopModeEnum"];
+            store_name?: string;
+            welcome_message?: string;
+            /** @description Case-insensitive exact matches that open the store menu. */
+            menu_keywords?: string[];
+            order_prefix?: string;
+            min_order_paise?: number;
+            shipping_fee_paise?: number;
+            free_shipping_above_paise?: number | null;
+            cod_enabled?: boolean;
+            cod_fee_paise?: number;
+            cod_max_order_paise?: number | null;
+            /** @description Empty means everywhere. */
+            serviceable_pincodes?: string[];
+            support_message?: string;
+            powered_by_footer?: boolean;
+            /**
+             * Format: uuid
+             * @description Null uses the workspace default number.
+             */
+            phone_number_id?: string | null;
+            /** Format: uri */
+            readonly store_link: string | null;
+            notification_templates?: components["schemas"]["OrderNotificationTemplates"];
+            /** Format: date-time */
+            readonly updated_at: string;
         };
         Subscription: {
             readonly plan: components["schemas"]["Plan"];
@@ -3682,6 +5028,588 @@ export interface operations {
             };
         };
     };
+    catalog_collections_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCollectionList"];
+                };
+            };
+        };
+    };
+    catalog_collections_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CollectionWriteRequest"];
+                "multipart/form-data": components["schemas"]["CollectionWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collection"];
+                };
+            };
+        };
+    };
+    catalog_collections_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collection"];
+                };
+            };
+        };
+    };
+    catalog_collections_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalog_collections_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCollectionWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCollectionWriteRequest"];
+                "multipart/form-data": components["schemas"]["PatchedCollectionWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collection"];
+                };
+            };
+        };
+    };
+    catalog_collections_reorder_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReorderRequest"];
+                "multipart/form-data": components["schemas"]["ReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalog_meta_catalogs_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMetaCatalogList"];
+                };
+            };
+        };
+    };
+    catalog_meta_catalogs_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MetaCatalogConnectRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MetaCatalogConnectRequest"];
+                "multipart/form-data": components["schemas"]["MetaCatalogConnectRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaCatalog"];
+                };
+            };
+        };
+    };
+    catalog_meta_catalogs_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaCatalog"];
+                };
+            };
+        };
+    };
+    catalog_meta_catalogs_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalog_meta_catalogs_commerce_settings_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCommerceSettingsRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCommerceSettingsRequest"];
+                "multipart/form-data": components["schemas"]["PatchedCommerceSettingsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaCatalog"];
+                };
+            };
+        };
+    };
+    catalog_meta_catalogs_sync_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetaCatalog"];
+                };
+            };
+        };
+    };
+    catalog_meta_catalogs_available_list: {
+        parameters: {
+            query: {
+                waba_id: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailableCatalog"][];
+                };
+            };
+        };
+    };
+    catalog_products_list: {
+        parameters: {
+            query?: {
+                availability?: "in_stock" | "out_of_stock";
+                /** @description Collection id, or none. */
+                collection?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_active?: boolean;
+                meta_review_status?: "approved" | "none" | "outdated" | "pending" | "rejected";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Name or SKU. */
+                search?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedProductList"];
+                };
+            };
+        };
+    };
+    catalog_products_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProductWriteRequest"];
+                "multipart/form-data": components["schemas"]["ProductWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+        };
+    };
+    catalog_products_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+        };
+    };
+    catalog_products_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalog_products_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedProductWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedProductWriteRequest"];
+                "multipart/form-data": components["schemas"]["PatchedProductWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+        };
+    };
+    catalog_products_image_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ProductImageUploadRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"];
+                };
+            };
+        };
+    };
+    catalog_products_image_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    catalog_products_import_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ProductImportUploadRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductImportResult"];
+                };
+            };
+        };
+    };
+    catalog_products_reorder_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReorderRequest"];
+                "multipart/form-data": components["schemas"]["ReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     contacts_list: {
         parameters: {
             query?: {
@@ -4546,6 +6474,650 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WsTicket"];
+                };
+            };
+        };
+    };
+    orders_list: {
+        parameters: {
+            query?: {
+                contact?: string;
+                /** @description Inclusive lower bound. */
+                created_after?: string;
+                /** @description Exclusive upper bound. */
+                created_before?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                payment_method?: "cod" | "online";
+                payment_status?: "cod_collected" | "cod_pending" | "paid" | "refunded_manual" | "unpaid";
+                /** @description Order number, contact name or phone. */
+                search?: string;
+                stage?: "checkout" | "closed" | "open";
+                /** @description Comma-separated OrderStatusEnum values. Drafts are listed only when asked for here. */
+                status?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOrderListItemList"];
+                };
+            };
+        };
+    };
+    orders_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOrderNotesRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOrderNotesRequest"];
+                "multipart/form-data": components["schemas"]["PatchedOrderNotesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_cancel_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CancelOrderRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CancelOrderRequest"];
+                "multipart/form-data": components["schemas"]["CancelOrderRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_events_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOrderEventList"];
+                };
+            };
+        };
+    };
+    orders_mark_cod_collected_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_mark_refunded_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_transition_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderTransitionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OrderTransitionRequest"];
+                "multipart/form-data": components["schemas"]["OrderTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderSummary"];
+                };
+            };
+        };
+    };
+    payments_account_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentAccount"];
+                };
+            };
+        };
+    };
+    payments_account_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    payments_account_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPaymentAccountRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPaymentAccountRequest"];
+                "multipart/form-data": components["schemas"]["PatchedPaymentAccountRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentAccount"];
+                };
+            };
+        };
+    };
+    payments_account_rotate_webhook_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentAccount"];
+                };
+            };
+        };
+    };
+    payments_account_verify_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentAccount"];
+                };
+            };
+        };
+    };
+    payments_links_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                order?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                status?: "cancelled" | "created" | "creating" | "expired" | "failed" | "paid";
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPaymentLinkList"];
+                };
+            };
+        };
+    };
+    seller_alerts_platform_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAlertsInfo"];
+                };
+            };
+        };
+    };
+    seller_alerts_recipients_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedAlertRecipientList"];
+                };
+            };
+        };
+    };
+    seller_alerts_recipients_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AlertRecipientRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AlertRecipientRequest"];
+                "multipart/form-data": components["schemas"]["AlertRecipientRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRecipient"];
+                };
+            };
+        };
+    };
+    seller_alerts_recipients_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    seller_alerts_recipients_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedAlertRecipientRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedAlertRecipientRequest"];
+                "multipart/form-data": components["schemas"]["PatchedAlertRecipientRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRecipient"];
+                };
+            };
+        };
+    };
+    seller_alerts_recipients_resend_verification_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertRecipient"];
+                };
+            };
+        };
+    };
+    store_checklist_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreChecklist"];
+                };
+            };
+        };
+    };
+    store_settings_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreSettings"];
+                };
+            };
+        };
+    };
+    store_settings_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedStoreSettingsRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedStoreSettingsRequest"];
+                "multipart/form-data": components["schemas"]["PatchedStoreSettingsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoreSettings"];
+                };
+            };
+        };
+    };
+    store_starter_templates_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StarterTemplatesResult"];
                 };
             };
         };

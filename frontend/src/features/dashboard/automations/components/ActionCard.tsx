@@ -15,7 +15,7 @@ import { VariableSourceFields } from '../../campaigns/components/VariableSourceF
 import { defaultBodySource } from '../../campaigns/variables'
 import { useTagOptions, useTemplate } from '../../campaigns/wizard/queries'
 import { actionLabels, useMembers, type AutomationActionType } from '../api'
-import { actionTypes, emptyAction, type RuleFormValues } from '../ruleForm'
+import { editableActionTypes, emptyAction, type RuleFormValues } from '../ruleForm'
 
 type ActionCardProps = {
   index: number
@@ -81,7 +81,7 @@ export function ActionCard({ index, count, onMove, onRemove, readOnly }: ActionC
         <Field label="Do this">
           <Select
             value={type}
-            options={actionTypes.map((value) => ({ value, label: actionLabels[value] }))}
+            options={editableActionTypes.map((value) => ({ value, label: actionLabels[value] }))}
             onChange={(event) =>
               setValue(`actions.${index}`, emptyAction(event.target.value as AutomationActionType), { shouldDirty: true })
             }

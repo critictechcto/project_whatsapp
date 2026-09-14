@@ -86,6 +86,7 @@ const typeLabels: Record<MessageType, string> = {
   location: 'Location',
   contacts: 'Contact card',
   interactive: 'Interactive message',
+  order: 'Cart order',
   button: 'Button reply',
   reaction: 'Reaction',
   template: 'Template',

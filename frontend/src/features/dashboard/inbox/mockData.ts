@@ -228,6 +228,8 @@ function build(): InboxMockState {
       error_code: spec.error?.[0] ?? '',
       error_message: spec.error?.[1] ?? '',
       template: template ? { id: template.id, name: template.name, language: template.language } : null,
+      interactive: null,
+      order: null,
       media: spec.media
         ? {
             mime_type: spec.media.mime_type,
