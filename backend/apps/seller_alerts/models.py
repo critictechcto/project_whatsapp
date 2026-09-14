@@ -31,6 +31,9 @@ class AlertRecipient(TenantScopedModel):
     opted_out_at = models.DateTimeField(null=True, blank=True)
     last_sent_at = models.DateTimeField(null=True, blank=True)
     verification_sent_at = models.DateTimeField(null=True, blank=True)
+    # When this phone last messaged the platform number: while that 24-hour customer service
+    # window is open, alerts go out as free-form messages instead of paid templates.
+    last_inbound_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(TenantScopedModel.Meta):
         constraints = [
@@ -83,6 +86,8 @@ class AlertMessage(UUIDTimeStampedModel):
     error_message = models.TextField(blank=True)
     payload = models.JSONField(default=dict, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    # "<recipient>:<order>:<event>:<new_status>" for order alerts, so an alert goes out once.
+    dedupe_key = models.CharField(max_length=160, unique=True, null=True, blank=True)
 
     class Meta(UUIDTimeStampedModel.Meta):
         indexes = [
@@ -116,3 +121,23 @@ class PendingSellerReply(TenantScopedModel):
 
     def __str__(self) -> str:
         return f"{self.action} for {self.order_id}"
+
+
+class AlertInboundMessage(UUIDTimeStampedModel):
+    """A message the platform number received. Keyed on ``wamid`` so webhook retries are
+    handled once; also the log of messages from unknown or unverified senders."""
+
+    class Outcome(models.TextChoices):
+        HANDLED = "handled", "Handled"
+        IGNORED = "ignored", "Ignored (unknown or unverified sender)"
+
+    wamid = models.CharField(max_length=128, unique=True)
+    from_wa_id = models.CharField(max_length=32, db_index=True)
+    type = models.CharField(max_length=32, blank=True)
+    text = models.TextField(blank=True)
+    reply_id = models.CharField(max_length=256, blank=True)
+    outcome = models.CharField(max_length=16, choices=Outcome.choices, default=Outcome.HANDLED)
+    received_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"{self.type} from {self.from_wa_id} ({self.outcome})"
