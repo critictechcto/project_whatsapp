@@ -17,6 +17,70 @@ const campaignKeys = workspaceKeys('campaigns')
 const automationKeys = workspaceKeys('automations')
 const teamKeys = workspaceKeys('team')
 const billingKeys = workspaceKeys('billing')
+const orderKeys = workspaceKeys('orders')
+const storeKeys = workspaceKeys('store')
+
+/** Key of the home "Orders today" summary; realtime order frames invalidate it. */
+export function orderSummaryKey(workspaceId: string) {
+  return orderKeys.custom(workspaceId, 'summary')
+}
+
+/**
+ * Commerce endpoints the workspace can't use: not mounted (404/501), not allowed (403), or the store
+ * or plan lacks commerce (409 `commerce_not_enabled` / `feature_not_available`). Home hides those cards.
+ */
+export function isCommerceUnavailable(error: unknown): boolean {
+  return isNotImplemented(error) || (isApiError(error) && [403, 404, 409].includes(error.status))
+}
+
+export function useOrderSummary() {
+  const { workspaceId } = useWorkspace()
+  return useQuery({
+    queryKey: orderSummaryKey(workspaceId),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/orders/summary/', { signal })),
+    retry,
+  })
+}
+
+/** Viewers may read the checklist too (docs/contracts/wave-3-commerce.md, Store). */
+export function useStoreChecklist() {
+  const { workspaceId } = useWorkspace()
+  return useQuery({
+    queryKey: storeKeys.custom(workspaceId, 'checklist'),
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/store/checklist/', { signal })),
+    retry,
+  })
+}
+
+type ChecklistItem = Schemas['StoreChecklistItem']
+
+const storeStepLabels: Record<string, string> = {
+  whatsapp_connected: 'Connect WhatsApp',
+  products_added: 'Add products',
+  payments_configured: 'Set up payments',
+  order_templates_ready: 'Prepare order update templates',
+  alert_number_verified: 'Verify your order alert number',
+  store_enabled: 'Turn on your store',
+}
+
+/** Label of a store checklist key; unknown keys are humanised (`new_step` → "New step"). */
+export function storeStepLabel(key: string): string {
+  const known = storeStepLabels[key]
+  if (known) return known
+  const words = key.replace(/_/g, ' ').trim()
+  return words ? words[0].toUpperCase() + words.slice(1) : 'Store step'
+}
+
+export type StoreProgress = { done: number; total: number; next: ChecklistItem | null; storeEnabled: boolean }
+
+export function storeProgress(items: readonly ChecklistItem[]): StoreProgress {
+  return {
+    done: items.filter((item) => item.done).length,
+    total: items.length,
+    next: items.find((item) => !item.done) ?? null,
+    storeEnabled: items.some((item) => item.key === 'store_enabled' && item.done),
+  }
+}
 
 /** Page size for counting from a list; beyond it, show "200+". */
 export const COUNT_PAGE_SIZE = 200
