@@ -2,6 +2,7 @@
 
 from rest_framework import serializers
 
+from . import gst
 from .schema_enums import BILLING_INTERVALS, INVOICE_STATUSES, SUBSCRIPTION_STATUSES
 
 PLAN_SLUGS = ("starter", "growth", "pro")
@@ -19,7 +20,9 @@ class PlanLimitsSerializer(serializers.Serializer):
 
 
 class PlanSerializer(serializers.Serializer):
-    id = serializers.CharField(read_only=True, help_text="Plan slug: starter, growth or pro.")
+    id = serializers.CharField(
+        source="slug", read_only=True, help_text="Plan slug: starter, growth or pro."
+    )
     name = serializers.CharField(read_only=True)
     monthly_price_paise = serializers.IntegerField(read_only=True, help_text="Before GST.")
     annual_price_paise = serializers.IntegerField(read_only=True, help_text="Before GST.")
@@ -94,13 +97,33 @@ class BillingProfileSerializer(serializers.Serializer):
             data = {**data, "gstin": data["gstin"].strip().upper()}
         return super().to_internal_value(data)
 
+    def validate_gstin(self, value: str) -> str:
+        errors = gst.gstin_errors(value) if value else []
+        if errors:
+            raise serializers.ValidationError(errors)
+        return value
+
+    def validate_state_code(self, value: str) -> str:
+        if value not in gst.GST_STATE_CODES:
+            raise serializers.ValidationError("Enter a valid 2-digit GST state code.")
+        return value
+
     def validate(self, attrs: dict) -> dict:
-        gstin, state_code = attrs.get("gstin"), attrs.get("state_code")
+        # On PATCH, check the GSTIN against the stored state code (and vice versa).
+        gstin = attrs.get("gstin", getattr(self.instance, "gstin", ""))
+        state_code = attrs.get("state_code", getattr(self.instance, "state_code", ""))
         if gstin and state_code and gstin[:2] != state_code:
+            field = "state_code" if "state_code" in attrs else "gstin"
             raise serializers.ValidationError(
-                {"state_code": ["Must match the first two digits of the GSTIN."]}
+                {field: ["The state code must match the first two digits of the GSTIN."]}
             )
         return attrs
+
+    def update(self, instance, validated_data: dict):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save()
+        return instance
 
 
 class InvoiceSerializer(serializers.Serializer):
