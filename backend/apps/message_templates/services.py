@@ -49,6 +49,31 @@ class MetaRequestFailed(APIException):
     default_detail = "Meta rejected the request."
 
 
+class WabaNotConnected(Conflict):
+    default_code = "whatsapp_not_connected"
+    default_detail = (
+        "This WhatsApp Business Account is not connected. Reconnect it to manage templates."
+    )
+
+
+# Only these WABAs may call Meta; an empty token also means the customer must reconnect.
+CONNECTED_WABA_STATUSES = (
+    WhatsAppBusinessAccount.Status.ACTIVE,
+    WhatsAppBusinessAccount.Status.RESTRICTED,
+)
+
+
+def is_connected(waba: WhatsAppBusinessAccount) -> bool:
+    return waba.status in CONNECTED_WABA_STATUSES and bool(waba.access_token)
+
+
+def client_for(waba: WhatsAppBusinessAccount):
+    """Graph client for ``waba``; raises WabaNotConnected instead of calling Meta."""
+    if not is_connected(waba):
+        raise WabaNotConnected()
+    return get_client(waba.access_token)
+
+
 # --- Drafts -----------------------------------------------------------------------------------
 
 
@@ -179,7 +204,7 @@ def submit(template: MessageTemplate) -> MessageTemplate:
             "category": template.category,
             "components": template.components,
         }
-        client = get_client(template.waba.access_token)
+        client = client_for(template.waba)
         try:
             response = client.create_template(template.waba.waba_id, payload)
         except GraphAPIError as exc:
@@ -208,7 +233,7 @@ def submit(template: MessageTemplate) -> MessageTemplate:
 def delete(template: MessageTemplate) -> None:
     """Delete at Meta (when submitted and not already gone), then locally."""
     if template.meta_template_id and template.status != Status.DELETED:
-        client = get_client(template.waba.access_token)
+        client = client_for(template.waba)
         try:
             client.delete_template(
                 template.waba.waba_id, name=template.name, template_id=template.meta_template_id
@@ -248,9 +273,10 @@ def sync_waba(waba: WhatsAppBusinessAccount, *, page_size: int = 100) -> SyncRes
     """Mirror every template Meta holds for ``waba``.
 
     Upserts by Meta id, falling back to (waba, name, language). Local templates with a Meta id
-    that Meta no longer returns are marked DELETED. Graph errors propagate (the task retries).
+    that Meta no longer returns are marked DELETED. Graph errors propagate (the task retries);
+    WabaNotConnected is raised before any call for accounts that must reconnect.
     """
-    client = get_client(waba.access_token)
+    client = client_for(waba)
     now = timezone.now()
     seen: set[str] = set()
     created = updated = 0

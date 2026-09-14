@@ -90,12 +90,16 @@ class MessageTemplateViewSet(WorkspaceScopedMixin, viewsets.ModelViewSet):
                 wabas = wabas.filter(pk=uuid.UUID(raw_id))
             except ValueError:
                 wabas = wabas.filter(waba_id=raw_id)
-            if not wabas.exists():
+            waba = wabas.first()
+            if waba is None:
                 raise exceptions.NotFound("WhatsApp Business Account not found.")
+            if not services.is_connected(waba):
+                raise services.WabaNotConnected()
+            queued = [str(waba.pk)]
         else:
-            wabas = wabas.filter(status=WhatsAppBusinessAccount.Status.ACTIVE)
+            connected = wabas.filter(status__in=services.CONNECTED_WABA_STATUSES)
+            queued = [str(pk) for pk in connected.values_list("pk", flat=True)]
 
-        queued = [str(pk) for pk in wabas.values_list("pk", flat=True)]
         for waba_pk in queued:
             tasks.sync_waba.delay(waba_pk)
         return Response(

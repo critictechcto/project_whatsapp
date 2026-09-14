@@ -17,7 +17,7 @@ SYNC_MAX_BACKOFF_SECONDS = 3600
 def sync_waba(self, waba_pk: str) -> dict | None:
     """Mirror a WABA's templates from Meta. Safe to run repeatedly."""
     waba = WhatsAppBusinessAccount.objects.filter(pk=waba_pk).first()
-    if waba is None or not waba.access_token:
+    if waba is None or not services.is_connected(waba):
         return None
     try:
         result = services.sync_waba(waba)
@@ -36,9 +36,9 @@ def sync_waba(self, waba_pk: str) -> dict | None:
 
 @shared_task(bind=True, name="message_templates.sync_all")
 def sync_all(self) -> int:
-    """Queue a template sync for every active WABA."""
+    """Queue a template sync for every connected (active or restricted) WABA."""
     waba_pks = WhatsAppBusinessAccount.objects.filter(
-        status=WhatsAppBusinessAccount.Status.ACTIVE
+        status__in=services.CONNECTED_WABA_STATUSES
     ).values_list("pk", flat=True)
     count = 0
     for waba_pk in waba_pks:

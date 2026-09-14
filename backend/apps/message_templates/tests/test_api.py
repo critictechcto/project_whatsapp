@@ -221,6 +221,29 @@ def test_sync_one_waba(auth_client, waba, fake_graph, use_meta_id):
     assert fake_graph.calls_to("list_templates")[0].kwargs["waba_id"] == waba.waba_id
 
 
+def test_sync_disconnected_waba_is_409(auth_client, workspace, fake_graph):
+    waba = WhatsAppBusinessAccountFactory(
+        workspace=workspace, status=WhatsAppBusinessAccount.Status.DISCONNECTED
+    )
+
+    response = auth_client().post(SYNC, {"waba_id": str(waba.pk)}, format="json")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "whatsapp_not_connected"
+    assert fake_graph.calls == []
+
+
+def test_submit_disconnected_waba_is_409(auth_client, workspace, fake_graph):
+    waba = WhatsAppBusinessAccountFactory(workspace=workspace, access_token="")
+    template = MessageTemplateFactory(waba=waba)
+
+    response = auth_client().post(action_url(template, "submit"))
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "whatsapp_not_connected"
+    assert fake_graph.calls == []
+
+
 def test_sync_foreign_waba_is_404(auth_client, other_waba, fake_graph):
     response = auth_client().post(SYNC, {"waba_id": str(other_waba.pk)}, format="json")
 
