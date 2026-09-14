@@ -184,6 +184,20 @@ window_open(contact, phone_number) -> bool
 - `MessageRecorded(workspace_id, message_id, conversation_id, contact_id, phone_number_id, direction, source, source_ref, type, text, reply_id, wamid, is_first_inbound, contact_created, created_at)`
 - `MessageDeliveryUpdated(workspace_id, message_id, conversation_id, source, source_ref, status, error_code, occurred_at)`
 - Both emitted with `transaction.on_commit`. Automations react to `MessageRecorded` with `direction == "inbound"`; campaigns match `MessageDeliveryUpdated.source == "campaign"`.
+- Tenant events, emitted on commit by `apps.tenants.services`:
+  - `WorkspaceCreated(workspace_id, owner_id)` from `create_workspace`. Billing starts the 14-day Growth trial (`get_subscription` still creates it lazily if the event was missed).
+  - `MembershipRoleChanged(workspace_id, user_id, old_role, new_role)` from `change_member_role` (not sent when the role is unchanged).
+  - `MembershipRemoved(workspace_id, user_id)` from `remove_member`, both when an admin removes someone and when a member leaves.
+  - The inbox sends `session.revoked` to the user's sockets with `reason` `role_changed` or `membership_removed`.
+- `common.events.EVENT_SIGNALS` maps every event dataclass to its signal.
+
+### Plan errors — `common/exceptions.py`, `apps/billing/entitlements.py`
+- `FeatureNotAvailable` (409 `feature_not_available`): the plan lacks a feature. Pass a message naming it.
+- `QuotaExceeded` (409 `quota_exceeded`, `details` `{metric, limit, used}`): raised by `check_quota`. Guards:
+  - Members: creating an invitation needs members + open unexpired invitations to other emails + 1 within the limit (re-inviting the same email doesn't take another seat). Accepting re-checks members + 1.
+  - Contacts: `POST /contacts/` is checked; updates are not. CSV imports create new contacts only up to `remaining_quota`; the rest are skipped (`skipped_count`) with an `errors` entry whose `reason` is `quota_exceeded`, and existing contacts still update. Contacts created by inbound messages are never blocked.
+  - WhatsApp numbers: Embedded Signup counts numbers new to the workspace (or deregistered) before storing anything; reconnecting already-connected numbers is not blocked.
+  - Halted, cancelled or expired subscriptions leave no quota (`limit == used`).
 
 ### Realtime — `common/realtime.py`
 `broadcast(workspace_id, type, data)` and `broadcast_user(user_id, type, data)`; both send on commit.
@@ -192,7 +206,7 @@ window_open(contact, phone_number) -> bool
 `add_tags(contact, tags)` and `remove_tags(contact, tags)` (tags from the same workspace).
 
 ## Allowed cross-app imports in wave 2
-Wave 0–1 modules, plus `apps.inbox.sending`, `apps.inbox.services`, `apps.inbox.models` (read, FKs), `apps.message_templates.services`, `apps.contacts.services`, `apps.billing.entitlements`. Everything else goes through `common/events.py` signals.
+Wave 0–1 modules, plus `apps.inbox.sending`, `apps.inbox.services`, `apps.inbox.models` (read, FKs), the summary serializers in `apps.inbox.serializers`, `apps.message_templates.services`, `apps.contacts.services`, `apps.billing.entitlements`. Everything else goes through `common/events.py` signals.
 
 ## Demo data
 Each app may add `apps/<app>/demo.py` with `seed(workspace) -> None`; `manage.py seed_demo` runs them in `INSTALLED_APPS` order.

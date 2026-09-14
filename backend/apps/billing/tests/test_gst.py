@@ -6,6 +6,11 @@ from django.core.exceptions import ValidationError
 from apps.billing import gst
 
 
+def test_seller_gstin_in_test_settings_is_valid(settings):
+    assert gst.is_valid_gstin(settings.BILLING_SELLER_GSTIN)
+    assert settings.BILLING_SELLER_GSTIN[:2] == settings.BILLING_SELLER_STATE_CODE
+
+
 def with_check_character(first_14: str) -> str:
     return first_14 + gst.gstin_check_character(first_14)
 

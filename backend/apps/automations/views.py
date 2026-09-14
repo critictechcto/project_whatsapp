@@ -8,7 +8,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 
 from apps.billing import entitlements
-from common.exceptions import Conflict
+from common.exceptions import FeatureNotAvailable
 from common.roles import Role
 from common.tenancy import WorkspaceScopedGenericViewSet
 
@@ -22,11 +22,6 @@ from .serializers import (
 
 TRUE_VALUES = frozenset({"true", "1", "yes"})
 FALSE_VALUES = frozenset({"false", "0", "no"})
-
-
-class FeatureNotAvailable(Conflict):
-    default_code = "feature_not_available"
-    default_detail = "Your plan does not include this feature. Upgrade your plan to use it."
 
 
 class AutomationViewSet(WorkspaceScopedGenericViewSet):

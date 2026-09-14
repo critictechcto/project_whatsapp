@@ -22,7 +22,6 @@ from django.conf import settings
 JSON = dict[str, Any]
 
 API_BASE_URL = "https://api.razorpay.com/v1"
-TIMEOUT_SECONDS = 20.0
 # Billing cycles before a Razorpay subscription completes (10 years either way).
 TOTAL_COUNT = {"monthly": 120, "annual": 10}
 
@@ -71,7 +70,7 @@ class HttpRazorpayClient:
         key_id: str,
         key_secret: str,
         base_url: str = API_BASE_URL,
-        timeout: float = TIMEOUT_SECONDS,
+        timeout: float | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         if not key_id or not key_secret:
@@ -79,7 +78,7 @@ class HttpRazorpayClient:
         self._client = httpx.Client(
             base_url=base_url,
             auth=(key_id, key_secret),
-            timeout=timeout,
+            timeout=settings.RAZORPAY_TIMEOUT if timeout is None else timeout,
             transport=transport,
             headers={"Accept": "application/json"},
         )

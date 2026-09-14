@@ -209,6 +209,10 @@ class BulkTagResultSerializer(serializers.Serializer):
 class ImportRowErrorSerializer(serializers.Serializer):
     row = serializers.IntegerField(allow_null=True, help_text="1-based CSV line; null if global.")
     error = serializers.CharField()
+    reason = serializers.CharField(
+        required=False,
+        help_text="Why the row was skipped, when machine-readable (e.g. quota_exceeded).",
+    )
 
 
 class ContactImportSerializer(serializers.ModelSerializer):

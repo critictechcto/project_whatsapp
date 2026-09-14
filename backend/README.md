@@ -50,8 +50,11 @@ uv run pytest                      # add --create-db after migration changes
 uv run pytest common config        # foundation tests only
 uv run ruff check . && uv run ruff format --check .
 uv run python manage.py makemigrations --check --dry-run
-uv run python manage.py spectacular --validate --fail-on-warn --file schema.yml
+DJANGO_SETTINGS_MODULE=config.settings.test uv run python manage.py spectacular --validate --fail-on-warn --file openapi.yml
 ```
+
+- `openapi.yml` is committed. After any API change, regenerate it with the command above (LF line endings), commit it, then run `npm run api:types` in `frontend/`. CI regenerates it and fails if `git diff --exit-code -- openapi.yml` finds a difference.
+- Cross-app flows (signed Meta and Razorpay webhooks through receivers, the realtime socket) are tested in `tests/`.
 
 - Tests use `config.settings.test`, which needs no `.env`. It uses an eager Celery, in-memory cache and channel layer, and the fake Graph client.
 - Each git checkout or worktree gets its own test database, `test_upchatz_<folder>`.
@@ -61,3 +64,34 @@ uv run python manage.py spectacular --validate --fail-on-warn --file schema.yml
 - CI (`.github/workflows/backend-ci.yml`) runs all of the above on pushes to `main` and on pull requests that touch `backend/`.
 
 Add packages with `uv add <package>` (or `uv add --dev <package>`). Never use pip.
+
+## Demo data
+
+With `DEBUG` on, `uv run python manage.py seed_demo` creates (or refreshes) the demo user, workspace and connected number, then runs each app's `apps/<app>/demo.py` `seed(workspace)` in `INSTALLED_APPS` order, in one transaction. It is safe to run repeatedly.
+
+## Razorpay setup (owner)
+
+Billing uses Razorpay Subscriptions. Plan prices are GST-exclusive in the app; the Razorpay plans charge the GST-inclusive amount (18%).
+
+1. In the Razorpay dashboard, create six plans (period monthly, or yearly for annual):
+
+   | Plan | Monthly | Annual |
+   |---|---|---|
+   | Starter | ₹1,178.82 | ₹11,788.20 |
+   | Growth | ₹2,948.82 | ₹29,488.20 |
+   | Pro | ₹7,078.82 | ₹70,788.20 |
+
+2. Set the plan ids in `.env` as JSON:
+   ```
+   RAZORPAY_PLAN_IDS={"starter": {"monthly": "plan_…", "annual": "plan_…"}, "growth": {"monthly": "plan_…", "annual": "plan_…"}, "pro": {"monthly": "plan_…", "annual": "plan_…"}}
+   ```
+3. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` (API keys), and optionally `RAZORPAY_TIMEOUT` (seconds, default 20).
+4. Set the seller details printed on GST invoices:
+   - `BILLING_SELLER_LEGAL_NAME`, `BILLING_SELLER_ADDRESS`
+   - `BILLING_SELLER_GSTIN`, with `BILLING_SELLER_STATE_CODE` matching its first two digits
+   - `BILLING_SAC_CODE` (default `998314`) and `BILLING_GST_RATE_PERCENT` (default `18`)
+5. Add a webhook pointing to `https://<api host>/webhooks/razorpay/`. Give it a secret and set the same value as `RAZORPAY_WEBHOOK_SECRET`. Enable these events:
+   - `subscription.authenticated`, `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`
+   - `payment.failed`
+
+Keys and the webhook secret are secrets: keep them in `.env` only, and never log them.

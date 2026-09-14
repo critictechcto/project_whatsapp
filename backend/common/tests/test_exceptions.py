@@ -3,7 +3,12 @@ from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.http import Http404
 from rest_framework import exceptions
 
-from common.exceptions import Conflict, UpstreamUnavailable, api_exception_handler
+from common.exceptions import (
+    Conflict,
+    FeatureNotAvailable,
+    UpstreamUnavailable,
+    api_exception_handler,
+)
 
 CONTEXT = {"view": None, "request": None}
 
@@ -131,6 +136,21 @@ def test_structured_detail_without_error_detail_uses_defaults():
             "details": {"field": "bad"},
         }
     }
+
+
+def test_feature_not_available_is_a_409_conflict():
+    default = handle(FeatureNotAvailable())
+    custom = handle(FeatureNotAvailable("Scheduling isn't included in your plan."))
+
+    assert issubclass(FeatureNotAvailable, Conflict)
+    assert default.status_code == custom.status_code == 409
+    assert default.data["error"] == {
+        "code": "feature_not_available",
+        "message": "Your plan does not include this feature. Upgrade your plan to use it.",
+        "details": None,
+    }
+    assert custom.data["error"]["code"] == "feature_not_available"
+    assert custom.data["error"]["message"] == "Scheduling isn't included in your plan."
 
 
 @pytest.mark.parametrize("exc", [ValueError("boom"), KeyError("missing"), RuntimeError()])

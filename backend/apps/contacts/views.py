@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
+from apps.billing import entitlements
 from common.exceptions import Conflict
 from common.roles import Role
 from common.routers import UUID_LOOKUP_REGEX
@@ -80,6 +81,11 @@ class ContactViewSet(UniqueConflictMixin, WorkspaceScopedViewSet):
     search_fields = ("name", "phone_e164", "email")
     ordering_fields = ("created_at",)
     conflict_message = "A contact with this phone number already exists."
+
+    def perform_create(self, serializer):
+        # Only new contacts count toward the plan limit; updates never do.
+        entitlements.check_quota(self.workspace, entitlements.CONTACTS)
+        super().perform_create(serializer)
 
     @extend_schema(responses=ConsentEventSerializer(many=True))
     @action(detail=True, methods=["get"], url_path="consent-events", filter_backends=[])

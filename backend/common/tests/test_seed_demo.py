@@ -72,6 +72,39 @@ def test_is_idempotent(debug):
     assert user.check_password("changed-by-developer")
 
 
+def demo_row_counts(workspace) -> dict[str, int]:
+    from apps.automations.models import AutomationRule
+    from apps.billing.models import Subscription
+    from apps.campaigns.models import Campaign
+    from apps.contacts.models import Contact
+    from apps.inbox.models import Conversation, Message
+    from apps.message_templates.models import MessageTemplate
+
+    return {
+        "contacts": Contact.objects.filter(workspace=workspace).count(),
+        "templates": MessageTemplate.objects.filter(waba__workspace=workspace).count(),
+        "conversations": Conversation.objects.filter(workspace=workspace).count(),
+        "messages": Message.objects.filter(workspace=workspace).count(),
+        "campaigns": Campaign.objects.filter(workspace=workspace).count(),
+        "automation_rules": AutomationRule.objects.filter(workspace=workspace).count(),
+        "subscriptions": Subscription.objects.filter(workspace=workspace).count(),
+    }
+
+
+@pytest.mark.django_db
+def test_real_app_seeders_run_twice_without_duplicates(debug):
+    first = run()
+    workspace = Workspace.objects.get(slug=seed_demo.DEMO_WORKSPACE_SLUG)
+    counts = demo_row_counts(workspace)
+    second = run()
+
+    for app in ("apps.inbox", "apps.campaigns", "apps.automations", "apps.billing"):
+        assert f"Seeded {app}" in first
+        assert f"Seeded {app}" in second
+    assert all(counts.values()), counts
+    assert demo_row_counts(workspace) == counts
+
+
 @pytest.mark.django_db
 def test_reuses_existing_user_by_email(debug, user):
     run(email=user.email.upper())

@@ -176,6 +176,35 @@ class MessageDeliveryUpdated:
     occurred_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class WorkspaceCreated:
+    """A workspace was created with ``owner_id`` as its first owner. Emitted on commit by
+    ``apps.tenants.services``; billing starts the trial."""
+
+    workspace_id: uuid.UUID
+    owner_id: uuid.UUID
+
+
+@dataclass(frozen=True, slots=True)
+class MembershipRoleChanged:
+    """A member's role changed. Emitted on commit by ``apps.tenants.services``; the inbox
+    revokes that user's open WebSockets."""
+
+    workspace_id: uuid.UUID
+    user_id: uuid.UUID
+    old_role: str
+    new_role: str
+
+
+@dataclass(frozen=True, slots=True)
+class MembershipRemoved:
+    """A member was removed or left the workspace. Emitted on commit by
+    ``apps.tenants.services``; the inbox revokes that user's open WebSockets."""
+
+    workspace_id: uuid.UUID
+    user_id: uuid.UUID
+
+
 inbound_message_received = Signal()
 message_status_updated = Signal()
 template_status_updated = Signal()
@@ -185,6 +214,25 @@ phone_number_quality_updated = Signal()
 account_updated = Signal()
 message_recorded = Signal()
 message_delivery_updated = Signal()
+workspace_created = Signal()
+membership_role_changed = Signal()
+membership_removed = Signal()
+
+# Event class -> the signal it is sent on.
+EVENT_SIGNALS: dict[type, Signal] = {
+    InboundMessage: inbound_message_received,
+    MessageStatus: message_status_updated,
+    TemplateStatusUpdate: template_status_updated,
+    TemplateCategoryUpdate: template_category_updated,
+    TemplateQualityUpdate: template_quality_updated,
+    PhoneNumberQualityUpdate: phone_number_quality_updated,
+    AccountUpdate: account_updated,
+    MessageRecorded: message_recorded,
+    MessageDeliveryUpdated: message_delivery_updated,
+    WorkspaceCreated: workspace_created,
+    MembershipRoleChanged: membership_role_changed,
+    MembershipRemoved: membership_removed,
+}
 
 
 def emit(signal: Signal, event: object) -> list[tuple[object, Exception]]:
