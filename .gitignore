@@ -27,3 +27,11 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Claude Code worktrees
+.claude/worktrees/
+.claude/settings.local.json
+
+# Coverage
+.coverage
+htmlcov/

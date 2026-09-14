@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 project_whatsapp — a multi-tenant WhatsApp SaaS for Indian businesses. Businesses connect their own number via **Meta Embedded Signup** and send/schedule/automate messages through the **official WhatsApp Business Platform (Cloud API)**. Unofficial WhatsApp Web automation (whatsapp-web.js, Baileys, QR-code tools) is out of scope — never suggest it.
 
-Current state: only the marketing landing page (`frontend/`) is built. `backend/` is an empty uv project skeleton — don't scaffold Django or add backend code until the user explicitly asks.
+Current state: the marketing landing page (`frontend/`) is built. The backend is being built in waves: wave 0 (foundation: settings, `common/`, accounts, tenants, whatsapp models + Graph client contract) is done; wave 1 builds whatsapp onboarding, webhooks, message_templates and contacts. The dashboard UI comes after the backend. Only build what the user has approved.
 
 ## Workflow
 
@@ -25,11 +25,19 @@ There is no linter or test suite yet; `npm run build` is the correctness check (
 
 Backend (Python 3.12, **uv only** — never pip/venv/poetry; run from `backend/`):
 ```bash
-uv add <package>
-uv run <command>          # e.g. uv run python manage.py runserver (once Django exists)
+docker compose -f ../infra/docker/compose.dev.yml up -d   # Postgres on host port 5433, Redis 6379
+uv run python manage.py migrate
+uv run python manage.py runserver                        # ASGI via daphne; API docs at /api/docs/
+uv run celery -A config worker --pool=solo -l info       # --pool=solo on Windows
+uv run pytest                                            # add --create-db after migration changes
+uv run pytest apps/tenants/tests/test_members.py::test_invitation_flow
+uv run ruff check . && uv run ruff format --check .
+uv run python manage.py makemigrations --check --dry-run
+uv run python manage.py spectacular --validate --fail-on-warn --file schema.yml
 ```
+Set `UV_LINK_MODE=copy` on this machine (uv cache on C:, repo on D:). Settings default to `config.settings.dev`; tests use `config.settings.test`, which needs no `.env` and gives each git worktree its own test database. A native PostgreSQL service also runs on 5432 here, which is why Docker Postgres is on 5433.
 
-Copy `.env.example` to `.env` for secrets (Meta app, Postgres, Redis, Fernet token key, Razorpay).
+Copy `.env.example` to `.env` (repo root) for secrets (Meta app, Postgres, Redis, Fernet keys, Razorpay).
 
 ## Architecture
 
@@ -44,7 +52,15 @@ Copy `.env.example` to `.env` for secrets (Meta app, Postgres, Redis, Fernet tok
 
 Design intent for marketing pages: restrained and product-led (no gradients, fake logos/testimonials/stats); copy about Meta rules must stay accurate and hedged ("under Meta's current pricing", "limits set by Meta").
 
-### Backend (planned, `backend/`)
-Django + DRF, PostgreSQL, Redis, Celery (+ Beat) for bulk/scheduled sends, Django Channels for the live inbox. `config/` will be the Django project package; `apps/` holds one Django app per domain (accounts, tenants, whatsapp, message_templates, contacts, campaigns, inbox, automations, webhooks, billing, analytics, developer_api); `common/` for shared base models, token encryption and utilities. Multi-tenancy is a shared schema with a tenant FK. Customer Meta access tokens are stored Fernet-encrypted; Meta webhooks must verify the `X-Hub-Signature-256` signature. Billing via Razorpay.
+### Backend (`backend/`)
+Django 6 + DRF, PostgreSQL, Redis, Celery (+ Beat, DB scheduler) for bulk/scheduled sends, Django Channels for the live inbox, JWT auth (simplejwt with blacklist). `config/` is the project package; `apps/` holds one app per domain (accounts, tenants, whatsapp, message_templates, contacts, campaigns, inbox, automations, webhooks, billing, analytics, developer_api) — all are registered and mounted in `config/urls.py` already. Billing via Razorpay.
+
+- **Tenancy**: shared schema. Tenant rows extend `common.models.TenantScopedModel` (UUID pk, `workspace` FK). API views use `common.tenancy.WorkspaceScopedMixin`/`WorkspaceScopedViewSet`: the workspace comes from the `X-Workspace-ID` header, roles are owner > admin > agent > viewer (`read_role`, `write_role`, `action_roles`), querysets are filtered to the workspace, and non-members get 404.
+- **Errors**: every API error is `{"error": {"code", "message", "details"}}` (`common/exceptions.py`). Pagination is cursor-based on `created_at`.
+- **Secrets**: Meta tokens and PINs use `common.fields.EncryptedTextField` (MultiFernet, `TOKEN_ENCRYPTION_KEYS`); never serialize or log them.
+- **Meta Graph API**: only through `apps.whatsapp.client.get_client(token)`, which returns a `GraphClient` (the Protocol in `client/base.py`; errors map Meta codes to classes with `retryable` in `client/errors.py`). Tests use the `fake_graph` fixture (`FakeGraphClient`); never hit the network.
+- **Cross-app events**: the webhooks app parses Meta payloads into the dataclasses in `common/events.py` and sends them with `emit()`. Apps react in `receivers.py` (auto-imported by `common.apps.BaseAppConfig`) and must be idempotent. Apps don't import each other beyond the wave-0 modules.
+- **Per-app conventions**: Celery tasks use explicit names (`"<app>.<verb_noun>"`); beat entries go in the app's `schedules.py` (collected by `config/celery.py`); WebSocket routes in `routing.py`; spectacular enum name fixes in `schema_enums.py`; model factories in `factories.py`. Shared test fixtures (`api_client`, `user`, `workspace`, `other_workspace`, `auth_client(role)`, `fake_graph`) live in `backend/conftest.py`; `common/testing.py` has `make_api_client` and `assert_tenant_isolated`.
+- **Parallel-agent ownership**: an app branch edits only `backend/apps/<app>/**`. `pyproject.toml`/`uv.lock`, `config/`, `common/`, `backend/conftest.py`, infra and CI are lead-owned — request dependency/setting/contract changes instead of making them.
 
 WhatsApp constraints the backend must respect: business-initiated messages require approved templates outside the 24-hour customer service window; contacts need recorded opt-in (and STOP opt-out handling); sending is capped by Meta messaging-limit tiers and number quality rating.

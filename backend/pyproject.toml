@@ -2,4 +2,66 @@
 name = "backend"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "celery[redis]>=5.6.3",
+    "channels>=4.3.2",
+    "channels-redis>=4.3.0",
+    "cryptography>=50.0.1",
+    "daphne>=4.2.3",
+    "django>=6.0.8",
+    "django-celery-beat>=2.9.0",
+    "django-cors-headers>=4.9.0",
+    "django-environ>=0.14.0",
+    "django-filter>=26.1",
+    "djangorestframework>=3.18.1",
+    "djangorestframework-simplejwt>=5.5.1",
+    "drf-spectacular>=0.30.0",
+    "gunicorn>=26.2.0",
+    "httpx>=0.28.1",
+    "phonenumbers>=9.0.39",
+    "psycopg[binary]>=3.3.5",
+    "redis>=6.4.0",
+    "sentry-sdk>=2.69.1",
+    "whitenoise>=6.12.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+pythonpath = ["."]
+testpaths = ["apps", "common", "config", "tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers --reuse-db"
+filterwarnings = ["ignore::DeprecationWarning:celery.*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["**/migrations/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "SIM", "RUF", "S"]
+ignore = ["RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "S105", "S106"]
+"**/factories.py" = ["S105", "S106"]
+"conftest.py" = ["S101"]
+"common/testing.py" = ["S101"]
+"config/settings/test.py" = ["S105"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "common", "config"]
+
+[dependency-groups]
+dev = [
+    "factory-boy>=3.3.3",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-django>=4.14.0",
+    "respx>=0.23.1",
+    "ruff>=0.16.7",
+    "time-machine>=3.5.1",
+]
