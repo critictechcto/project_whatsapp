@@ -11,8 +11,9 @@ export const site = {
   trialDays: 14,
   gstRate: 18,
   links: {
-    login: '#',
-    signup: '#',
+    // Dashboard routes, prefixed with the deploy base (`/` or the GitHub Pages project path).
+    login: `${import.meta.env.BASE_URL}app/login`,
+    signup: `${import.meta.env.BASE_URL}app/register`,
     contactSales: 'mailto:sales@upchatz.com',
   },
   nav: [

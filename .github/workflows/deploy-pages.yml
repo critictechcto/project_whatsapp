@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      # The typed API client is generated from the backend schema.
+      - 'backend/openapi.yml'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -22,6 +24,11 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      # GitHub Pages serves this project under /<repo>/. With a custom domain, use VITE_BASE=/.
+      VITE_BASE: /project_whatsapp_landing_page/
+      # No backend on Pages: the dashboard at /app runs on seeded demo data (MSW).
+      VITE_API_MODE: mock
     steps:
       - uses: actions/checkout@v7
 
@@ -33,8 +40,11 @@ jobs:
 
       - run: npm ci
 
-      # tsc --noEmit && vite build
-      - run: npm run build
+      # eslint, vitest, then tsc --noEmit && vite build
+      - run: npm run lint && npm test && npm run build
+
+      # Pages has no SPA fallback: serve the app shell for deep links such as /app/login.
+      - run: cp dist/index.html dist/404.html
 
       - uses: actions/configure-pages@v6
 
