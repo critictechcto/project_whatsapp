@@ -258,17 +258,30 @@ def reserve_stock(workspace, lines: Iterable[tuple[uuid.UUID, int]]) -> None:
             )
         if failures:
             raise OutOfStock(failures)
+    if Product.objects.filter(workspace=workspace, pk__in=merged, stock_qty=0).exists():
+        _queue_catalog_sync(workspace)  # sold out: Meta shows it as out of stock
 
 
 def release_stock(workspace, lines: Iterable[tuple[uuid.UUID, int]]) -> None:
     """Give back tracked stock taken by :func:`reserve_stock`. Untracked or deleted products
     are skipped."""
     merged = _merge_stock_lines(lines)
+    if not merged:
+        return
     now = timezone.now()
+    restocked = Product.objects.filter(workspace=workspace, pk__in=merged, stock_qty=0).exists()
     for product_id in sorted(merged, key=str):
         Product.objects.filter(workspace=workspace, pk=product_id, stock_qty__isnull=False).update(
             stock_qty=F("stock_qty") + merged[product_id], updated_at=now
         )
+    if restocked:
+        _queue_catalog_sync(workspace)
+
+
+def _queue_catalog_sync(workspace) -> None:
+    from .sync import queue_sync
+
+    queue_sync(workspace.pk)
 
 
 def public_image_url(product: Product) -> str | None:
