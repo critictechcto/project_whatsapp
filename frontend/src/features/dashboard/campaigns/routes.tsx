@@ -1,12 +1,25 @@
-import { comingSoonRoute } from '../shell/comingSoon'
 import type { AreaRoute } from '../registry/types'
 
-/**
- * Routes under /app/w/:workspaceId/. Owned by the campaigns feature agent.
- * Replace the placeholder with lazy routes, for example:
- *
- *   { path: 'campaigns', handle: { title: 'Campaigns' }, lazy: async () => ({ Component: (await import('./CampaignsPage')).CampaignsPage }) }
- */
+/** Routes under /app/w/:workspaceId/. */
 export const routes: AreaRoute[] = [
-  comingSoonRoute('campaigns/*', 'Campaigns', "Send approved templates to tagged audiences now or on a schedule."),
+  {
+    path: 'campaigns',
+    handle: { title: 'Campaigns' },
+    lazy: async () => ({ Component: (await import('./CampaignsPage')).CampaignsPage }),
+  },
+  {
+    path: 'campaigns/new',
+    handle: { title: 'New campaign', minRole: 'admin' },
+    lazy: async () => ({ Component: (await import('./CampaignWizardPage')).CampaignWizardPage }),
+  },
+  {
+    path: 'campaigns/:id',
+    handle: { title: 'Campaign report' },
+    lazy: async () => ({ Component: (await import('./CampaignDetailPage')).CampaignDetailPage }),
+  },
+  {
+    path: 'campaigns/:id/edit',
+    handle: { title: 'Edit campaign', minRole: 'admin' },
+    lazy: async () => ({ Component: (await import('./CampaignWizardPage')).CampaignWizardPage }),
+  },
 ]
