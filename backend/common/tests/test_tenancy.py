@@ -359,3 +359,13 @@ def test_get_request_membership_requires_authentication(workspace):
 
     with pytest.raises(NotAuthenticated):
         get_request_membership(request)
+
+
+def test_create_mixin_listed_before_workspace_mixin_is_rejected():
+    from django.core.exceptions import ImproperlyConfigured
+
+    from common.tenancy import WorkspaceScopedGenericViewSet
+
+    with pytest.raises(ImproperlyConfigured):
+        type("BadViewSet", (mixins.CreateModelMixin, WorkspaceScopedGenericViewSet), {})
+    type("GoodViewSet", (WorkspaceScopedGenericViewSet, mixins.CreateModelMixin), {})

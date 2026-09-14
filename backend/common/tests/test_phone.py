@@ -67,3 +67,9 @@ def test_wa_id_round_trip():
     e164 = normalize_e164("+91 98765 43210")
 
     assert normalize_e164(to_wa_id(e164)) == e164
+
+
+@pytest.mark.parametrize("raw", ["98765abcde", "+91 98765 4321O", "1-800-FLOWERS"])
+def test_normalize_e164_rejects_letters(raw):
+    with pytest.raises(InvalidPhoneNumber):
+        normalize_e164(raw)

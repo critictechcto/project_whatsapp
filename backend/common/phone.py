@@ -4,6 +4,7 @@ import phonenumbers
 from django.conf import settings
 
 _SEPARATORS = re.compile(r"[\s().\-]")
+_DIGITS = re.compile(r"\+?\d+")
 
 
 class InvalidPhoneNumber(ValueError):
@@ -25,6 +26,9 @@ def normalize_e164(raw: str | int | None, default_region: str | None = None) -> 
     value = _SEPARATORS.sub("", str(raw).strip())
     if not value:
         raise InvalidPhoneNumber("Phone number is required.")
+    # phonenumbers maps letters to keypad digits (vanity numbers); never guess from bad data.
+    if not _DIGITS.fullmatch(value):
+        raise InvalidPhoneNumber(f"'{raw}' is not a phone number.")
     if value.isdigit() and len(value) > 10 and not value.startswith("0"):
         value = f"+{value}"
     try:

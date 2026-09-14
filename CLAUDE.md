@@ -21,7 +21,7 @@ npm run dev       # Vite dev server, http://localhost:5173
 npm run build     # tsc --noEmit (type-check) + vite build → dist/
 npm run preview   # serve the production build
 ```
-There is no linter or test suite yet; `npm run build` is the correctness check (CI runs the same). Deployment: `.github/workflows/deploy-pages.yml` publishes `frontend/dist` to GitHub Pages on push to `main`; `vite.config.ts` uses `base: './'` so assets resolve under a project subpath — keep asset URLs relative (no leading `/` in code).
+The frontend has no linter or test suite yet; `npm run build` is the correctness check (CI runs the same). Deployment: `.github/workflows/deploy-pages.yml` publishes `frontend/dist` to GitHub Pages on push to `main`; `vite.config.ts` uses `base: './'` so assets resolve under a project subpath — keep asset URLs relative (no leading `/` in code).
 
 Backend (Python 3.12, **uv only** — never pip/venv/poetry; run from `backend/`):
 ```bash
@@ -35,7 +35,7 @@ uv run ruff check . && uv run ruff format --check .
 uv run python manage.py makemigrations --check --dry-run
 uv run python manage.py spectacular --validate --fail-on-warn --file schema.yml
 ```
-Set `UV_LINK_MODE=copy` on this machine (uv cache on C:, repo on D:). Settings default to `config.settings.dev`; tests use `config.settings.test`, which needs no `.env` and gives each git worktree its own test database. A native PostgreSQL service also runs on 5432 here, which is why Docker Postgres is on 5433.
+`.github/workflows/backend-ci.yml` runs these checks (ruff, migrations, schema, pytest) on changes to `backend/**`. Set `UV_LINK_MODE=copy` on this machine (uv cache on C:, repo on D:). Settings default to `config.settings.dev`; tests use `config.settings.test`, which needs no `.env` and gives each git worktree its own test database. A native PostgreSQL service also runs on 5432 here, which is why Docker Postgres is on 5433.
 
 Copy `.env.example` to `.env` (repo root) for secrets (Meta app, Postgres, Redis, Fernet keys, Razorpay).
 
@@ -59,7 +59,8 @@ Django 6 + DRF, PostgreSQL, Redis, Celery (+ Beat, DB scheduler) for bulk/schedu
 - **Errors**: every API error is `{"error": {"code", "message", "details"}}` (`common/exceptions.py`). Pagination is cursor-based on `created_at`.
 - **Secrets**: Meta tokens and PINs use `common.fields.EncryptedTextField` (MultiFernet, `TOKEN_ENCRYPTION_KEYS`); never serialize or log them.
 - **Meta Graph API**: only through `apps.whatsapp.client.get_client(token)`, which returns a `GraphClient` (the Protocol in `client/base.py`; errors map Meta codes to classes with `retryable` in `client/errors.py`). Tests use the `fake_graph` fixture (`FakeGraphClient`); never hit the network.
-- **Cross-app events**: the webhooks app parses Meta payloads into the dataclasses in `common/events.py` and sends them with `emit()`. Apps react in `receivers.py` (auto-imported by `common.apps.BaseAppConfig`) and must be idempotent. Apps don't import each other beyond the wave-0 modules.
+- **Cross-app events**: the webhooks app parses Meta payloads into the dataclasses in `common/events.py` and sends them with `emit()`. Apps react in `receivers.py` (auto-imported by `common.apps.BaseAppConfig`) and must be idempotent — webhook retries re-emit every event of a delivery, so key on `wamid`/template id. Apps don't import each other beyond the wave-0 modules; cross-app flows (signed webhook → receivers) are tested in `backend/tests/`.
+- **Celery in tests** runs eagerly with propagation, so `self.retry()` raises `Retry`; exercise retry paths with `task.apply(throw=False)`.
 - **Per-app conventions**: Celery tasks use explicit names (`"<app>.<verb_noun>"`); beat entries go in the app's `schedules.py` (collected by `config/celery.py`); WebSocket routes in `routing.py`; spectacular enum name fixes in `schema_enums.py`; model factories in `factories.py`. Shared test fixtures (`api_client`, `user`, `workspace`, `other_workspace`, `auth_client(role)`, `fake_graph`) live in `backend/conftest.py`; `common/testing.py` has `make_api_client` and `assert_tenant_isolated`.
 - **Parallel-agent ownership**: an app branch edits only `backend/apps/<app>/**`. `pyproject.toml`/`uv.lock`, `config/`, `common/`, `backend/conftest.py`, infra and CI are lead-owned — request dependency/setting/contract changes instead of making them.
 

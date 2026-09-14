@@ -9,7 +9,8 @@ the workspace on created objects. Non-members get 404 so workspace ids don't lea
 import uuid
 
 from django.apps import apps
-from rest_framework import exceptions, generics, viewsets
+from django.core.exceptions import ImproperlyConfigured
+from rest_framework import exceptions, generics, mixins, viewsets
 from rest_framework.permissions import SAFE_METHODS, BasePermission, IsAuthenticated
 
 from common.roles import Role, role_at_least
@@ -142,6 +143,18 @@ class WorkspaceScopedMixin:
         if getattr(self, "swagger_fake_view", False):
             return queryset.none()
         return queryset.filter(**{self.workspace_field: self.workspace})
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        mro = cls.__mro__
+        if mixins.CreateModelMixin in mro and mro.index(mixins.CreateModelMixin) < mro.index(
+            WorkspaceScopedMixin
+        ):
+            # DRF's perform_create would win and objects would be saved without a workspace.
+            raise ImproperlyConfigured(
+                f"{cls.__name__}: list WorkspaceScopedMixin (or a WorkspaceScoped* base) before "
+                "CreateModelMixin."
+            )
 
     def perform_create(self, serializer):
         if "__" in self.workspace_field:
