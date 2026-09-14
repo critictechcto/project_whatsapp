@@ -1,0 +1,25 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "time": 1757830710,
+      "changes": [
+        {
+          "value": {
+            "event": "REJECTED",
+            "message_template_id": 1689556908129833,
+            "message_template_name": "order_update_hi",
+            "message_template_language": "hi",
+            "reason": "INVALID_FORMAT",
+            "other_info": {
+              "title": "FORMATTING",
+              "description": "Variable parameters are not formatted correctly."
+            }
+          },
+          "field": "message_template_status_update"
+        }
+      ]
+    }
+  ]
+}

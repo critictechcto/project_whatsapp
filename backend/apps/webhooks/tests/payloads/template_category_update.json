@@ -1,0 +1,21 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "time": 1757830720,
+      "changes": [
+        {
+          "value": {
+            "message_template_id": 1689556908129834,
+            "message_template_name": "payment_reminder",
+            "message_template_language": "en",
+            "previous_category": "UTILITY",
+            "new_category": "MARKETING"
+          },
+          "field": "template_category_update"
+        }
+      ]
+    }
+  ]
+}

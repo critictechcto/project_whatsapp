@@ -1,0 +1,35 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "199999999999998",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15559990000",
+              "phone_number_id": "199999999999999"
+            },
+            "contacts": [
+              {
+                "profile": {"name": "Unknown Sender"},
+                "wa_id": "919000000001"
+              }
+            ],
+            "messages": [
+              {
+                "from": "919000000001",
+                "id": "wamid.HBgMOTE5MDAwMDAwMDAxFQIAEhggMDcwODA5MEEwQjBDMDAwMDAwMDAwMDAwMDAwMDAwMDAA",
+                "timestamp": "1757830360",
+                "text": {"body": "Hello?"},
+                "type": "text"
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
