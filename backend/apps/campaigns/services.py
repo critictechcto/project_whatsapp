@@ -29,7 +29,7 @@ from apps.inbox import sending
 from apps.message_templates.models import MessageTemplate
 from apps.whatsapp.models import PhoneNumber
 from common import realtime
-from common.exceptions import Conflict
+from common.exceptions import Conflict, FeatureNotAvailable
 
 from . import variables
 from .models import Campaign, CampaignRecipient
@@ -84,9 +84,7 @@ class InvalidCampaignTransition(Conflict):
     default_detail = "The campaign can't make that change in its current status."
 
 
-class FeatureNotAvailable(Conflict):
-    default_code = "feature_not_available"
-    default_detail = "Scheduling campaigns isn't included in your plan. Upgrade to schedule."
+SCHEDULING_NOT_AVAILABLE = "Scheduling campaigns isn't included in your plan. Upgrade to schedule."
 
 
 # --- Stats and realtime -------------------------------------------------------------------------
@@ -496,7 +494,7 @@ def _prepare_recipients(campaign: Campaign, template: MessageTemplate) -> None:
 
 def _require_scheduling(campaign: Campaign) -> None:
     if not entitlements.has_feature(campaign.workspace, entitlements.SCHEDULED_CAMPAIGNS):
-        raise FeatureNotAvailable()
+        raise FeatureNotAvailable(SCHEDULING_NOT_AVAILABLE)
 
 
 _RECIPIENT_INPUTS = ("template_id", "phone_number_id", "audience", "variable_mapping")

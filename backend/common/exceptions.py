@@ -12,6 +12,14 @@ class Conflict(exceptions.APIException):
     default_detail = "The request conflicts with the current state of the resource."
 
 
+class FeatureNotAvailable(Conflict):
+    """409 ``feature_not_available``: the workspace's plan doesn't include the feature. Pass a
+    message naming the feature; plan limits use ``apps.billing.entitlements.QuotaExceeded``."""
+
+    default_code = "feature_not_available"
+    default_detail = "Your plan does not include this feature. Upgrade your plan to use it."
+
+
 class UpstreamUnavailable(exceptions.APIException):
     status_code = 503
     default_code = "upstream_unavailable"
