@@ -615,9 +615,16 @@ class _Turn:
     def checkout(self, priced, **kwargs) -> bool:
         try:
             with transaction.atomic():
-                orders.start_checkout(
-                    workspace=self.workspace, conversation=self.conversation, cart=priced, **kwargs
-                )
+                try:
+                    orders.start_checkout(
+                        workspace=self.workspace,
+                        conversation=self.conversation,
+                        cart=priced,
+                        **kwargs,
+                    )
+                except orders.CheckoutRejected as exc:
+                    # Caught inside the savepoint so the message telling the buyer why is kept.
+                    logger.info("Checkout for message %s rejected: %s", self.message.pk, exc)
         except catalog.OutOfStock:
             self.send(content.sold_out_content())
         except sending.SendPolicyError as exc:

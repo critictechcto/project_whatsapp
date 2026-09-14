@@ -376,6 +376,23 @@ def test_checkout_sold_out_during_reservation(buyer, store, product, monkeypatch
     assert button_ids(buyer.last_reply()) == [shop_id("cart"), shop_id("browse")]
 
 
+def test_checkout_rejected_by_orders_keeps_the_buyer_message(buyer, store, product, monkeypatch):
+    """The real ``start_checkout`` tells the buyer why, then raises ``CheckoutRejected``."""
+    from apps.orders import checkout
+    from apps.orders import services as orders_services
+    from apps.orders.models import Order
+
+    monkeypatch.setattr(orders_services, "start_checkout", checkout.start_checkout)
+    store.min_order_paise = 100000
+    store.save()
+    buyer.taps(shop_id("add", product.pk, 1))
+
+    assert buyer.taps(shop_id("checkout")) is True
+
+    assert "The minimum order is" in body_of(buyer.last_reply())
+    assert not Order.objects.exists()
+
+
 def test_my_orders_and_talk_to_us(buyer, store, conversation, orders_calls):
     buyer.taps(shop_id("orders"))
     assert [c.pk for c in orders_calls.recent_orders] == [conversation.pk]
