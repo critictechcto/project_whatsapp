@@ -1,8 +1,7 @@
 """Orders and store API (docs/contracts/wave-3-commerce.md, "Orders" and "Store").
 
-Reads are implemented against the models (orders, events, summary, store settings). Order
-actions and store changes are contract stubs that answer 501 ``not_implemented`` after the role
-and object checks.
+Order actions go through ``services`` (status changes, OrderEvents, buyer notifications); store
+changes, the checklist and starter templates through ``store_setup``.
 """
 
 import uuid
@@ -22,8 +21,7 @@ from common.pagination import DefaultCursorPagination
 from common.roles import Role
 from common.tenancy import WorkspaceScopedGenericViewSet
 
-from . import services, transitions
-from .exceptions import EndpointNotImplemented
+from . import services, store_setup, transitions
 from .models import Order, OrderEvent
 from .schema_enums import ORDER_STAGES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES
 from .serializers import (
@@ -49,8 +47,20 @@ SALE_STATUSES = (
 )
 
 
+DASHBOARD = OrderEvent.Actor.DASHBOARD
+
+
 class OldestFirstCursorPagination(DefaultCursorPagination):
     ordering = "created_at"
+
+
+def _order_response(order: Order) -> Response:
+    fresh = (
+        Order.objects.select_related("contact", "phone_number")
+        .prefetch_related("items", "payment_links")
+        .get(pk=order.pk)
+    )
+    return Response(OrderSerializer(fresh).data)
 
 
 def _query_uuid(request, name: str) -> uuid.UUID | None:
@@ -185,8 +195,13 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
         description="Update the seller-internal notes.",
     )
     def partial_update(self, request, pk=None):
-        self.get_object()
-        raise EndpointNotImplemented()
+        order = self.get_object()
+        serializer = OrderNotesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.update_notes(
+            order, serializer.validated_data["notes"], actor=DASHBOARD, user=request.user
+        )
+        return _order_response(order)
 
     @extend_schema(
         operation_id="orders_events_list",
@@ -210,8 +225,21 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
     )
     @action(detail=True, methods=["post"])
     def transition(self, request, pk=None):
-        self.get_object()
-        raise EndpointNotImplemented()
+        order = self.get_object()
+        serializer = OrderTransitionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        services.transition(
+            order,
+            data["to_status"],
+            actor=DASHBOARD,
+            user=request.user,
+            courier_name=data.get("courier_name", ""),
+            awb_number=data.get("awb_number", ""),
+            tracking_url=data.get("tracking_url", ""),
+            notify_buyer=data["notify_buyer"],
+        )
+        return _order_response(order)
 
     @extend_schema(
         operation_id="orders_cancel_create",
@@ -221,8 +249,19 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
     )
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        self.get_object()
-        raise EndpointNotImplemented()
+        order = self.get_object()
+        serializer = CancelOrderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        services.cancel_order(
+            order,
+            actor=DASHBOARD,
+            user=request.user,
+            reason=data["reason"],
+            restock=data["restock"],
+            notify_buyer=data["notify_buyer"],
+        )
+        return _order_response(order)
 
     @extend_schema(
         operation_id="orders_mark_cod_collected_create",
@@ -232,8 +271,9 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
     )
     @action(detail=True, methods=["post"], url_path="mark-cod-collected")
     def mark_cod_collected(self, request, pk=None):
-        self.get_object()
-        raise EndpointNotImplemented()
+        order = self.get_object()
+        services.mark_cod_collected(order, actor=DASHBOARD, user=request.user)
+        return _order_response(order)
 
     @extend_schema(
         operation_id="orders_mark_refunded_create",
@@ -243,8 +283,9 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
     )
     @action(detail=True, methods=["post"], url_path="mark-refunded")
     def mark_refunded(self, request, pk=None):
-        self.get_object()
-        raise EndpointNotImplemented()
+        order = self.get_object()
+        services.mark_refunded(order, actor=DASHBOARD, user=request.user)
+        return _order_response(order)
 
     @extend_schema(operation_id="orders_summary_retrieve", responses=OrderSummarySerializer)
     @action(detail=False, methods=["get"])
@@ -291,11 +332,16 @@ class StoreViewSet(WorkspaceScopedGenericViewSet):
         ),
     )
     def partial_update(self, request):
-        raise EndpointNotImplemented()
+        serializer = StoreSettingsSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        store_settings = store_setup.update_store_settings(
+            self.workspace, serializer.validated_data
+        )
+        return Response(StoreSettingsSerializer(store_settings).data)
 
     @extend_schema(operation_id="store_checklist_retrieve", responses=StoreChecklistSerializer)
     def checklist(self, request):
-        raise EndpointNotImplemented()
+        return Response(StoreChecklistSerializer(store_setup.checklist(self.workspace)).data)
 
     @extend_schema(
         operation_id="store_starter_templates_create",
@@ -304,4 +350,5 @@ class StoreViewSet(WorkspaceScopedGenericViewSet):
         description="Create missing order templates in the store number's WABA and map them.",
     )
     def starter_templates(self, request):
-        raise EndpointNotImplemented()
+        result = store_setup.create_starter_templates(self.workspace, user=request.user)
+        return Response(StarterTemplatesResultSerializer(result).data)

@@ -21,6 +21,25 @@ class CommerceNotEnabled(Conflict):
     default_detail = "Selling on WhatsApp is not enabled for this workspace."
 
 
+class CatalogNotConnected(Conflict):
+    """Same code as ``apps.catalog.exceptions.CatalogNotConnected`` (not an allowed import)."""
+
+    default_code = "catalog_not_connected"
+    default_detail = "Connect a Meta catalog to use native catalog shopping."
+
+
+class CheckoutRejected(ValueError):
+    """``start_checkout`` could not create an order; the buyer was already told why.
+
+    ``reason`` is ``empty_cart`` (nothing in the cart can be ordered) or ``below_minimum``
+    (the subtotal is under ``StoreSettings.min_order_paise``).
+    """
+
+    def __init__(self, reason: str, message: str = "") -> None:
+        super().__init__(message or reason)
+        self.reason = reason
+
+
 class InvalidOrderTransition(Conflict):
     """409 ``invalid_order_transition``; ``details`` is ``{from_status, to_status, allowed}``."""
 

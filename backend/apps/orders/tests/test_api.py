@@ -215,7 +215,7 @@ def test_orders_are_tenant_isolated(auth_client, workspace, other_workspace):
         ("post", "mark-refunded/", Role.ADMIN),
     ],
 )
-def test_order_actions_are_role_gated_stubs(auth_client, workspace, method, suffix, role):
+def test_order_actions_are_role_gated(auth_client, workspace, method, suffix, role):
     order = OrderFactory(workspace=workspace)
     below = Role.VIEWER if role == Role.AGENT else Role.AGENT
 
@@ -223,11 +223,10 @@ def test_order_actions_are_role_gated_stubs(auth_client, workspace, method, suff
     allowed = getattr(auth_client(role), method)(order_url(order, suffix), {}, format="json")
 
     assert denied.status_code == 403, denied.content
-    assert allowed.status_code == 501, allowed.content
-    assert error_code(allowed) == "not_implemented"
+    assert allowed.status_code not in (403, 404, 501), allowed.content
 
 
-def test_unknown_order_is_404_before_the_stub(auth_client, workspace):
+def test_unknown_order_is_404(auth_client, workspace):
     response = auth_client(Role.ADMIN).post(
         f"{ORDERS}00000000-0000-0000-0000-000000000000/cancel/", {}, format="json"
     )
@@ -287,19 +286,19 @@ def test_store_settings_are_per_workspace(auth_client, workspace, other_workspac
         ("post", "starter-templates/", Role.ADMIN),
     ],
 )
-def test_store_writes_are_admin_stubs(auth_client, workspace, method, path, role):
+def test_store_writes_are_admin_only(auth_client, workspace, method, path, role):
     denied = getattr(auth_client(Role.AGENT), method)(f"{STORE}{path}", {}, format="json")
     allowed = getattr(auth_client(role), method)(f"{STORE}{path}", {}, format="json")
 
     assert denied.status_code == 403, denied.content
-    assert allowed.status_code == 501, allowed.content
+    assert allowed.status_code not in (403, 404, 501), allowed.content
 
 
-def test_checklist_is_a_viewer_stub(auth_client, workspace):
+def test_checklist_is_readable_by_viewers(auth_client, workspace):
     response = auth_client(Role.VIEWER).get(f"{STORE}checklist/")
 
-    assert response.status_code == 501
-    assert error_code(response) == "not_implemented"
+    assert response.status_code == 200, response.content
+    assert len(response.json()["items"]) == 6
 
 
 def test_store_requires_membership(api_client, other_workspace, auth_client):
