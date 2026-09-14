@@ -1,20 +1,30 @@
-"""Store inbound WhatsApp messages and apply delivery statuses. Every receiver is idempotent:
-webhook retries re-emit every event of a delivery."""
+"""Store inbound WhatsApp messages, apply delivery statuses and send realtime frames.
+
+Every receiver is idempotent: webhook retries re-emit every event of a delivery. Realtime frames
+are thin notifications (clients refetch), so a repeated frame is harmless.
+"""
 
 import logging
 from datetime import datetime, timedelta
 
 from django.db import transaction
 from django.db.models import F
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
 from apps.contacts import services as contact_services
+from apps.tenants.models import Membership
 from apps.whatsapp.models import PhoneNumber
+from common import realtime
 from common.events import (
     InboundMessage,
+    MessageDeliveryUpdated,
+    MessageRecorded,
     MessageStatus,
     inbound_message_received,
+    message_delivery_updated,
+    message_recorded,
     message_status_updated,
 )
 from common.phone import InvalidPhoneNumber
@@ -252,3 +262,77 @@ def apply_status(message: Message, new_status: str, event: MessageStatus) -> boo
             setattr(message, field, value)
         message.save(update_fields=[*updates, "updated_at"])
     return target != current
+
+
+# --- Realtime -----------------------------------------------------------------------------------
+
+
+@receiver(message_recorded, dispatch_uid="inbox.broadcast_message_recorded")
+def broadcast_message_recorded(sender, event: MessageRecorded, **kwargs) -> None:
+    """New inbound or outbound message: the thread and the conversation list both change."""
+    realtime.broadcast(
+        event.workspace_id,
+        "message.created",
+        {
+            "conversation_id": event.conversation_id,
+            "message_id": event.message_id,
+            "direction": event.direction,
+        },
+    )
+    realtime.broadcast(
+        event.workspace_id, "conversation.updated", {"conversation_id": event.conversation_id}
+    )
+
+
+@receiver(message_delivery_updated, dispatch_uid="inbox.broadcast_delivery_updated")
+def broadcast_delivery_updated(sender, event: MessageDeliveryUpdated, **kwargs) -> None:
+    realtime.broadcast(
+        event.workspace_id,
+        "message.status",
+        {
+            "conversation_id": event.conversation_id,
+            "message_id": event.message_id,
+            "status": event.status,
+        },
+    )
+
+
+# --- Session revocation -------------------------------------------------------------------------
+# tenants emits no domain event for membership changes, so the model signals are used: a removed
+# member or a changed role closes that user's open WebSockets (they reconnect with a new ticket).
+
+SESSION_REVOKED = "session.revoked"
+_PREVIOUS_ROLE_ATTR = "_inbox_previous_role"
+
+
+@receiver(pre_save, sender=Membership, dispatch_uid="inbox.remember_membership_role")
+def remember_membership_role(sender, instance: Membership, raw=False, update_fields=None, **kwargs):
+    if raw or instance._state.adding:
+        return
+    if update_fields is not None and "role" not in update_fields:
+        return
+    previous = Membership.objects.filter(pk=instance.pk).values_list("role", flat=True).first()
+    setattr(instance, _PREVIOUS_ROLE_ATTR, previous)
+
+
+@receiver(post_save, sender=Membership, dispatch_uid="inbox.revoke_sessions_on_role_change")
+def revoke_sessions_on_role_change(sender, instance: Membership, created, raw=False, **kwargs):
+    previous = instance.__dict__.pop(_PREVIOUS_ROLE_ATTR, None)
+    if raw or created or previous is None or previous == instance.role:
+        return
+    realtime.broadcast_user(
+        instance.user_id,
+        SESSION_REVOKED,
+        {"reason": "role_changed"},
+        workspace_id=instance.workspace_id,
+    )
+
+
+@receiver(post_delete, sender=Membership, dispatch_uid="inbox.revoke_sessions_on_member_removed")
+def revoke_sessions_on_member_removed(sender, instance: Membership, **kwargs):
+    realtime.broadcast_user(
+        instance.user_id,
+        SESSION_REVOKED,
+        {"reason": "membership_removed"},
+        workspace_id=instance.workspace_id,
+    )
