@@ -99,6 +99,11 @@ def test_emit_without_receivers():
         "workspace_created",
         "membership_role_changed",
         "membership_removed",
+        "platform_inbound_message_received",
+        "payment_link_paid",
+        "payment_link_expired",
+        "payment_link_cancelled",
+        "order_status_changed",
     ],
 )
 def test_domain_signals_exist(name):
@@ -117,6 +122,11 @@ def test_every_event_has_its_own_signal():
         events.WorkspaceCreated: events.workspace_created,
         events.MembershipRoleChanged: events.membership_role_changed,
         events.MembershipRemoved: events.membership_removed,
+        events.PlatformInboundMessage: events.platform_inbound_message_received,
+        events.PaymentLinkPaid: events.payment_link_paid,
+        events.PaymentLinkExpired: events.payment_link_expired,
+        events.PaymentLinkCancelled: events.payment_link_cancelled,
+        events.OrderStatusChanged: events.order_status_changed,
     }.items() <= events.EVENT_SIGNALS.items()
 
 

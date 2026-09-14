@@ -54,6 +54,11 @@ LOCAL_APPS = [
     "apps.automations",
     "apps.webhooks",
     "apps.billing",
+    "apps.catalog",
+    "apps.orders",
+    "apps.payments",
+    "apps.shop",
+    "apps.seller_alerts",
     "apps.analytics",
     "apps.developer_api",
 ]
@@ -307,6 +312,28 @@ BILLING_SAC_CODE = env("BILLING_SAC_CODE", default="998314")
 BILLING_GST_RATE_PERCENT = env.int("BILLING_GST_RATE_PERCENT", default=18)
 # Seconds before a Razorpay API call (checkout, cancel, fetch) times out.
 RAZORPAY_TIMEOUT = env.float("RAZORPAY_TIMEOUT", default=20.0)
+
+# --- Commerce (sell on WhatsApp) ------------------------------------------------------------
+
+# Absolute base URL of this API as the internet sees it; builds the per-seller Razorpay webhook
+# URLs shown in the dashboard.
+PUBLIC_API_BASE_URL = env("PUBLIC_API_BASE_URL", default="http://localhost:8000")
+# Absolute public base URL for product images (a CDN or public bucket). Meta fetches catalog
+# images from it, so it must be reachable over HTTPS from the internet. Empty = serve MEDIA_URL
+# from PUBLIC_API_BASE_URL.
+PUBLIC_MEDIA_BASE_URL = env("PUBLIC_MEDIA_BASE_URL", default="")
+# Razorpay payment link lifetime, and the local deadline after which an unpaid checkout expires
+# and releases its stock (kept a few minutes longer than the link).
+PAYMENT_LINK_EXPIRY_MINUTES = env.int("PAYMENT_LINK_EXPIRY_MINUTES", default=30)
+ORDER_CHECKOUT_TTL_MINUTES = env.int("ORDER_CHECKOUT_TTL_MINUTES", default=35)
+
+# UpChatz's own WhatsApp number that sends order alerts to sellers' personal numbers. Lives in
+# the UpChatz WABA (not a seller's); empty disables seller alerts.
+PLATFORM_WA_WABA_ID = env("PLATFORM_WA_WABA_ID", default="")
+PLATFORM_WA_PHONE_NUMBER_ID = env("PLATFORM_WA_PHONE_NUMBER_ID", default="")
+PLATFORM_WA_DISPLAY_PHONE_NUMBER = env("PLATFORM_WA_DISPLAY_PHONE_NUMBER", default="")
+# System-user token for the UpChatz WABA. Secret: never log or serialize it.
+PLATFORM_WA_ACCESS_TOKEN = env("PLATFORM_WA_ACCESS_TOKEN", default="")
 
 # --- Email ----------------------------------------------------------------------------------
 

@@ -205,6 +205,91 @@ class MembershipRemoved:
     user_id: uuid.UUID
 
 
+@dataclass(frozen=True, slots=True)
+class PlatformInboundMessage:
+    """A message sent to UpChatz's own alerts number (``PLATFORM_WA_PHONE_NUMBER_ID``).
+
+    Not tied to a workspace: the webhooks app routes it here instead of resolving a workspace,
+    and ``apps.seller_alerts`` matches ``from_wa_id`` to verified alert recipients. Fields mean
+    the same as in :class:`InboundMessage`.
+    """
+
+    phone_number_id: str
+    wamid: str
+    from_wa_id: str
+    timestamp: datetime
+    type: str
+    text: str | None = None
+    reply_id: str | None = None
+    profile_name: str | None = None
+    context_wamid: str | None = None
+    payload: Mapping[str, Any] = field(default_factory=dict)
+    webhook_event_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentLinkPaid:
+    """A seller's payment link was paid in full. Emitted on commit by ``apps.payments`` after
+    the webhook signature, amount and link were verified. Receivers dedupe on
+    ``payment_link_id`` (a link is paid at most once)."""
+
+    workspace_id: uuid.UUID
+    order_id: uuid.UUID
+    payment_link_id: uuid.UUID  # payments.PaymentLink primary key
+    provider: str  # razorpay
+    provider_link_id: str  # plink_...
+    provider_payment_id: str  # pay_...
+    amount_paise: int
+    currency: str
+    paid_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentLinkExpired:
+    """A payment link expired unpaid. Emitted on commit by ``apps.payments``."""
+
+    workspace_id: uuid.UUID
+    order_id: uuid.UUID
+    payment_link_id: uuid.UUID
+    provider: str
+    provider_link_id: str
+    occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentLinkCancelled:
+    """A payment link was cancelled (by UpChatz or in the provider dashboard). Emitted on commit
+    by ``apps.payments``."""
+
+    workspace_id: uuid.UUID
+    order_id: uuid.UUID
+    payment_link_id: uuid.UUID
+    provider: str
+    provider_link_id: str
+    occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class OrderStatusChanged:
+    """An order changed status or payment status. Emitted on commit by ``apps.orders``; seller
+    alerts react to it. ``old_status`` is "" when the order was just created.
+    ``phone_number_id`` is the ``whatsapp.PhoneNumber`` primary key."""
+
+    workspace_id: uuid.UUID
+    order_id: uuid.UUID
+    order_number: str
+    contact_id: uuid.UUID
+    phone_number_id: uuid.UUID
+    old_status: str  # OrderStatusEnum value or ""
+    new_status: str  # OrderStatusEnum value
+    payment_status: str  # PaymentStatusEnum value
+    payment_method: str  # PaymentMethodEnum value or ""
+    total_paise: int
+    actor: str  # OrderEventActorEnum value: buyer, dashboard, seller_whatsapp, system
+    actor_user_id: uuid.UUID | None
+    occurred_at: datetime
+
+
 inbound_message_received = Signal()
 message_status_updated = Signal()
 template_status_updated = Signal()
@@ -217,6 +302,11 @@ message_delivery_updated = Signal()
 workspace_created = Signal()
 membership_role_changed = Signal()
 membership_removed = Signal()
+platform_inbound_message_received = Signal()
+payment_link_paid = Signal()
+payment_link_expired = Signal()
+payment_link_cancelled = Signal()
+order_status_changed = Signal()
 
 # Event class -> the signal it is sent on.
 EVENT_SIGNALS: dict[type, Signal] = {
@@ -232,6 +322,11 @@ EVENT_SIGNALS: dict[type, Signal] = {
     WorkspaceCreated: workspace_created,
     MembershipRoleChanged: membership_role_changed,
     MembershipRemoved: membership_removed,
+    PlatformInboundMessage: platform_inbound_message_received,
+    PaymentLinkPaid: payment_link_paid,
+    PaymentLinkExpired: payment_link_expired,
+    PaymentLinkCancelled: payment_link_cancelled,
+    OrderStatusChanged: order_status_changed,
 }
 
 

@@ -27,6 +27,8 @@ PHONE_NUMBER_FIELDS = (
 )
 WABA_FIELDS = "id,name,currency,timezone_id,message_template_namespace"
 TEMPLATE_FIELDS = "id,name,language,category,status,components,quality_score,rejected_reason"
+CATALOG_FIELDS = "id,name"
+CATALOG_PRODUCT_FIELDS = "id,retailer_id,name,availability,review_status,review_rejection_reasons"
 
 # Hosts that may receive the customer's token when downloading media.
 MEDIA_HOST_SUFFIXES = (".fbsbx.com", ".facebook.com", ".fbcdn.net", ".whatsapp.net")
@@ -254,3 +256,80 @@ class HttpGraphClient:
         if template_id:
             params["hsm_id"] = template_id
         return self._call("DELETE", f"{waba_id}/message_templates", params=params)
+
+    # --- Commerce: catalogs ---------------------------------------------------------------------
+
+    def _all_pages(self, path: str, params: dict[str, Any] | None = None) -> list[JSON]:
+        items: list[JSON] = []
+        page = self._call("GET", path, params=params)
+        for _ in range(MAX_PAGES):
+            items.extend(item for item in page.get("data") or [] if isinstance(item, dict))
+            next_url = (page.get("paging") or {}).get("next")
+            if not next_url:
+                break
+            page = self._follow(next_url)
+        return items
+
+    def list_waba_catalogs(self, waba_id: str) -> list[JSON]:
+        return self._all_pages(f"{waba_id}/product_catalogs", {"fields": CATALOG_FIELDS})
+
+    def list_business_catalogs(self, business_id: str) -> list[JSON]:
+        return self._all_pages(
+            f"{business_id}/owned_product_catalogs", {"fields": f"{CATALOG_FIELDS},vertical"}
+        )
+
+    def create_catalog(self, business_id: str, *, name: str) -> JSON:
+        return self._call(
+            "POST",
+            f"{business_id}/owned_product_catalogs",
+            json={"name": name, "vertical": "commerce"},
+        )
+
+    def connect_catalog(self, waba_id: str, catalog_id: str) -> JSON:
+        return self._call("POST", f"{waba_id}/product_catalogs", json={"catalog_id": catalog_id})
+
+    def batch_catalog_items(self, catalog_id: str, requests: list[JSON]) -> JSON:
+        return self._call(
+            "POST",
+            f"{catalog_id}/items_batch",
+            json={"item_type": "PRODUCT_ITEM", "allow_upsert": True, "requests": requests},
+        )
+
+    def get_catalog_batch_status(self, catalog_id: str, handle: str) -> JSON:
+        return self._call(
+            "GET", f"{catalog_id}/check_batch_request_status", params={"handle": handle}
+        )
+
+    def list_catalog_products(
+        self, catalog_id: str, *, after: str | None = None, limit: int = 100
+    ) -> JSON:
+        params: dict[str, Any] = {"fields": CATALOG_PRODUCT_FIELDS, "limit": limit}
+        if after:
+            params["after"] = after
+        return self._call("GET", f"{catalog_id}/products", params=params)
+
+    def get_commerce_settings(self, phone_number_id: str) -> JSON:
+        body = self._call("GET", f"{phone_number_id}/whatsapp_commerce_settings")
+        data = body.get("data")
+        if not isinstance(data, list) or not data or not isinstance(data[0], dict):
+            raise GraphAPIError("Graph API commerce settings response has no data.")
+        return data[0]
+
+    def update_commerce_settings(
+        self,
+        phone_number_id: str,
+        *,
+        is_cart_enabled: bool | None = None,
+        is_catalog_visible: bool | None = None,
+    ) -> JSON:
+        params = {
+            name: "true" if value else "false"
+            for name, value in (
+                ("is_cart_enabled", is_cart_enabled),
+                ("is_catalog_visible", is_catalog_visible),
+            )
+            if value is not None
+        }
+        if not params:
+            raise InvalidParameterError("No commerce settings to update.")
+        return self._call("POST", f"{phone_number_id}/whatsapp_commerce_settings", params=params)

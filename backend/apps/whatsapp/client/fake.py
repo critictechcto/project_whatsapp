@@ -36,6 +36,13 @@ class FakeGraphClient:
         self._token_debug: dict[str, JSON] = {}
         self._phone_waba: dict[str, str] = {}
         self._template_waba: dict[str, str] = {}
+        self.catalogs: dict[str, JSON] = {}
+        # catalog id -> retailer id -> product (as list_catalog_products returns it)
+        self.catalog_products: dict[str, dict[str, JSON]] = defaultdict(dict)
+        self.catalog_batches: dict[str, JSON] = {}
+        self.commerce_settings: dict[str, JSON] = {}
+        self._catalog_business: dict[str, str] = {}
+        self._waba_catalog: dict[str, str] = {}
         self._failures: dict[str, list[GraphAPIError]] = defaultdict(list)
         self._ids = itertools.count(1)
 
@@ -118,6 +125,32 @@ class FakeGraphClient:
         }
         self._template_waba[template_id] = waba_id
         return self.templates[template_id]
+
+    def add_catalog(
+        self,
+        catalog_id: str,
+        *,
+        business_id: str = "5550001",
+        waba_id: str | None = None,
+        name: str = "Test Catalog",
+    ) -> JSON:
+        """Seed a catalog owned by ``business_id``, connected to ``waba_id`` when given."""
+        self.catalogs[catalog_id] = {"id": catalog_id, "name": name, "vertical": "commerce"}
+        self._catalog_business[catalog_id] = business_id
+        if waba_id is not None:
+            self._waba_catalog[waba_id] = catalog_id
+        return self.catalogs[catalog_id]
+
+    def set_product_review(
+        self,
+        catalog_id: str,
+        retailer_id: str,
+        review_status: str,
+        reasons: list[str] | None = None,
+    ) -> None:
+        product = self.catalog_products[catalog_id][retailer_id]
+        product["review_status"] = review_status
+        product["review_rejection_reasons"] = list(reasons or [])
 
     def fail(self, method: str, error: GraphAPIError, *, times: int = 1) -> None:
         """Raise ``error`` on the next ``times`` calls to ``method``."""
@@ -308,4 +341,119 @@ class FakeGraphClient:
         for existing_id in matches:
             del self.templates[existing_id]
             del self._template_waba[existing_id]
+        return {"success": True}
+
+    # --- Commerce: catalogs ---------------------------------------------------------------------
+
+    def _catalog(self, catalog_id: str) -> JSON:
+        if catalog_id not in self.catalogs:
+            raise self._not_found(catalog_id)
+        return self.catalogs[catalog_id]
+
+    def list_waba_catalogs(self, waba_id: str) -> list[JSON]:
+        self._record("list_waba_catalogs", waba_id=waba_id)
+        catalog_id = self._waba_catalog.get(waba_id)
+        if catalog_id is None:
+            return []
+        catalog = self._catalog(catalog_id)
+        return [{"id": catalog["id"], "name": catalog["name"]}]
+
+    def list_business_catalogs(self, business_id: str) -> list[JSON]:
+        self._record("list_business_catalogs", business_id=business_id)
+        return [
+            copy.deepcopy(catalog)
+            for catalog_id, catalog in self.catalogs.items()
+            if self._catalog_business.get(catalog_id) == business_id
+        ]
+
+    def create_catalog(self, business_id: str, *, name: str) -> JSON:
+        self._record("create_catalog", business_id=business_id, name=name)
+        catalog_id = str(800000 + next(self._ids))
+        self.add_catalog(catalog_id, business_id=business_id, name=name)
+        return {"id": catalog_id}
+
+    def connect_catalog(self, waba_id: str, catalog_id: str) -> JSON:
+        self._record("connect_catalog", waba_id=waba_id, catalog_id=catalog_id)
+        self._catalog(catalog_id)
+        self._waba_catalog[waba_id] = catalog_id
+        return {"success": True}
+
+    def batch_catalog_items(self, catalog_id: str, requests: list[JSON]) -> JSON:
+        self._record("batch_catalog_items", catalog_id=catalog_id, requests=requests)
+        self._catalog(catalog_id)
+        products = self.catalog_products[catalog_id]
+        for request in requests:
+            data = request.get("data") or {}
+            retailer_id = str(data.get("id", ""))
+            if request.get("method") == "DELETE":
+                products.pop(retailer_id, None)
+                continue
+            existing = products.get(retailer_id)
+            products[retailer_id] = {
+                "id": existing["id"] if existing else str(600000 + next(self._ids)),
+                "retailer_id": retailer_id,
+                "name": data.get("title", existing["name"] if existing else ""),
+                "availability": data.get("availability", "in stock"),
+                "review_status": "pending",
+                "review_rejection_reasons": [],
+            }
+        handle = f"fake-batch-{next(self._ids)}"
+        self.catalog_batches[handle] = {
+            "handle": handle,
+            "status": "finished",
+            "errors_total_count": 0,
+            "errors": [],
+            "warnings": [],
+        }
+        return {"handles": [handle]}
+
+    def get_catalog_batch_status(self, catalog_id: str, handle: str) -> JSON:
+        self._record("get_catalog_batch_status", catalog_id=catalog_id, handle=handle)
+        if handle not in self.catalog_batches:
+            raise self._not_found(handle)
+        return {"data": [copy.deepcopy(self.catalog_batches[handle])]}
+
+    def list_catalog_products(
+        self, catalog_id: str, *, after: str | None = None, limit: int = 100
+    ) -> JSON:
+        self._record("list_catalog_products", catalog_id=catalog_id, after=after, limit=limit)
+        self._catalog(catalog_id)
+        items = [copy.deepcopy(product) for product in self.catalog_products[catalog_id].values()]
+        start = int(after) if after else 0
+        page = items[start : start + limit]
+        end = start + len(page)
+        paging: JSON = {"cursors": {"before": str(start), "after": str(end)}}
+        if end < len(items):
+            paging["next"] = f"https://graph.facebook.com/fake/{catalog_id}/products?after={end}"
+        return {"data": page, "paging": paging}
+
+    def get_commerce_settings(self, phone_number_id: str) -> JSON:
+        self._record("get_commerce_settings", phone_number_id=phone_number_id)
+        settings_ = self.commerce_settings.setdefault(
+            phone_number_id,
+            {"id": f"cs-{phone_number_id}", "is_cart_enabled": True, "is_catalog_visible": False},
+        )
+        return copy.deepcopy(settings_)
+
+    def update_commerce_settings(
+        self,
+        phone_number_id: str,
+        *,
+        is_cart_enabled: bool | None = None,
+        is_catalog_visible: bool | None = None,
+    ) -> JSON:
+        self._record(
+            "update_commerce_settings",
+            phone_number_id=phone_number_id,
+            is_cart_enabled=is_cart_enabled,
+            is_catalog_visible=is_catalog_visible,
+        )
+        current = self.commerce_settings.setdefault(
+            phone_number_id,
+            {"id": f"cs-{phone_number_id}", "is_cart_enabled": True, "is_catalog_visible": False},
+        )
+        if is_cart_enabled is not None:
+            current["is_cart_enabled"] = is_cart_enabled
+        if is_catalog_visible is not None:
+            current["is_catalog_visible"] = is_catalog_visible
         return {"success": True}

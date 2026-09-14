@@ -114,3 +114,65 @@ class GraphClient(Protocol):
         """``DELETE /{waba_id}/message_templates?name[&hsm_id]`` → ``{"success": true}``.
         Without ``template_id`` every language of ``name`` is deleted."""
         ...
+
+    # --- Commerce: catalogs (needs catalog_management + business_management) ---------------
+
+    def list_waba_catalogs(self, waba_id: str) -> list[JSON]:
+        """``GET /{waba_id}/product_catalogs`` (all pages) → catalogs connected to the WABA:
+        ``[{"id", "name"}]``. Meta allows one connected catalog per WABA."""
+        ...
+
+    def list_business_catalogs(self, business_id: str) -> list[JSON]:
+        """``GET /{business_id}/owned_product_catalogs`` (all pages) → catalogs the seller's
+        business owns: ``[{"id", "name", "vertical"}]``. ``business_id`` is
+        ``owner_business_info.id`` from get_waba."""
+        ...
+
+    def create_catalog(self, business_id: str, *, name: str) -> JSON:
+        """``POST /{business_id}/owned_product_catalogs`` with ``{"name", "vertical": "commerce"}``
+        → ``{"id"}``"""
+        ...
+
+    def connect_catalog(self, waba_id: str, catalog_id: str) -> JSON:
+        """``POST /{waba_id}/product_catalogs`` with ``{"catalog_id"}`` → ``{"success": true}``"""
+        ...
+
+    def batch_catalog_items(self, catalog_id: str, requests: list[JSON]) -> JSON:
+        """``POST /{catalog_id}/items_batch`` with ``{"item_type": "PRODUCT_ITEM",
+        "allow_upsert": true, "requests": [{"method": "CREATE"|"UPDATE"|"DELETE",
+        "data": {"id": retailer_id, "title", "description", "availability", "condition",
+        "price": "249.00 INR", "sale_price"?, "link", "image_link", "brand"}}]}`` (≤ 5,000
+        requests; new catalogs allow about 8 calls a minute, error 80014 when exceeded) →
+        ``{"handles": [str], "validation_status"?: [{"retailer_id", "errors": [{"message"}]}]}``"""
+        ...
+
+    def get_catalog_batch_status(self, catalog_id: str, handle: str) -> JSON:
+        """``GET /{catalog_id}/check_batch_request_status?handle`` → ``{"data": [{"handle",
+        "status": "started"|"in_progress"|"finished"|"error", "errors_total_count",
+        "errors": [{"line", "id", "message"}], "warnings": [...]}]}``"""
+        ...
+
+    def list_catalog_products(
+        self, catalog_id: str, *, after: str | None = None, limit: int = 100
+    ) -> JSON:
+        """``GET /{catalog_id}/products?fields=id,retailer_id,name,availability,review_status,
+        review_rejection_reasons`` → ``{"data": [product...], "paging": {"cursors", "next"?}}``.
+        ``review_status`` is ``pending``, ``rejected``, ``approved`` or ``outdated``."""
+        ...
+
+    def get_commerce_settings(self, phone_number_id: str) -> JSON:
+        """``GET /{phone_number_id}/whatsapp_commerce_settings`` → the unwrapped first ``data``
+        item: ``{"id", "is_cart_enabled", "is_catalog_visible"}`` (Meta defaults: cart on,
+        catalog hidden)."""
+        ...
+
+    def update_commerce_settings(
+        self,
+        phone_number_id: str,
+        *,
+        is_cart_enabled: bool | None = None,
+        is_catalog_visible: bool | None = None,
+    ) -> JSON:
+        """``POST /{phone_number_id}/whatsapp_commerce_settings?is_cart_enabled&is_catalog_visible``
+        (only the given flags) → ``{"success": true}``"""
+        ...
