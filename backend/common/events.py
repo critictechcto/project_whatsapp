@@ -136,6 +136,46 @@ class AccountUpdate:
     webhook_event_id: uuid.UUID | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class MessageRecorded:
+    """The inbox stored a message (inbound from a webhook, or outbound queued for sending).
+
+    ``phone_number_id`` is the ``whatsapp.PhoneNumber`` primary key, not Meta's id. Emitted on
+    commit. Automations react to ``direction == "inbound"``.
+    """
+
+    workspace_id: uuid.UUID
+    message_id: uuid.UUID
+    conversation_id: uuid.UUID
+    contact_id: uuid.UUID
+    phone_number_id: uuid.UUID
+    direction: str  # inbound, outbound
+    source: str  # inbound, inbox, campaign, automation, api
+    source_ref: str
+    type: str  # MessageTypeEnum value
+    text: str
+    reply_id: str | None  # quick-reply payload or interactive reply id (inbound only)
+    wamid: str | None
+    is_first_inbound: bool  # first inbound message of the conversation
+    contact_created: bool  # the contact was created by this inbound message
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class MessageDeliveryUpdated:
+    """An outbound message changed delivery status (sent, delivered, read, failed). Emitted on
+    commit; campaigns match ``source == "campaign"`` and ``source_ref``."""
+
+    workspace_id: uuid.UUID
+    message_id: uuid.UUID
+    conversation_id: uuid.UUID
+    source: str
+    source_ref: str
+    status: str  # MessageStatusEnum value
+    error_code: str  # "" when none
+    occurred_at: datetime
+
+
 inbound_message_received = Signal()
 message_status_updated = Signal()
 template_status_updated = Signal()
@@ -143,6 +183,8 @@ template_category_updated = Signal()
 template_quality_updated = Signal()
 phone_number_quality_updated = Signal()
 account_updated = Signal()
+message_recorded = Signal()
+message_delivery_updated = Signal()
 
 
 def emit(signal: Signal, event: object) -> list[tuple[object, Exception]]:
