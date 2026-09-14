@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 UpChatz ([upchatz.com](https://upchatz.com)) — a multi-tenant WhatsApp SaaS for Indian businesses. Businesses connect their own number via **Meta Embedded Signup** and send/schedule/automate messages through the **official WhatsApp Business Platform (Cloud API)**. Unofficial WhatsApp Web automation (whatsapp-web.js, Baileys, QR-code tools) is out of scope — never suggest it.
 
-Current state: the marketing landing page (`frontend/`) is built. The backend is built in waves: wave 0 (foundation) and wave 1 (whatsapp onboarding, webhooks, message_templates, contacts) are merged. Wave 2 builds backend and dashboard together against the frozen contract in `docs/contracts/wave-2.md`: the inbox messaging core, API stubs for inbox/campaigns/automations/billing, realtime and the dashboard foundation are merged (tag `wave-2-foundation`), and the wave-2 backend (inbox, campaigns, automations, billing and their integration) is merged; dashboard screens are in progress. Only build what the user has approved.
+Current state: the marketing landing page (`frontend/`) is built. The backend is built in waves: wave 0 (foundation) and wave 1 (whatsapp onboarding, webhooks, message_templates, contacts) are merged. Wave 2 builds backend and dashboard together against the frozen contract in `docs/contracts/wave-2.md`: the inbox messaging core, API stubs for inbox/campaigns/automations/billing, realtime and the dashboard foundation are merged (tag `wave-2-foundation`), and all wave-2 backend apps and dashboard screens are merged (tag `wave-2-merged`); analytics and the developer API are wave 3. Only build what the user has approved.
 
 ## Workflow
 
