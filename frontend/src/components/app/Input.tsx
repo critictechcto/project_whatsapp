@@ -4,7 +4,7 @@ import { cn } from '../../lib/cn'
 import { useFieldControl } from './fieldContext'
 import { controlClasses } from './styles'
 
-export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> & {
   ref?: Ref<HTMLInputElement>
   /** Icon or text inside the left edge, e.g. a search icon or "+91". */
   prefix?: ReactNode
