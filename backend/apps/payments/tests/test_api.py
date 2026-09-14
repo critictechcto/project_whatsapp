@@ -79,15 +79,14 @@ def test_account_is_admin_only(auth_client, workspace):
         ("post", "rotate-webhook/", Role.ADMIN, Role.AGENT),
     ],
 )
-def test_account_writes_are_role_gated_stubs(auth_client, workspace, method, path, role, below):
+def test_account_writes_are_role_gated(auth_client, workspace, method, path, role, below):
     url = f"{ACCOUNT}{path}"
 
     denied = getattr(auth_client(below), method)(url, {}, format="json")
     allowed = getattr(auth_client(role), method)(url, {}, format="json")
 
     assert denied.status_code == 403, denied.content
-    assert allowed.status_code == 501, allowed.content
-    assert allowed.json()["error"]["code"] == "not_implemented"
+    assert allowed.status_code != 403, allowed.content
 
 
 def test_links_list_filters_and_isolation(auth_client, workspace, other_workspace):
@@ -122,15 +121,15 @@ def test_merchant_webhook_unknown_token_is_404(api_client):
     assert response.json()["error"]["code"] == "not_found"
 
 
-def test_merchant_webhook_known_token_is_not_implemented(api_client, workspace):
+def test_merchant_webhook_known_token_without_signature_is_400(api_client, workspace):
     account = PaymentAccountFactory(workspace=workspace)
 
     response = api_client.post(
         f"{WEBHOOK}{account.webhook_token}/", data=b"{}", content_type="application/json"
     )
 
-    assert response.status_code == 501
-    assert response.json()["error"]["code"] == "not_implemented"
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_signature"
     assert api_client.get(f"{WEBHOOK}{account.webhook_token}/").status_code == 405
 
 
@@ -153,10 +152,11 @@ def test_return_page_unknown_link_is_404(api_client):
     assert response.status_code == 404
 
 
-def test_return_page_known_link_is_not_implemented(api_client):
-    link = PaymentLinkFactory()
+def test_return_page_known_link_renders_html(api_client, fake_payments):
+    link = PaymentLinkFactory(status="paid")
 
     response = api_client.get(f"{RETURN}{link.pk}/")
 
-    assert response.status_code == 501
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/html")
     assert api_client.post(f"{RETURN}{link.pk}/").status_code == 405
