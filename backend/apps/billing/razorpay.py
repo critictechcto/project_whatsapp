@@ -4,45 +4,51 @@ Always go through :func:`get_razorpay_client`; tests install :class:`FakeRazorpa
 :func:`override_razorpay_client` and never reach the network. Never log key secrets, webhook
 secrets or signatures.
 
+The HTTP transport, errors and webhook signature check live in :mod:`common.razorpay` (shared with
+``apps.payments``); the names are re-exported here for existing imports.
+
 Razorpay plans (``RAZORPAY_PLAN_IDS``) must be created with GST-inclusive amounts: Razorpay charges
 the plan amount as is, while UpChatz prices exclude GST and invoices add it on top.
 """
 
-import hashlib
-import hmac
 import itertools
-import re
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any, Protocol
 
-import httpx
 from django.conf import settings
 
-JSON = dict[str, Any]
+from common.razorpay import (
+    API_BASE_URL,
+    JSON,
+    RazorpayError,
+    RazorpayNotConfigured,
+    RazorpayTransport,
+    checked_id,
+    hmac_sha256_hex,
+    signature_matches,
+    webhook_signature_is_valid,
+)
 
-API_BASE_URL = "https://api.razorpay.com/v1"
+__all__ = (
+    "API_BASE_URL",
+    "JSON",
+    "TOTAL_COUNT",
+    "FakeRazorpayClient",
+    "HttpRazorpayClient",
+    "RazorpayClient",
+    "RazorpayError",
+    "RazorpayNotConfigured",
+    "checkout_signature_is_valid",
+    "get_razorpay_client",
+    "override_razorpay_client",
+    "plan_for_razorpay_plan_id",
+    "plan_id_for",
+    "webhook_signature_is_valid",
+)
+
 # Billing cycles before a Razorpay subscription completes (10 years either way).
 TOTAL_COUNT = {"monthly": 120, "annual": 10}
-
-_ID_RE = re.compile(r"^[A-Za-z0-9_]{1,64}$")
-
-
-class RazorpayError(Exception):
-    """A failed Razorpay call. ``status_code`` is None for network errors."""
-
-    def __init__(self, message: str, *, status_code: int | None = None, code: str = "") -> None:
-        super().__init__(message)
-        self.status_code = status_code
-        self.code = code
-
-    @property
-    def retryable(self) -> bool:
-        return self.status_code is None or self.status_code == 429 or self.status_code >= 500
-
-
-class RazorpayNotConfigured(RazorpayError):
-    """API keys or plan ids are missing from settings."""
 
 
 class RazorpayClient(Protocol):
@@ -56,32 +62,11 @@ class RazorpayClient(Protocol):
 
 
 def _checked_id(subscription_id: str) -> str:
-    if not isinstance(subscription_id, str) or not _ID_RE.fullmatch(subscription_id):
-        raise RazorpayError("Invalid Razorpay subscription id.")
-    return subscription_id
+    return checked_id(subscription_id, label="Razorpay subscription id")
 
 
-class HttpRazorpayClient:
-    """Thin httpx client with basic auth (key id + key secret)."""
-
-    def __init__(
-        self,
-        *,
-        key_id: str,
-        key_secret: str,
-        base_url: str = API_BASE_URL,
-        timeout: float | None = None,
-        transport: httpx.BaseTransport | None = None,
-    ) -> None:
-        if not key_id or not key_secret:
-            raise RazorpayNotConfigured("Razorpay API keys are not configured.")
-        self._client = httpx.Client(
-            base_url=base_url,
-            auth=(key_id, key_secret),
-            timeout=settings.RAZORPAY_TIMEOUT if timeout is None else timeout,
-            transport=transport,
-            headers={"Accept": "application/json"},
-        )
+class HttpRazorpayClient(RazorpayTransport):
+    """Subscriptions over the shared Razorpay transport (basic auth with the platform keys)."""
 
     def create_subscription(
         self, *, plan_id: str, total_count: int, notes: Mapping[str, str]
@@ -93,43 +78,21 @@ class HttpRazorpayClient:
             "customer_notify": 1,
             "notes": dict(notes),
         }
-        return self._request("POST", "/subscriptions", json=body)
+        return self.request("POST", "/subscriptions", json=body)
 
     def fetch_subscription(self, subscription_id: str) -> JSON:
-        return self._request("GET", f"/subscriptions/{_checked_id(subscription_id)}")
+        return self.request("GET", f"/subscriptions/{_checked_id(subscription_id)}")
 
     def cancel_subscription(self, subscription_id: str, *, at_cycle_end: bool) -> JSON:
-        return self._request(
+        return self.request(
             "POST",
             f"/subscriptions/{_checked_id(subscription_id)}/cancel",
             json={"cancel_at_cycle_end": 1 if at_cycle_end else 0},
         )
 
-    def close(self) -> None:
-        self._client.close()
-
     def _request(self, method: str, path: str, *, json: JSON | None = None) -> JSON:
-        try:
-            response = self._client.request(method, path, json=json)
-        except httpx.HTTPError as exc:
-            raise RazorpayError(f"Razorpay request failed ({type(exc).__name__}).") from exc
-        try:
-            data = response.json()
-        except ValueError:
-            data = None
-        if response.is_error:
-            error = data.get("error") if isinstance(data, dict) else None
-            error = error if isinstance(error, dict) else {}
-            raise RazorpayError(
-                str(error.get("description") or f"Razorpay returned HTTP {response.status_code}."),
-                status_code=response.status_code,
-                code=str(error.get("code") or ""),
-            )
-        if not isinstance(data, dict):
-            raise RazorpayError(
-                "Razorpay returned an unexpected response.", status_code=response.status_code
-            )
-        return data
+        """Kept for callers of the wave-2 private name."""
+        return self.request(method, path, json=json)
 
 
 class FakeRazorpayClient:
@@ -183,7 +146,7 @@ class FakeRazorpayClient:
             )
         return entity
 
-    def _record(self, name: str, **kwargs) -> None:
+    def _record(self, name: str, **kwargs: Any) -> None:
         self.calls.append((name, kwargs))
         if self.fail_with is not None:
             raise self.fail_with
@@ -236,28 +199,11 @@ def plan_for_razorpay_plan_id(razorpay_plan_id: object) -> tuple[str, str] | Non
 # --- Signatures -----------------------------------------------------------------------------
 
 
-def _hmac_sha256_hex(secret: str, message: bytes) -> str:
-    return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
-
-
-def _matches(expected_hex: str, provided: object) -> bool:
-    if not isinstance(provided, str) or not provided:
-        return False
-    return hmac.compare_digest(expected_hex.encode(), provided.strip().lower().encode())
-
-
 def checkout_signature_is_valid(
     *, payment_id: str, subscription_id: str, signature: str, secret: str
 ) -> bool:
     """Checkout (subscription mode) signs ``razorpay_payment_id|razorpay_subscription_id``."""
     if not (secret and payment_id and subscription_id):
         return False
-    expected = _hmac_sha256_hex(secret, f"{payment_id}|{subscription_id}".encode())
-    return _matches(expected, signature)
-
-
-def webhook_signature_is_valid(body: bytes, signature: str | None, secret: str) -> bool:
-    """``X-Razorpay-Signature`` is the hex HMAC-SHA256 of the raw body with the webhook secret."""
-    if not secret:
-        return False
-    return _matches(_hmac_sha256_hex(secret, body), signature)
+    expected = hmac_sha256_hex(secret, f"{payment_id}|{subscription_id}".encode())
+    return signature_matches(expected, signature)

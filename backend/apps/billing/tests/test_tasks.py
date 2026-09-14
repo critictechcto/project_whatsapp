@@ -5,6 +5,7 @@ from datetime import timedelta
 
 import pytest
 from celery.schedules import crontab
+from django.apps import apps as django_apps
 from django.utils import timezone
 
 from apps.billing import demo, entitlements, services, tasks
@@ -88,10 +89,36 @@ def test_seeded_plans_match_the_pricing_page():
     assert plans["pro"].limits == {"whatsapp_numbers": 5, "members": 15, "contacts": 100000}
 
 
-def test_the_data_migration_seeds_the_default_catalogue():
-    migration = importlib.import_module("apps.billing.migrations.0002_seed_plans")
+def test_the_data_migrations_seed_the_default_catalogue():
+    seed = importlib.import_module("apps.billing.migrations.0002_seed_plans")
+    commerce = importlib.import_module("apps.billing.migrations.0003_add_commerce_feature")
 
-    assert {spec["slug"]: plan_fields(spec) for spec in DEFAULT_PLANS} == migration.PLANS
+    migrated = {
+        slug: {**fields, "features": commerce.with_commerce(fields["features"])}
+        for slug, fields in seed.PLANS.items()
+    }
+    assert {spec["slug"]: plan_fields(spec) for spec in DEFAULT_PLANS} == migrated
+
+
+def test_every_seeded_plan_includes_commerce():
+    assert all("commerce" in plan.features for plan in Plan.objects.all())
+
+
+def test_the_commerce_migration_is_idempotent():
+    commerce = importlib.import_module("apps.billing.migrations.0003_add_commerce_feature")
+    Plan.objects.filter(slug="starter").update(features=[])
+    Plan.objects.filter(slug="growth").update(features=["api_access"])
+
+    commerce.add_commerce(django_apps, None)
+    commerce.add_commerce(django_apps, None)
+
+    features = dict(Plan.objects.values_list("slug", "features"))
+    assert features["starter"] == ["commerce"]
+    assert features["growth"] == ["api_access", "commerce"]
+    assert features["pro"].count("commerce") == 1
+
+    commerce.remove_commerce(django_apps, None)
+    assert Plan.objects.get(slug="growth").features == ["api_access"]
 
 
 def test_model_choices_match_the_contract_enums():

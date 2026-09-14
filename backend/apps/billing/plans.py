@@ -9,7 +9,9 @@ TRIAL_PLAN_SLUG = "growth"
 TRIAL_DAYS = 14
 ANNUAL_MONTHS_CHARGED = 10
 
-_ALL_FEATURES = ["scheduled_campaigns", "keyword_automations", "api_access"]
+# Every plan includes the WhatsApp store (migration 0003 adds it to existing rows).
+COMMERCE_FEATURE = "commerce"
+_ALL_FEATURES = ["scheduled_campaigns", "keyword_automations", "api_access", COMMERCE_FEATURE]
 
 DEFAULT_PLANS: tuple[dict, ...] = (
     {
@@ -17,7 +19,7 @@ DEFAULT_PLANS: tuple[dict, ...] = (
         "name": "Starter",
         "monthly_price_paise": 999_00,
         "limits": {"whatsapp_numbers": 1, "members": 2, "contacts": 5_000},
-        "features": [],
+        "features": [COMMERCE_FEATURE],
         "sort_order": 10,
     },
     {
