@@ -31,10 +31,12 @@ class MessageTemplate(TenantScopedModel):
         ARCHIVED = "ARCHIVED", "Archived"
 
     class QualityScore(models.TextChoices):
-        GREEN = "GREEN", "High"
-        YELLOW = "YELLOW", "Medium"
-        RED = "RED", "Low"
-        UNKNOWN = "UNKNOWN", "Unknown"
+        # Labels deliberately differ from PhoneNumber.QualityRating: spectacular keys enum name
+        # overrides by (value, label), so identical choices would collide.
+        GREEN = "GREEN", "Green"
+        YELLOW = "YELLOW", "Yellow"
+        RED = "RED", "Red"
+        UNKNOWN = "UNKNOWN", "Not yet rated"
 
     EDITABLE_STATUSES = frozenset({Status.DRAFT, Status.REJECTED})
 

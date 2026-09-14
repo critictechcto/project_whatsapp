@@ -11,6 +11,7 @@ from apps.whatsapp.client.errors import (
     TransientError,
 )
 from apps.whatsapp.factories import WhatsAppBusinessAccountFactory
+from apps.whatsapp.models import WhatsAppBusinessAccount
 from common.exceptions import UpstreamUnavailable
 
 from .conftest import flatten
@@ -166,6 +167,38 @@ def test_submit_maps_other_errors(fake_graph):
     with pytest.raises(services.MetaRequestFailed) as exc_info:
         services.submit(template)
     assert "Session expired" in str(exc_info.value.detail)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"status": WhatsAppBusinessAccount.Status.DISABLED},
+        {"status": WhatsAppBusinessAccount.Status.DISCONNECTED},
+        {"access_token": ""},
+    ],
+)
+def test_meta_calls_need_connected_waba(fake_graph, fields):
+    waba = WhatsAppBusinessAccountFactory(**fields)
+    draft = MessageTemplateFactory(waba=waba)
+    submitted = MessageTemplateFactory(waba=waba, meta_template_id="3301", status=Status.APPROVED)
+
+    with pytest.raises(services.WabaNotConnected):
+        services.submit(draft)
+    with pytest.raises(services.WabaNotConnected):
+        services.delete(submitted)
+    with pytest.raises(services.WabaNotConnected):
+        services.sync_waba(waba)
+
+    assert fake_graph.calls == []
+    assert MessageTemplate.objects.filter(pk=submitted.pk).exists()
+
+
+def test_restricted_waba_can_submit(fake_graph):
+    waba = WhatsAppBusinessAccountFactory(status=WhatsAppBusinessAccount.Status.RESTRICTED)
+
+    template = services.submit(MessageTemplateFactory(waba=waba))
+
+    assert template.status == Status.PENDING
 
 
 # --- Sync -------------------------------------------------------------------------------------

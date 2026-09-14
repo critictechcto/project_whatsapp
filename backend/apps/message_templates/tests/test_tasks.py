@@ -44,14 +44,30 @@ def test_sync_waba_ignores_missing_waba(fake_graph):
     assert fake_graph.calls == []
 
 
-def test_sync_all_queues_active_wabas(waba, fake_graph):
+def test_sync_all_queues_connected_wabas(waba, fake_graph):
     WhatsAppBusinessAccountFactory(status=WhatsAppBusinessAccount.Status.DISABLED)
-    other_active = WhatsAppBusinessAccountFactory()
+    WhatsAppBusinessAccountFactory(status=WhatsAppBusinessAccount.Status.DISCONNECTED)
+    restricted = WhatsAppBusinessAccountFactory(status=WhatsAppBusinessAccount.Status.RESTRICTED)
 
     assert tasks.sync_all.delay().get() == 2
 
     synced = {call.kwargs["waba_id"] for call in fake_graph.calls_to("list_templates")}
-    assert synced == {waba.waba_id, other_active.waba_id}
+    assert synced == {waba.waba_id, restricted.waba_id}
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"status": WhatsAppBusinessAccount.Status.PENDING},
+        {"status": WhatsAppBusinessAccount.Status.DISCONNECTED},
+        {"access_token": ""},
+    ],
+)
+def test_sync_waba_skips_unconnected_accounts(fake_graph, fields):
+    waba = WhatsAppBusinessAccountFactory(**fields)
+
+    assert tasks.sync_waba.delay(str(waba.pk)).get() is None
+    assert fake_graph.calls == []
 
 
 def test_beat_schedule_entry():
