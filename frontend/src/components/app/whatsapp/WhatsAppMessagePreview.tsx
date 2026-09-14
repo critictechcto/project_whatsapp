@@ -3,7 +3,7 @@ import { Check, CheckCheck, Clock, CornerUpLeft, ExternalLink, FileText, Image, 
 import { cn } from '../../../lib/cn'
 import type { PreviewMessage } from './template'
 
-type DeliveryStatus = 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
+export type DeliveryStatus = 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
 
 type WhatsAppMessagePreviewProps = {
   message: PreviewMessage
@@ -63,7 +63,7 @@ const buttonIcons: Record<string, ReactNode> = {
   QUICK_REPLY: <CornerUpLeft className="size-3.5" aria-hidden="true" />,
 }
 
-function StatusTicks({ status }: { status: DeliveryStatus }) {
+export function StatusTicks({ status }: { status: DeliveryStatus }) {
   if (status === 'queued' || status === 'sending') return <Clock className="size-3" aria-label="Sending" />
   if (status === 'sent') return <Check className="size-3" aria-label="Sent" />
   if (status === 'failed') return <span className="text-signal">Failed</span>

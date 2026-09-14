@@ -6,10 +6,13 @@ import type { HttpHandler } from 'msw'
 import { handlers as automations } from '../automations/mocks'
 import { handlers as billing } from '../billing/mocks'
 import { handlers as campaigns } from '../campaigns/mocks'
+import { handlers as catalog } from '../catalog/mocks'
 import { handlers as contacts } from '../contacts/mocks'
 import { handlers as home } from '../home/mocks'
 import { handlers as inbox } from '../inbox/mocks'
+import { handlers as orders } from '../orders/mocks'
 import { handlers as settings } from '../settings/mocks'
+import { handlers as store } from '../store/mocks'
 import { handlers as team } from '../team/mocks'
 import { handlers as templates } from '../templates/mocks'
 import { handlers as whatsapp } from '../whatsapp/mocks'
@@ -21,6 +24,9 @@ export const areaMockHandlers: HttpHandler[] = [
   ...campaigns,
   ...templates,
   ...automations,
+  ...catalog,
+  ...orders,
+  ...store,
   ...whatsapp,
   ...team,
   ...billing,
