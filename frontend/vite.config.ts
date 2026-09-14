@@ -25,6 +25,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       restoreMocks: true,
+      // Dashboard tests render whole routed pages; 5 s is too tight on a loaded machine.
+      testTimeout: 15_000,
       env: {
         VITE_API_MODE: 'live',
         VITE_API_URL: 'http://localhost:3000',

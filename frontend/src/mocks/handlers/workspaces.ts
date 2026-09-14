@@ -86,43 +86,7 @@ export const workspaceHandlers = [
     return response(201).json(toWorkspace(workspace, 'owner'))
   }),
 
-  http.get('/api/v1/workspaces/{id}/', ({ request, params, response }) => {
-    const user = authenticate(request)
-    if (user instanceof Response) return response.untyped(user)
-    const membership = db.memberships.find((m) => m.workspace_id === params.id && m.user_id === user.id)
-    const workspace = db.workspaces.find((candidate) => candidate.id === params.id)
-    if (!membership || !workspace) return response.untyped(notFound())
-    return response(200).json(toWorkspace(workspace, membership.role))
-  }),
-
-  http.patch('/api/v1/workspaces/{id}/', async ({ request, params, response }) => {
-    const user = authenticate(request)
-    if (user instanceof Response) return response.untyped(user)
-    const membership = db.memberships.find((m) => m.workspace_id === params.id && m.user_id === user.id)
-    const workspace = db.workspaces.find((candidate) => candidate.id === params.id)
-    if (!membership || !workspace) return response.untyped(notFound())
-    if (membership.role !== 'owner' && membership.role !== 'admin') {
-      return response.untyped(errorResponse(403, 'insufficient_role', 'Your role does not allow this action.'))
-    }
-    const body = (await request.json()) as Schemas['PatchedWorkspaceRequest']
-    if (typeof body.name === 'string') workspace.name = body.name
-    if (typeof body.time_zone === 'string') workspace.time_zone = body.time_zone
-    return response(200).json(toWorkspace(workspace, membership.role))
-  }),
-
-  http.delete('/api/v1/workspaces/{id}/', ({ request, params, response }) => {
-    const user = authenticate(request)
-    if (user instanceof Response) return response.untyped(user)
-    const membership = db.memberships.find((m) => m.workspace_id === params.id && m.user_id === user.id)
-    if (!membership) return response.untyped(notFound())
-    if (membership.role !== 'owner') {
-      return response.untyped(errorResponse(403, 'insufficient_role', 'Only the owner can delete a workspace.'))
-    }
-    db.workspaces = db.workspaces.filter((workspace) => workspace.id !== params.id)
-    db.memberships = db.memberships.filter((m) => m.workspace_id !== params.id)
-    return response.untyped(noContent())
-  }),
-
+  // Static segments (members/, invitations/) must be registered before `{id}` or it matches them.
   http.get('/api/v1/workspaces/members/', ({ request, query, response }) => {
     const ctx = authorize(request)
     if (ctx instanceof Response) return response.untyped(ctx)
@@ -237,7 +201,44 @@ export const workspaceHandlers = [
     })
   }),
 
-  http.post('/api/v1/inbox/ws-ticket/', ({ request, response }) => {
+  http.get('/api/v1/workspaces/{id}/', ({ request, params, response }) => {
+    const user = authenticate(request)
+    if (user instanceof Response) return response.untyped(user)
+    const membership = db.memberships.find((m) => m.workspace_id === params.id && m.user_id === user.id)
+    const workspace = db.workspaces.find((candidate) => candidate.id === params.id)
+    if (!membership || !workspace) return response.untyped(notFound())
+    return response(200).json(toWorkspace(workspace, membership.role))
+  }),
+
+  http.patch('/api/v1/workspaces/{id}/', async ({ request, params, response }) => {
+    const user = authenticate(request)
+    if (user instanceof Response) return response.untyped(user)
+    const membership = db.memberships.find((m) => m.workspace_id === params.id && m.user_id === user.id)
+    const workspace = db.workspaces.find((candidate) => candidate.id === params.id)
+    if (!membership || !workspace) return response.untyped(notFound())
+    if (membership.role !== 'owner' && membership.role !== 'admin') {
+      return response.untyped(errorResponse(403, 'insufficient_role', 'Your role does not allow this action.'))
+    }
+    const body = (await request.json()) as Schemas['PatchedWorkspaceRequest']
+    if (typeof body.name === 'string') workspace.name = body.name
+    if (typeof body.time_zone === 'string') workspace.time_zone = body.time_zone
+    return response(200).json(toWorkspace(workspace, membership.role))
+  }),
+
+  http.delete('/api/v1/workspaces/{id}/', ({ request, params, response }) => {
+    const user = authenticate(request)
+    if (user instanceof Response) return response.untyped(user)
+    const membership = db.memberships.find((m) => m.workspace_id === params.id && m.user_id === user.id)
+    if (!membership) return response.untyped(notFound())
+    if (membership.role !== 'owner') {
+      return response.untyped(errorResponse(403, 'insufficient_role', 'Only the owner can delete a workspace.'))
+    }
+    db.workspaces = db.workspaces.filter((workspace) => workspace.id !== params.id)
+    db.memberships = db.memberships.filter((m) => m.workspace_id !== params.id)
+    return response.untyped(noContent())
+  }),
+
+  http.post('/api/v1/inbox/ws-ticket/',({ request, response }) => {
     const ctx = authorize(request)
     if (ctx instanceof Response) return response.untyped(ctx)
     return response(200).json({ ticket: `mock-ticket.${uuid()}`, expires_in: 30, path: '/ws/v1/' })
