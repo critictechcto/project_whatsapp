@@ -22,9 +22,12 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    **STORAGES,  # noqa: F405 - media storage stays env-driven (MEDIA_STORAGE_BACKEND)
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+
+if not WS_ALLOWED_ORIGINS:  # noqa: F405
+    raise ImproperlyConfigured("WS_ALLOWED_ORIGINS must list the dashboard origin(s).")
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 

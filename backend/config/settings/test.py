@@ -39,9 +39,19 @@ WHATSAPP_GRAPH_CLIENT = "apps.whatsapp.client.fake.FakeGraphClient"
 RAZORPAY_KEY_ID = "rzp_test_key"
 RAZORPAY_KEY_SECRET = "rzp-test-secret"
 RAZORPAY_WEBHOOK_SECRET = "rzp-test-webhook-secret"
+RAZORPAY_PLAN_IDS = {
+    slug: {"monthly": f"plan_test_{slug}_monthly", "annual": f"plan_test_{slug}_annual"}
+    for slug in ("starter", "growth", "pro")
+}
+BILLING_SELLER_LEGAL_NAME = "UpChatz Test Seller Private Limited"
+BILLING_SELLER_GSTIN = "29ABCDE1234F1Z5"
+BILLING_SELLER_STATE_CODE = "29"
+BILLING_SELLER_ADDRESS = "1 Test Road, Bengaluru, Karnataka 560001"
 
 SENTRY_DSN = ""
 FRONTEND_URL = "http://testserver-frontend"
+WS_ALLOWED_ORIGINS = [FRONTEND_URL]
+WS_TICKET_TTL = 30
 
 # Each git worktree gets its own test database so parallel agents never collide.
 _checkout = re.sub(r"[^a-z0-9]+", "_", REPO_ROOT.name.lower()).strip("_") or "main"
