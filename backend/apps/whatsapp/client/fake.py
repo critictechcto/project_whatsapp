@@ -55,6 +55,8 @@ class FakeGraphClient:
             "currency": "INR",
             "timezone_id": "71",
             "message_template_namespace": f"ns_{waba_id}",
+            # The default matches add_catalog's default business_id.
+            "owner_business_info": {"id": "5550001", "name": "Test Business"},
             **fields,
         }
         return self.wabas[waba_id]
@@ -92,10 +94,16 @@ class FakeGraphClient:
         waba_id: str,
         token: str | None = None,
         target_ids: list[str] | None = None,
+        extra_scopes: dict[str, list[str]] | None = None,
     ) -> str:
-        """Make ``code`` exchangeable for a token whose granular scopes cover ``waba_id``."""
+        """Make ``code`` exchangeable for a token whose granular scopes cover ``waba_id``.
+
+        ``extra_scopes`` maps more granted scopes to their target ids, e.g.
+        ``{"catalog_management": [], "business_management": ["5550001"]}``.
+        """
         token = token or f"EAAG-fake-business-token-{next(self._ids)}"
         targets = target_ids if target_ids is not None else [waba_id]
+        extra = dict(extra_scopes or {})
         self._codes[code] = token
         self._token_debug[token] = {
             "app_id": settings.META_APP_ID,
@@ -104,10 +112,14 @@ class FakeGraphClient:
             "is_valid": True,
             "expires_at": 0,
             "data_access_expires_at": 0,
-            "scopes": ["whatsapp_business_management", "whatsapp_business_messaging"],
+            "scopes": ["whatsapp_business_management", "whatsapp_business_messaging", *extra],
             "granular_scopes": [
                 {"scope": "whatsapp_business_management", "target_ids": list(targets)},
                 {"scope": "whatsapp_business_messaging", "target_ids": list(targets)},
+                *(
+                    {"scope": scope, "target_ids": list(scope_targets)}
+                    for scope, scope_targets in extra.items()
+                ),
             ],
         }
         return token

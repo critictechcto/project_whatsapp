@@ -134,6 +134,91 @@ def test_message_shape(auth_client, conversation, template, user):
     assert results[str(pending_image.pk)]["media"]["download_url"] is None
 
 
+def test_interactive_and_order_fields(auth_client, conversation):
+    interactive = {
+        "type": "button",
+        "body": {"text": "Confirm?"},
+        "action": {"buttons": [{"type": "reply", "reply": {"id": "upc:x", "title": "Yes"}}]},
+    }
+    buttons = MessageFactory(
+        conversation=conversation,
+        type=Message.Type.INTERACTIVE,
+        text="Confirm?",
+        payload={"type": "interactive", "interactive": interactive},
+    )
+    reply = MessageFactory(
+        conversation=conversation,
+        inbound=True,
+        type=Message.Type.INTERACTIVE,
+        text="Yes",
+        payload={"type": "interactive", "interactive": {"type": "button_reply"}},
+    )
+    order = MessageFactory(
+        conversation=conversation,
+        inbound=True,
+        type=Message.Type.ORDER,
+        text="Cart: 3 items, ₹1,450.00",
+        payload={
+            "type": "order",
+            "order": {
+                "catalog_id": "807010401234567",
+                "product_items": [
+                    {
+                        "product_retailer_id": "KAJU-500",
+                        "quantity": 2,
+                        "item_price": 650,
+                        "currency": "INR",
+                    },
+                    {
+                        "product_retailer_id": "BHUJIA",
+                        "quantity": "1",
+                        "item_price": "150.50",
+                        "currency": "INR",
+                    },
+                    {"product_retailer_id": "", "quantity": 1},
+                    "junk",
+                ],
+            },
+        },
+    )
+    text_message = MessageFactory(conversation=conversation)
+
+    results = {
+        item["id"]: item
+        for item in auth_client(Role.VIEWER).get(messages_url(conversation)).json()["results"]
+    }
+
+    assert results[str(buttons.pk)]["interactive"] == interactive
+    assert results[str(buttons.pk)]["order"] is None
+    assert results[str(reply.pk)]["interactive"] is None
+    assert results[str(order.pk)]["type"] == "order"
+    assert results[str(order.pk)]["interactive"] is None
+    assert results[str(order.pk)]["order"] == {
+        "catalog_id": "807010401234567",
+        "items": [
+            {
+                "product_retailer_id": "KAJU-500",
+                "quantity": 2,
+                "item_price": 650.0,
+                "currency": "INR",
+            },
+            {
+                "product_retailer_id": "BHUJIA",
+                "quantity": 1,
+                "item_price": 150.5,
+                "currency": "INR",
+            },
+        ],
+    }
+    assert (
+        results[str(text_message.pk)]["interactive"],
+        results[str(text_message.pk)]["order"],
+    ) == (
+        None,
+        None,
+    )
+
+
 def test_queued_message_without_wamid_serializes_empty_string(auth_client, conversation):
     MessageFactory(conversation=conversation, wamid=None, status=Message.Status.QUEUED)
 

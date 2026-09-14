@@ -8,6 +8,7 @@ from rest_framework.renderers import JSONRenderer
 from apps.billing import entitlements, services
 from apps.billing.entitlements import (
     API_ACCESS,
+    COMMERCE,
     CONTACTS,
     FEATURES,
     MEMBERS,
@@ -36,7 +37,9 @@ def test_entitlement_keys():
         entitlements.SCHEDULED_CAMPAIGNS,
         entitlements.KEYWORD_AUTOMATIONS,
         entitlements.API_ACCESS,
+        entitlements.COMMERCE,
     }
+    assert entitlements.COMMERCE == "commerce"
 
 
 def test_unknown_keys_are_programming_errors(workspace):
@@ -60,7 +63,8 @@ def test_entitled_statuses_get_the_plan(workspace, status):
     set_status(workspace, status, plan="starter")
     ContactFactory.create_batch(2, workspace=workspace)
 
-    assert not any(entitlements.has_feature(workspace, feature) for feature in FEATURES)
+    # Starter only includes the store.
+    assert [f for f in FEATURES if entitlements.has_feature(workspace, f)] == [COMMERCE]
     assert entitlements.remaining_quota(workspace, WHATSAPP_NUMBERS) == 1
     assert entitlements.remaining_quota(workspace, MEMBERS) == 1  # the owner uses one of two
     assert entitlements.remaining_quota(workspace, CONTACTS) == 4998

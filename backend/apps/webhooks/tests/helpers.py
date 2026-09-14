@@ -26,6 +26,7 @@ ALL_SIGNALS = (
     events.template_quality_updated,
     events.phone_number_quality_updated,
     events.account_updated,
+    events.platform_inbound_message_received,
 )
 
 

@@ -115,6 +115,7 @@ class Message(TenantScopedModel):
         BUTTON = "button", "Button"
         REACTION = "reaction", "Reaction"
         TEMPLATE = "template", "Template"
+        ORDER = "order", "Order"
         UNSUPPORTED = "unsupported", "Unsupported"
 
     class Status(models.TextChoices):

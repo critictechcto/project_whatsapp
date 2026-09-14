@@ -25,7 +25,7 @@ PHONE_NUMBER_FIELDS = (
     "id,display_phone_number,verified_name,quality_rating,code_verification_status,"
     "platform_type,name_status,status,throughput,messaging_limit_tier"
 )
-WABA_FIELDS = "id,name,currency,timezone_id,message_template_namespace"
+WABA_FIELDS = "id,name,currency,timezone_id,message_template_namespace,owner_business_info"
 TEMPLATE_FIELDS = "id,name,language,category,status,components,quality_score,rejected_reason"
 CATALOG_FIELDS = "id,name"
 CATALOG_PRODUCT_FIELDS = "id,retailer_id,name,availability,review_status,review_rejection_reasons"

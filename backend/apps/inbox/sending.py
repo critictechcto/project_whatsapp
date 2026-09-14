@@ -63,7 +63,20 @@ class MediaContent:
     caption: str = ""
 
 
-Content = TextContent | TemplateContent | MediaContent
+@dataclass(frozen=True, slots=True)
+class InteractiveContent:
+    """A raw Cloud API ``interactive`` object; ``summary`` is the text shown in the inbox.
+
+    Build these with the helpers in :mod:`apps.inbox.interactive`, which enforce Meta's limits.
+    Interactive messages are session messages: outside the 24-hour window ``send_message``
+    raises :class:`OutsideServiceWindow`.
+    """
+
+    interactive: Mapping[str, Any]
+    summary: str
+
+
+Content = TextContent | TemplateContent | MediaContent | InteractiveContent
 
 
 # --- Errors -------------------------------------------------------------------------------------
@@ -308,7 +321,34 @@ def _message_fields(workspace, content: Content, phone_number: PhoneNumber) -> d
         return _template_fields(workspace, content, phone_number)
     if isinstance(content, MediaContent):
         return _media_fields(workspace, content)
+    if isinstance(content, InteractiveContent):
+        return _interactive_fields(content)
     raise TypeError(f"Unsupported message content {type(content).__name__}.")
+
+
+def _interactive_fields(content: InteractiveContent) -> dict[str, Any]:
+    from .interactive import InvalidInteractiveContent
+
+    interactive = content.interactive
+    if not isinstance(interactive, Mapping) or not interactive.get("type"):
+        raise InvalidInteractiveContent("The interactive object needs a type.")
+    summary = (content.summary or "").strip()
+    if not summary:
+        raise InvalidInteractiveContent("An interactive message needs a summary for the inbox.")
+    return {
+        "type": Message.Type.INTERACTIVE,
+        "text": summary[:MAX_TEXT_LENGTH],
+        "payload": {"type": "interactive", "interactive": _plain(interactive)},
+    }
+
+
+def _plain(value: Any) -> Any:
+    """A JSON-ready deep copy (mappings and sequences become dicts and lists)."""
+    if isinstance(value, Mapping):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_plain(item) for item in value]
+    return value
 
 
 def _text_fields(content: TextContent) -> dict[str, Any]:

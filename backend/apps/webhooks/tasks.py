@@ -11,6 +11,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.whatsapp.models import PhoneNumber, WhatsAppBusinessAccount
+from common import events
 from common.events import emit
 
 from .models import WebhookEvent
@@ -60,6 +61,27 @@ class WorkspaceResolver:
         return cache[value]
 
 
+def is_platform_change(change: ParsedChange) -> bool:
+    """A ``messages`` change for UpChatz's own alerts number (``PLATFORM_WA_PHONE_NUMBER_ID``).
+
+    These belong to no workspace, so they are never workspace-resolved."""
+    platform_number_id = getattr(settings, "PLATFORM_WA_PHONE_NUMBER_ID", "") or ""
+    return bool(
+        platform_number_id
+        and change.field_name == "messages"
+        and change.phone_number_id == platform_number_id
+    )
+
+
+def platform_event(change: ParsedChange, webhook_event_id) -> events.PlatformInboundMessage | None:
+    """The :class:`~common.events.PlatformInboundMessage` for a platform-number message, or None
+    for anything else on that number (delivery statuses)."""
+    if change.event_class is not events.InboundMessage:
+        return None
+    fields = {key: value for key, value in change.fields.items() if key != "waba_id"}
+    return events.PlatformInboundMessage(**fields, webhook_event_id=webhook_event_id)
+
+
 def claim_event(event_pk) -> bool:
     """Atomically move a received/failed row to processing. False if someone else has it."""
     claimed = WebhookEvent.objects.filter(
@@ -105,6 +127,19 @@ def process_event(self, event_pk: str) -> str | None:
     routed = 0
     errors: list[str] = []
     for change in changes:
+        if is_platform_change(change):
+            routed += 1
+            platform = platform_event(change, event.pk)
+            if platform is None:
+                logger.debug(
+                    "Dropping %s for the platform number in webhook event %s",
+                    change.event_class.__name__,
+                    event.pk,
+                )
+                continue
+            for receiver, exc in emit(events.platform_inbound_message_received, platform):
+                errors.append(f"{type(platform).__name__} -> {_receiver_name(receiver)}: {exc!r}")
+            continue
         workspace_id = resolver.resolve(change)
         if workspace_id is None:
             logger.warning(

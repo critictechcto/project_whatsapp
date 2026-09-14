@@ -33,6 +33,7 @@ pytestmark = pytest.mark.django_db
                 "button",
                 "reaction",
                 "template",
+                "order",
                 "unsupported",
             ],
         ),

@@ -8,12 +8,13 @@ import pytest
 from django.utils import timezone
 
 from apps.accounts.factories import UserFactory
-from apps.automations import engine
+from apps.automations import engine, hooks
 from apps.automations.engine import MAX_AUTOMATED_SENDS_PER_HOUR, process_inbound
 from apps.automations.factories import AutomationRuleFactory, BusinessHoursFactory
 from apps.automations.models import AutomationRule, AutomationRun
 from apps.billing import entitlements
 from apps.contacts.factories import TagFactory
+from apps.inbox import interactive, sending
 from apps.inbox.factories import ConversationFactory, MessageFactory
 from apps.inbox.models import Conversation, Message
 from apps.message_templates.models import MessageTemplate
@@ -326,6 +327,15 @@ def test_reactions_and_missing_messages_are_ignored(workspace, inbound):
     assert process_inbound(uuid.uuid4()) == []
 
 
+def test_order_messages_are_left_to_commerce(workspace, inbound):
+    make_rule(workspace, trigger="first_inbound", keywords=[], actions=[CLOSE])
+
+    cart = inbound("Cart: 3 items, ₹1,450.00", type=Message.Type.ORDER)
+
+    assert process_inbound(cart.pk, is_first_inbound=True) == []
+    assert not AutomationRun.objects.exists()
+
+
 # --- Actions ------------------------------------------------------------------------------------
 
 
@@ -496,3 +506,125 @@ def test_unknown_stored_action_type_is_logged_as_failed(workspace, inbound):
     run = process_inbound(inbound("price").pk)[0]
 
     assert action_outcomes(run) == [("failed", "unknown_action"), ("succeeded", None)]
+
+
+# --- Commerce actions ---------------------------------------------------------------------------
+
+SHOP_MENU = {"type": "send_shop_menu", "config": {}}
+CATALOG = {"type": "send_catalog", "config": {}}
+
+
+@pytest.fixture
+def commerce_actions(monkeypatch):
+    """An empty commerce action registry, restored after the test."""
+    registry: dict = {}
+    monkeypatch.setattr(hooks, "_commerce_actions", registry)
+    return registry
+
+
+def test_commerce_actions_are_sends():
+    assert {"send_shop_menu", "send_catalog", "send_collection"} <= engine.SEND_ACTIONS
+
+
+def test_commerce_action_without_a_handler_is_skipped(workspace, commerce_actions, inbound):
+    rule = make_rule(workspace, actions=[SHOP_MENU])
+
+    [run] = process_inbound(inbound("price").pk)
+
+    assert run.status == "skipped"
+    assert run.detail == "Store is not available."
+    assert run.action_results == [
+        {
+            "index": 0,
+            "type": "send_shop_menu",
+            "status": "skipped",
+            "code": "store_unavailable",
+            "message": "Store is not available.",
+        }
+    ]
+    rule.refresh_from_db()
+    assert (rule.run_count, rule.last_triggered_at) == (0, None)
+
+
+def test_skipped_commerce_send_halts_later_actions(
+    workspace, conversation, commerce_actions, inbound
+):
+    make_rule(workspace, actions=[CATALOG, CLOSE])
+
+    [run] = process_inbound(inbound("price").pk)
+
+    assert run.status == "skipped"
+    assert action_outcomes(run) == [("skipped", "store_unavailable"), ("not_run", None)]
+    assert run.detail.startswith("Store is not available.")
+    assert "1 later action(s) not run" in run.detail
+    conversation.refresh_from_db()
+    assert conversation.status == Conversation.Status.OPEN
+
+
+def test_run_with_a_success_and_a_skipped_commerce_action_succeeds(
+    workspace, conversation, commerce_actions, inbound
+):
+    make_rule(workspace, actions=[text_action(), CATALOG])
+
+    [run] = process_inbound(inbound("price").pk)
+
+    assert run.status == "succeeded"
+    assert action_outcomes(run) == [("succeeded", None), ("skipped", "store_unavailable")]
+    assert "1 of 2 action(s) skipped" in run.detail
+    assert automation_messages(conversation).count() == 1
+
+
+def test_registered_commerce_handler_sends(workspace, conversation, commerce_actions, inbound):
+    calls = []
+
+    def send_collection(*, rule, message, conversation, config, index):
+        calls.append((rule.pk, message.pk, conversation.pk, dict(config), index))
+        sent = sending.send_message(
+            workspace=message.workspace,
+            contact=conversation.contact,
+            content=interactive.catalog_message("Browse our mithai"),
+            conversation=conversation,
+            source=Message.Source.AUTOMATION,
+            source_ref=str(rule.pk),
+            idempotency_key=hooks.idempotency_key(rule, message, index),
+        )
+        return {"message_id": str(sent.pk)}
+
+    hooks.register_commerce_action("send_collection", send_collection)
+    collection_id = str(uuid.uuid4())
+    rule = make_rule(
+        workspace,
+        actions=[CLOSE, {"type": "send_collection", "config": {"collection_id": collection_id}}],
+    )
+    message = inbound("price")
+
+    [run] = process_inbound(message.pk)
+    process_inbound(message.pk)  # redelivery: no second run or send
+
+    assert run.status == "succeeded"
+    assert calls == [(rule.pk, message.pk, conversation.pk, {"collection_id": collection_id}, 1)]
+    [reply] = automation_messages(conversation)
+    assert reply.type == Message.Type.INTERACTIVE
+    assert reply.idempotency_key == f"automation:{rule.pk}:{message.wamid}:1"
+    assert run.action_results[1]["message_id"] == str(reply.pk)
+    rule.refresh_from_db()
+    assert rule.run_count == 1
+
+
+def test_commerce_handler_can_skip_or_fail(workspace, conversation, commerce_actions, inbound):
+    def disabled_store(**kwargs):
+        raise hooks.ActionSkipped("commerce_not_enabled", "The store is switched off.")
+
+    def closed_window(**kwargs):
+        raise sending.OutsideServiceWindow()
+
+    hooks.register_commerce_action("send_shop_menu", disabled_store)
+    hooks.register_commerce_action("send_catalog", closed_window)
+    skipped_rule = make_rule(workspace, priority=1, actions=[SHOP_MENU, CLOSE])
+    failed_rule = make_rule(workspace, priority=2, actions=[CATALOG, CLOSE])
+
+    runs = process_inbound(inbound("price").pk)
+
+    assert outcomes(runs) == [(skipped_rule.pk, "skipped"), (failed_rule.pk, "failed")]
+    assert runs[0].detail.startswith("The store is switched off.")
+    assert action_outcomes(runs[1]) == [("failed", "outside_service_window"), ("not_run", None)]

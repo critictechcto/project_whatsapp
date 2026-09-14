@@ -1,11 +1,13 @@
 import copy
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
-from apps.webhooks.parsers import MalformedItem, parse_payload, parse_timestamp
+from apps.webhooks.parsers import MalformedItem, format_inr, parse_payload, parse_timestamp
 from common import events
+from common.commerce import ReplyId, parse_reply_id
 
 from .helpers import (
     OTHER_PHONE_NUMBER_ID,
@@ -94,16 +96,126 @@ def test_interactive_list_reply():
     assert (item.fields["text"], item.fields["reply_id"]) == ("4 PM", "slot_4pm")
 
 
-def test_interactive_flow_reply_has_no_text():
+def nfm_reply_payload(nfm_reply: dict) -> dict:
     payload = load_payload("interactive_button_reply.json")
-    first_message(payload)["interactive"] = {
-        "type": "nfm_reply",
-        "nfm_reply": {"name": "flow", "body": "Sent", "response_json": "{}"},
-    }
+    first_message(payload)["interactive"] = {"type": "nfm_reply", "nfm_reply": nfm_reply}
+    return payload
+
+
+def test_address_message_reply_is_a_commerce_reply():
+    response_json = '{"name": "Priya", "address": "12 MG Road", "in_pin_code": "411001"}'
+    payload = nfm_reply_payload({"name": "address_message", "response_json": response_json})
 
     [item] = parse_payload(payload)
 
-    assert (item.fields["text"], item.fields["reply_id"]) == (None, None)
+    assert item.fields["type"] == "interactive"
+    assert item.fields["text"] == "Address shared"
+    assert item.fields["reply_id"] == "upc:nfm:address_message"
+    assert parse_reply_id(item.fields["reply_id"]) == ReplyId("nfm", "address_message")
+    raw = item.fields["payload"]["interactive"]["nfm_reply"]
+    assert raw["response_json"] == response_json  # left raw for orders to parse
+
+
+def test_flow_reply_uses_its_body_and_name():
+    payload = nfm_reply_payload({"name": "flow", "body": "Sent", "response_json": "{}"})
+
+    [item] = parse_payload(payload)
+
+    assert (item.fields["text"], item.fields["reply_id"]) == ("Sent", "upc:nfm:flow")
+
+
+@pytest.mark.parametrize(
+    ("name", "reply_id"),
+    [
+        (None, "upc:nfm:address_message"),
+        ("", "upc:nfm:address_message"),
+        ("::// ", "upc:nfm:address_message"),
+        ("my flow:v2/ok", "upc:nfm:myflowv2ok"),
+        ("booking_v1.2-a", "upc:nfm:booking_v1.2-a"),
+        (12, "upc:nfm:12"),
+        ("x" * 500, "upc:nfm:" + "x" * 192),
+    ],
+)
+def test_flow_reply_names_are_sanitised(name, reply_id):
+    [item] = parse_payload(nfm_reply_payload({"name": name}))
+
+    assert item.fields["reply_id"] == reply_id
+    assert parse_reply_id(item.fields["reply_id"]) is not None
+
+
+def order_payload(product_items, **order) -> dict:
+    payload = load_payload("text_message.json")
+    message = first_message(payload)
+    del message["text"]
+    message["type"] = "order"
+    message["order"] = {"catalog_id": "807010401234567", "product_items": product_items, **order}
+    return payload
+
+
+def cart_line(sku: str, quantity, price, currency="INR") -> dict:
+    return {
+        "product_retailer_id": sku,
+        "quantity": quantity,
+        "item_price": price,
+        "currency": currency,
+    }
+
+
+def test_order_message_summarises_the_cart():
+    items = [cart_line("KAJU-500", 2, 650), cart_line("LADDU-250", 1, 150.0)]
+    payload = order_payload(items, text="Please deliver by Friday")
+
+    [item] = parse_payload(payload)
+
+    assert item.fields["type"] == "order"
+    assert item.fields["text"] == "Cart: 3 items, \N{INDIAN RUPEE SIGN}1,450.00"
+    assert item.fields["reply_id"] is None
+    order = item.fields["payload"]["order"]
+    assert order["catalog_id"] == "807010401234567"
+    assert order["product_items"] == items
+
+
+@pytest.mark.parametrize(
+    ("items", "text"),
+    [
+        ([cart_line("A", 1, "249.5")], "Cart: 1 item, ₹249.50"),
+        ([cart_line("A", 3, 33.335)], "Cart: 3 items, ₹100.00"),
+        ([cart_line("A", 100, 1234.5)], "Cart: 100 items, ₹1,23,450.00"),
+        ([cart_line("A", 1000, 12345.67)], "Cart: 1000 items, ₹1,23,45,670.00"),
+        (
+            [cart_line("A", 1, 99), cart_line("B", "x", 10), cart_line("C", 1, None)],
+            "Cart: 1 item, ₹99.00",
+        ),
+        (
+            [cart_line("A", 1.5, 10), cart_line("B", 0, 10), cart_line("C", True, 10)],
+            "Cart: 0 items",
+        ),
+        ([cart_line("A", 2, 5, currency="USD")], "Cart: 2 items, USD 10.00"),
+        ([cart_line("A", 1, 5, currency="USD"), cart_line("B", 1, 5)], "Cart: 2 items, 10.00"),
+        ([], "Cart: 0 items"),
+        ("not a list", "Cart: 0 items"),
+    ],
+)
+def test_order_summary_edge_cases(items, text):
+    [item] = parse_payload(order_payload(items))
+
+    assert item.fields["text"] == text
+
+
+@pytest.mark.parametrize(
+    ("amount", "text"),
+    [
+        ("0", "0.00"),
+        ("5.005", "5.00"),
+        ("999.999", "1,000.00"),
+        ("12345", "12,345.00"),
+        ("123456.7", "1,23,456.70"),
+        ("10000000", "1,00,00,000.00"),
+        ("-1234567", "-12,34,567.00"),
+    ],
+)
+def test_format_inr(amount, text):
+    assert format_inr(Decimal(amount)) == text
 
 
 def test_template_quick_reply_button():

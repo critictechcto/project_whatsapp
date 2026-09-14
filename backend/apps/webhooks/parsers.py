@@ -7,9 +7,11 @@ task adds after routing.
 """
 
 import logging
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.dispatch import Signal
@@ -184,12 +186,96 @@ def _message_content(
         reply = body.get(str(body.get("type"))) if body.get("type") else None
         if body.get("type") in ("button_reply", "list_reply") and isinstance(reply, Mapping):
             return _str_or_none(reply.get("title")), _str_or_none(reply.get("id")), None
+        if body.get("type") == "nfm_reply" and isinstance(reply, Mapping):
+            text = _str_or_none(reply.get("body")) or NFM_REPLY_TEXT
+            return text, nfm_reply_id(reply.get("name")), None
         return None, None, None
+    if message_type == "order":
+        return order_summary(body), None, None
     if message_type == "reaction":
         return _str_or_none(body.get("emoji")), None, _str_or_none(body.get("message_id"))
     if message_type == "location":
         return _str_or_none(body.get("name")) or _str_or_none(body.get("address")), None, None
     return None, None, None
+
+
+# --- Commerce message content ---------------------------------------------------------------
+
+NFM_REPLY_TEXT = "Address shared"
+NFM_DEFAULT_NAME = "address_message"
+NFM_REPLY_PREFIX = "upc:nfm:"
+_NFM_NAME_INVALID = re.compile(r"[^A-Za-z0-9_.\-]+")
+# common.commerce.REPLY_ID_MAX_LENGTH (200) minus the prefix.
+_NFM_NAME_MAX_LENGTH = 200 - len(NFM_REPLY_PREFIX)
+
+
+def nfm_reply_id(name: Any) -> str:
+    """``upc:nfm:<name>`` for a native flow reply (such as an ``address_message`` answer).
+
+    ``name`` keeps only ``[A-Za-z0-9_.-]`` (``address_message`` when nothing is left), so
+    ``common.commerce.parse_reply_id`` always accepts the id.
+    """
+    cleaned = _NFM_NAME_INVALID.sub("", str(name or ""))[:_NFM_NAME_MAX_LENGTH]
+    return NFM_REPLY_PREFIX + (cleaned or NFM_DEFAULT_NAME)
+
+
+def format_inr(amount: Decimal) -> str:
+    """``Decimal("145000.5")`` → ``"1,45,000.50"``: Indian digit grouping, two decimals."""
+    quantized = amount.quantize(Decimal("0.01"))
+    sign = "-" if quantized < 0 else ""
+    whole, _, fraction = f"{abs(quantized):f}".partition(".")
+    if len(whole) > 3:
+        head, groups = whole[:-3], [whole[-3:]]
+        while head:
+            groups.insert(0, head[-2:])
+            head = head[:-2]
+        whole = ",".join(groups)
+    return f"{sign}{whole}.{fraction}"
+
+
+def _decimal(value: Any) -> Decimal | None:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return None
+    try:
+        number = Decimal(str(value).strip())
+    except InvalidOperation:
+        return None
+    return number if number.is_finite() else None
+
+
+def order_summary(order: Mapping[str, Any]) -> str:
+    """Inbox text for a native WhatsApp cart, e.g. ``"Cart: 3 items, ₹1,450.00"``.
+
+    The item count is the total quantity and the amount sums quantity times ``item_price``. Display
+    only: prices sent by the buyer's app are never trusted for checkout. Lines with an unusable
+    quantity or price are left out.
+    """
+    count = 0
+    total = Decimal(0)
+    currencies: set[str] = set()
+    for item in _list(order.get("product_items")):
+        quantity = _decimal(item.get("quantity"))
+        price = _decimal(item.get("item_price"))
+        if (
+            quantity is None
+            or price is None
+            or quantity <= 0
+            or price < 0
+            or quantity != quantity.to_integral_value()
+        ):
+            continue
+        count += int(quantity)
+        total += quantity * price
+        currencies.add(str(item.get("currency") or "INR").strip().upper())
+    if not count:
+        return "Cart: 0 items"
+    noun = "item" if count == 1 else "items"
+    currency = next(iter(currencies)) if len(currencies) == 1 else ""
+    if currency == "INR":
+        amount = f"\N{INDIAN RUPEE SIGN}{format_inr(total)}"
+    else:
+        amount = f"{currency} {total.quantize(Decimal('0.01')):,.2f}".strip()
+    return f"Cart: {count} {noun}, {amount}"
 
 
 def parse_status(status: Mapping[str, Any]) -> dict[str, Any]:
