@@ -1322,7 +1322,8 @@ paths:
           description: ''
     post:
       operationId: catalog_meta_catalogs_create
-      description: 409 catalog_permissions_missing when the token lacks catalog permissions.
+      description: Connects (201) or replaces the WABA's connected catalog (200).
+        409 catalog_permissions_missing when the token lacks catalog permissions.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -1349,6 +1350,12 @@ paths:
       - jwtAuth: []
       responses:
         '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaCatalog'
+          description: ''
+        '200':
           content:
             application/json:
               schema:
@@ -6000,6 +6007,8 @@ components:
           maxLength: 72
         position:
           type: integer
+          maximum: 2147483647
+          minimum: 0
         is_active:
           type: boolean
       required:
@@ -8680,6 +8689,8 @@ components:
           maxLength: 72
         position:
           type: integer
+          maximum: 2147483647
+          minimum: 0
         is_active:
           type: boolean
     PatchedCommerceSettingsRequest:
@@ -8818,9 +8829,11 @@ components:
           maxLength: 1000
         price_paise:
           type: integer
+          maximum: 2147483647
           minimum: 100
         sale_price_paise:
           type: integer
+          maximum: 2147483647
           minimum: 1
           nullable: true
         collection_id:
@@ -8831,6 +8844,7 @@ components:
           $ref: '#/components/schemas/ProductAvailabilityEnum'
         stock_qty:
           type: integer
+          maximum: 2147483647
           minimum: 0
           nullable: true
         max_qty_per_order:
@@ -8839,6 +8853,8 @@ components:
           minimum: 1
         position:
           type: integer
+          maximum: 2147483647
+          minimum: 0
         is_active:
           type: boolean
     PatchedStoreSettingsRequest:
@@ -9544,9 +9560,11 @@ components:
           maxLength: 1000
         price_paise:
           type: integer
+          maximum: 2147483647
           minimum: 100
         sale_price_paise:
           type: integer
+          maximum: 2147483647
           minimum: 1
           nullable: true
         collection_id:
@@ -9557,6 +9575,7 @@ components:
           $ref: '#/components/schemas/ProductAvailabilityEnum'
         stock_qty:
           type: integer
+          maximum: 2147483647
           minimum: 0
           nullable: true
         max_qty_per_order:
@@ -9565,6 +9584,8 @@ components:
           minimum: 1
         position:
           type: integer
+          maximum: 2147483647
+          minimum: 0
         is_active:
           type: boolean
       required:

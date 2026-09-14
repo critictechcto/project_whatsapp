@@ -14,6 +14,7 @@ from .schema_enums import (
 
 SKU_PATTERN = r"^[A-Za-z0-9_-]{1,100}$"
 MAX_REORDER_IDS = 5000
+MAX_INT = 2_147_483_647  # PostgreSQL integer columns
 
 # --- Products -------------------------------------------------------------------------------
 
@@ -58,15 +59,19 @@ class ProductWriteSerializer(serializers.Serializer):
     sku = serializers.RegexField(SKU_PATTERN, max_length=100, help_text="Create only.")
     name = serializers.CharField(max_length=200)
     description = serializers.CharField(max_length=1000, required=False, allow_blank=True)
-    price_paise = serializers.IntegerField(min_value=MIN_PRICE_PAISE)
-    sale_price_paise = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    price_paise = serializers.IntegerField(min_value=MIN_PRICE_PAISE, max_value=MAX_INT)
+    sale_price_paise = serializers.IntegerField(
+        min_value=1, max_value=MAX_INT, required=False, allow_null=True
+    )
     collection_id = serializers.UUIDField(required=False, allow_null=True)
     availability = serializers.ChoiceField(choices=PRODUCT_AVAILABILITIES, required=False)
-    stock_qty = serializers.IntegerField(min_value=0, required=False, allow_null=True)
+    stock_qty = serializers.IntegerField(
+        min_value=0, max_value=MAX_INT, required=False, allow_null=True
+    )
     max_qty_per_order = serializers.IntegerField(
         min_value=1, max_value=MAX_QTY_PER_ORDER, required=False
     )
-    position = serializers.IntegerField(required=False)
+    position = serializers.IntegerField(min_value=0, max_value=MAX_INT, required=False)
     is_active = serializers.BooleanField(required=False)
 
     def validate(self, attrs: dict) -> dict:
@@ -125,7 +130,7 @@ class CollectionSerializer(serializers.Serializer):
 class CollectionWriteSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=24, help_text="Shown as a list row title.")
     description = serializers.CharField(max_length=72, required=False, allow_blank=True)
-    position = serializers.IntegerField(required=False)
+    position = serializers.IntegerField(min_value=0, max_value=MAX_INT, required=False)
     is_active = serializers.BooleanField(required=False)
 
 

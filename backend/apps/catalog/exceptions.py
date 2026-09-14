@@ -2,7 +2,7 @@
 
 from rest_framework import exceptions
 
-from common.exceptions import Conflict
+from common.exceptions import Conflict, FeatureNotAvailable
 
 
 class EndpointNotImplemented(exceptions.APIException):
@@ -46,3 +46,22 @@ class OutOfStock(Conflict):
         super().__init__(message, code)
         self.default_detail = message
         self.detail = {"items": self.items}
+
+
+class CommerceNotEnabled(FeatureNotAvailable):
+    """409 ``commerce_not_enabled``: the plan lacks the ``commerce`` feature (wave-3 error table).
+
+    A ``FeatureNotAvailable`` subclass, so generic plan-error handling still catches it.
+    """
+
+    default_code = "commerce_not_enabled"
+    default_detail = (
+        "Your plan does not include the WhatsApp store. Upgrade your plan to manage the catalog."
+    )
+
+
+class WhatsAppNotConnected(Conflict):
+    default_code = "whatsapp_not_connected"
+    default_detail = (
+        "This WhatsApp Business Account is not connected. Reconnect WhatsApp to manage catalogs."
+    )
