@@ -1,6 +1,7 @@
 """Conversation operations (assign, close, reopen, notes, read receipts) and inbox event helpers.
 
-Realtime broadcasts are not sent here; they are wired from events separately.
+Each operation sends a ``conversation.updated`` realtime frame on commit. Message frames
+(``message.created``, ``message.status``) are sent by ``receivers.py`` from the inbox events.
 """
 
 import logging
@@ -14,7 +15,7 @@ from rest_framework.exceptions import ValidationError
 from apps.message_templates import services as template_services
 from apps.tenants.models import Membership
 from apps.whatsapp.client.errors import GraphAPIError
-from common import events
+from common import events, realtime
 
 from .models import Conversation, ConversationNote, Message
 
@@ -33,9 +34,17 @@ def get_or_create_conversation(workspace_id, contact, phone_number) -> tuple[Con
     )
 
 
+def notify_conversation_updated(conversation: Conversation) -> None:
+    """Send a ``conversation.updated`` frame to the workspace once the transaction commits."""
+    realtime.broadcast(
+        conversation.workspace_id, "conversation.updated", {"conversation_id": conversation.pk}
+    )
+
+
 def _update(conversation: Conversation, **fields) -> Conversation:
     Conversation.objects.filter(pk=conversation.pk).update(**fields, updated_at=timezone.now())
     conversation.refresh_from_db()
+    notify_conversation_updated(conversation)
     return conversation
 
 
@@ -67,12 +76,14 @@ def add_note(conversation: Conversation, body: str, *, author) -> ConversationNo
         raise ValidationError(
             {"body": [f"Ensure this field has no more than {MAX_NOTE_LENGTH} characters."]}
         )
-    return ConversationNote.objects.create(
+    note = ConversationNote.objects.create(
         workspace_id=conversation.workspace_id,
         conversation=conversation,
         author=author,
         body=body,
     )
+    notify_conversation_updated(conversation)
+    return note
 
 
 def mark_read(conversation: Conversation, *, actor) -> Conversation:
@@ -88,6 +99,7 @@ def mark_read(conversation: Conversation, *, actor) -> Conversation:
                 unread_count=0, updated_at=timezone.now()
             )
     if had_unread:
+        notify_conversation_updated(conversation)
         _send_read_receipt(conversation)
     conversation.refresh_from_db()
     return conversation

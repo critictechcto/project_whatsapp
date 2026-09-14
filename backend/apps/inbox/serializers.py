@@ -5,11 +5,15 @@
 second class with the same component name would be a schema collision).
 """
 
-from django.conf import settings
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
 from apps.contacts.models import Contact
 
+from . import media
+from .models import Conversation, Message
 from .schema_enums import (
     CONVERSATION_STATUSES,
     MESSAGE_DIRECTIONS,
@@ -77,6 +81,60 @@ class ConversationSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
+    def to_representation(self, instance):
+        if isinstance(instance, Conversation):
+            instance = conversation_data(instance)
+        return super().to_representation(instance)
+
+
+PREVIEW_TEXT_LENGTH = 200
+
+
+def conversation_data(conversation: Conversation) -> dict:
+    """Values for ``ConversationSerializer``. ``last_message`` comes from the
+    ``last_message_preview`` annotation (``selectors.with_last_message``) when present."""
+    expires = conversation.service_window_expires_at
+    if hasattr(conversation, "last_message_preview"):
+        preview = _preview(conversation.last_message_preview)
+    else:
+        latest = (
+            Message.objects.filter(conversation_id=conversation.pk)
+            .order_by("-created_at", "-id")
+            .values("direction", "type", "text", "status", "created_at")
+            .first()
+        )
+        preview = _preview(latest)
+    return {
+        "id": conversation.pk,
+        "contact": conversation.contact,
+        "phone_number": conversation.phone_number,
+        "status": conversation.status,
+        "assignee": conversation.assignee,
+        "unread_count": conversation.unread_count,
+        "last_message_at": conversation.last_message_at,
+        "last_inbound_at": conversation.last_inbound_at,
+        "service_window_expires_at": expires,
+        "window_open": expires is not None and expires > timezone.now(),
+        "last_message": preview,
+        "created_at": conversation.created_at,
+        "updated_at": conversation.updated_at,
+    }
+
+
+def _preview(value: dict | None) -> dict | None:
+    if not value:
+        return None
+    created_at = value.get("created_at")
+    if isinstance(created_at, str):
+        created_at = parse_datetime(created_at)
+    return {
+        "direction": value.get("direction"),
+        "type": value.get("type"),
+        "text": (value.get("text") or "")[:PREVIEW_TEXT_LENGTH],
+        "status": value.get("status"),
+        "created_at": created_at,
+    }
+
 
 class StartConversationSerializer(serializers.Serializer):
     contact_id = serializers.UUIDField()
@@ -142,6 +200,56 @@ class MessageSerializer(serializers.Serializer):
     delivered_at = serializers.DateTimeField(read_only=True, allow_null=True)
     read_at = serializers.DateTimeField(read_only=True, allow_null=True)
     failed_at = serializers.DateTimeField(read_only=True, allow_null=True)
+
+    def to_representation(self, instance):
+        if isinstance(instance, Message):
+            instance = message_data(instance, self.context.get("request"))
+        return super().to_representation(instance)
+
+
+def message_data(message: Message, request=None) -> dict:
+    """Values for ``MessageSerializer``; ``download_url`` needs ``request`` and a stored file."""
+    template = None
+    if message.type == Message.Type.TEMPLATE or message.template_id:
+        template = {
+            "id": message.template_id,
+            "name": message.template_name,
+            "language": message.template_language,
+        }
+    media_value = None
+    if message.type in Message.MEDIA_TYPES:
+        download_url = None
+        if message.file and request is not None:
+            download_url = request.build_absolute_uri(
+                reverse("inbox:message-media", kwargs={"pk": message.pk})
+            )
+        media_value = {
+            "mime_type": message.mime_type,
+            "file_name": message.file_name,
+            "size": message.size or 0,
+            "download_url": download_url,
+        }
+    return {
+        "id": message.pk,
+        "conversation_id": message.conversation_id,
+        "direction": message.direction,
+        "type": message.type,
+        "text": message.text,
+        "status": message.status,
+        "source": message.source,
+        "error_code": message.error_code or "",
+        "error_message": message.error_message or "",
+        "template": template,
+        "media": media_value,
+        "reply_to_message_id": message.reply_to_id,
+        "sent_by": message.sent_by if message.sent_by_id else None,
+        "wamid": message.wamid or "",
+        "created_at": message.created_at,
+        "sent_at": message.sent_at,
+        "delivered_at": message.delivered_at,
+        "read_at": message.read_at,
+        "failed_at": message.failed_at,
+    }
 
 
 class SendMessageSerializer(serializers.Serializer):
@@ -211,12 +319,10 @@ class MediaUploadSerializer(serializers.Serializer):
     file = serializers.FileField(help_text="Within Meta's size limit for the media type.")
 
     def validate_file(self, value):
-        kind = media_kind(getattr(value, "content_type", ""))
-        limit = settings.WHATSAPP_MEDIA_MAX_BYTES[kind]
-        if value.size > limit:
-            raise serializers.ValidationError(
-                f"The {kind} is larger than WhatsApp's {limit // 1024} KB limit."
-            )
+        try:
+            value.content_type = media.validate_upload(value)
+        except media.MediaValidationError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
         return value
 
 
