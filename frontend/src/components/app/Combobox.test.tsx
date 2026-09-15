@@ -58,6 +58,24 @@ describe('Combobox', () => {
     expect(screen.queryByRole('button', { name: 'Remove Pune' })).not.toBeInTheDocument()
   })
 
+  it('closes the list after a mouse pick in multi-select so it does not cover what is below', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<Harness onChange={onChange} />)
+    const input = screen.getByRole('combobox', { name: 'Cities' })
+
+    await user.click(input)
+    await user.click(screen.getByRole('option', { name: 'Mumbai' }))
+    expect(onChange).toHaveBeenLastCalledWith(['mumbai'])
+    expect(input).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(input).toHaveFocus()
+
+    await user.click(input)
+    await user.click(screen.getByRole('option', { name: 'Jaipur' }))
+    expect(onChange).toHaveBeenLastCalledWith(['mumbai', 'jaipur'])
+  })
+
   it('filters by typing and wraps around with ArrowUp', async () => {
     const user = userEvent.setup()
     render(<Harness onChange={vi.fn()} />)

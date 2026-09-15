@@ -101,14 +101,19 @@ export function Combobox(rawProps: ComboboxProps) {
     openList()
   }
 
-  const choose = (option: ComboboxOption) => {
+  /** Multi-select stays open for keyboard picks; a mouse pick closes the list so it stops covering
+   *  whatever sits below (such as a dialog's buttons). Clicking the input opens it again. */
+  const choose = (option: ComboboxOption, { close = false } = {}) => {
     if (option.disabled) return
     if (props.multiple) {
       const next = selected.includes(option.value)
         ? selected.filter((value) => value !== option.value)
         : [...selected, option.value]
       props.onChange(next)
-      updateQuery('')
+      setQuery('')
+      setActiveIndex(-1)
+      onSearchChange?.('')
+      setOpen(!close)
       inputRef.current?.focus()
     } else {
       props.onChange(option.value)
@@ -263,7 +268,7 @@ export function Combobox(rawProps: ComboboxProps) {
                   aria-disabled={option.disabled || undefined}
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => choose(option)}
+                  onClick={() => choose(option, { close: true })}
                   className={cn(
                     'flex cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-sm',
                     index === activeIndex && 'bg-ink/5',
