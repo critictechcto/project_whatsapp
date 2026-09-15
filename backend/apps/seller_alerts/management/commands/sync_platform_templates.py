@@ -1,4 +1,5 @@
-"""``manage.py sync_platform_templates``: create the seller alert templates in UpChatz's WABA."""
+"""``manage.py sync_platform_templates``: create and update the seller alert templates in
+UpChatz's WABA."""
 
 from django.core.management.base import BaseCommand, CommandError
 from rest_framework.exceptions import ValidationError
@@ -11,8 +12,8 @@ from apps.whatsapp.client import GraphAPIError
 class Command(BaseCommand):
     help = (
         "Create the platform templates upc_seller_verify, upc_new_order and upc_order_attention "
-        "in PLATFORM_WA_WABA_ID when missing, and print their Meta review statuses. Safe to "
-        "re-run."
+        "in PLATFORM_WA_WABA_ID when missing, edit the ones that differ from their definition "
+        "where Meta allows it, and print their Meta review statuses. Safe to re-run."
     )
 
     def handle(self, *args, **options):
@@ -27,11 +28,10 @@ class Command(BaseCommand):
             raise CommandError(f"A platform template definition is invalid: {exc.detail}") from exc
 
         for result in results:
+            action = f"{result.action}: {result.note}" if result.note else result.action
             line = (
                 f"{result.name} ({result.language}, {result.category or '?'}): "
-                f"{result.status} [{result.action}]"
+                f"{result.status} [{action}]"
             )
-            if result.note:
-                line = f"{line} - {result.note}"
             style = self.style.WARNING if result.action == "outdated" else self.style.SUCCESS
             self.stdout.write(style(line))

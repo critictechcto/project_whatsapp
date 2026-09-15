@@ -11,7 +11,9 @@ from typing import Any
 from django.conf import settings
 
 from .base import JSON
-from .errors import GraphAPIError, InvalidParameterError
+from .errors import GraphAPIError, InvalidParameterError, TemplateError
+
+EDITABLE_TEMPLATE_STATUSES = frozenset({"APPROVED", "REJECTED", "PAUSED"})
 
 
 @dataclass
@@ -353,6 +355,40 @@ class FakeGraphClient:
         for existing_id in matches:
             del self.templates[existing_id]
             del self._template_waba[existing_id]
+        return {"success": True}
+
+    def edit_message_template(
+        self, template_id: str, *, components: list[JSON], category: str | None = None
+    ) -> JSON:
+        """Applies Meta's status rules; script edit-limit refusals with :meth:`fail`. A rejected
+        template goes back to ``PENDING``; approved and paused ones come back ``APPROVED``."""
+        self._record(
+            "edit_message_template",
+            template_id=template_id,
+            components=components,
+            category=category,
+        )
+        template = self.templates.get(template_id)
+        if template is None:
+            raise self._not_found(template_id)
+        status = str(template.get("status", "")).upper()
+        if status not in EDITABLE_TEMPLATE_STATUSES:
+            raise TemplateError(
+                "The status for this message template can't be changed.",
+                http_status=400,
+                code=100,
+                subcode=2388039,
+            )
+        if category and category != template["category"]:
+            if status == "APPROVED":
+                raise InvalidParameterError(
+                    "You cannot edit the category of an approved template.",
+                    http_status=400,
+                    code=100,
+                )
+            template["category"] = category
+        template["components"] = copy.deepcopy(components)
+        template["status"] = "PENDING" if status == "REJECTED" else "APPROVED"
         return {"success": True}
 
     # --- Commerce: catalogs ---------------------------------------------------------------------

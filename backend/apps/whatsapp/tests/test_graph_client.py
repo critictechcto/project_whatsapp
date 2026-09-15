@@ -434,6 +434,46 @@ def test_delete_template(graph, client, template_id):
     assert params.get("hsm_id") == template_id
 
 
+@pytest.mark.parametrize(
+    ("category", "expected"),
+    [
+        (None, {"components": [{"type": "BODY", "text": "Hi {{1}}"}]}),
+        ("UTILITY", {"components": [{"type": "BODY", "text": "Hi {{1}}"}], "category": "UTILITY"}),
+    ],
+)
+def test_edit_message_template(graph, client, category, expected):
+    route = graph.post(f"{BASE}/t1").mock(return_value=ok())
+
+    result = client.edit_message_template(
+        "t1", components=[{"type": "BODY", "text": "Hi {{1}}"}], category=category
+    )
+
+    assert result == {"success": True}
+    assert body_of(route.calls.last.request) == expected
+    assert_customer_auth(route.calls.last.request)
+
+
+def test_template_subcodes_map_to_template_error(graph, client):
+    graph.post(f"{BASE}/t1").mock(
+        return_value=httpx.Response(
+            400,
+            json={
+                "error": {
+                    "message": "Message template status can't be changed",
+                    "code": 100,
+                    "error_subcode": 2388039,
+                }
+            },
+        )
+    )
+
+    with pytest.raises(errors.TemplateError) as caught:
+        client.edit_message_template("t1", components=[])
+
+    assert caught.value.subcode == 2388039
+    assert caught.value.retryable is False
+
+
 # --- Errors ------------------------------------------------------------------------------------
 
 
