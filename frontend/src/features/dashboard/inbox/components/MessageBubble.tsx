@@ -19,6 +19,7 @@ const sourceLabels: Record<Message['source'], string> = {
   inbox: '',
   campaign: 'Campaign',
   automation: 'Automation',
+  commerce: 'Store',
   api: 'API',
 }
 

@@ -410,8 +410,8 @@ function build(): InboxMockState {
     { dir: 'out', ago: 6 * HOUR, text: 'Ji Vivaan, Suresh ji ko bhi call kar lenge.', status: 'delivered' },
   ])
 
-  // J: Kabir, a shop bot flow from "hi" to a paid order (bot replies are automation sends).
-  const bot = { dir: 'out', source: 'automation', status: 'read' } as const
+  // J: Kabir, a shop bot flow from "hi" to a paid order (bot replies are commerce sends).
+  const bot = { dir: 'out', source: 'commerce', status: 'read' } as const
   const shopEnd = 55 * MINUTE
   add(10, { contact: 6 }, [
     { dir: 'in', ago: shopEnd + 14 * MINUTE, text: 'hi' },

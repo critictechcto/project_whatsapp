@@ -1126,7 +1126,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Only COD orders that are shipped or delivered. */
+        /** @description Only COD orders that are shipped or delivered; otherwise 409 invalid_order_transition. */
         post: operations["orders_mark_cod_collected_create"];
         delete?: never;
         options?: never;
@@ -1143,7 +1143,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Only paid orders that are cancelled or need attention; refund in Razorpay. */
+        /** @description Only paid orders that are cancelled or need attention (otherwise 409 invalid_order_transition); refund in Razorpay. */
         post: operations["orders_mark_refunded_create"];
         delete?: never;
         options?: never;
@@ -2148,12 +2148,12 @@ export interface components {
             scheduled_at?: string | null;
         };
         CancelOrderRequest: {
-            /** @default  */
-            reason: string;
-            /** @default true */
-            restock: boolean;
-            /** @default true */
-            notify_buyer: boolean;
+            /** @description Default "". */
+            reason?: string;
+            /** @description Default true. */
+            restock?: boolean;
+            /** @description Default true. */
+            notify_buyer?: boolean;
         };
         CancelSubscriptionRequest: {
             /**
@@ -2643,9 +2643,10 @@ export interface components {
          *     * `campaign` - campaign
          *     * `automation` - automation
          *     * `api` - api
+         *     * `commerce` - commerce
          * @enum {string}
          */
-        MessageSourceEnum: "inbound" | "inbox" | "campaign" | "automation" | "api";
+        MessageSourceEnum: "inbound" | "inbox" | "campaign" | "automation" | "api" | "commerce";
         /**
          * @description * `queued` - queued
          *     * `sending` - sending
@@ -3025,8 +3026,8 @@ export interface components {
             courier_name?: string;
             awb_number?: string;
             tracking_url?: string;
-            /** @default true */
-            notify_buyer: boolean;
+            /** @description Default true. */
+            notify_buyer?: boolean;
         };
         /**
          * @description * `confirmed` - confirmed

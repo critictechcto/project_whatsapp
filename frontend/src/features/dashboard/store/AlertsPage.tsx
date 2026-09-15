@@ -29,7 +29,7 @@ const ALERT_EVENTS: readonly AlertEvent[] = ['new_order', 'needs_attention', 'or
 const eventLabels: Record<AlertEvent, { label: string; description: string }> = {
   new_order: { label: 'New orders', description: 'With buttons to mark it packed, shipped or cancel it.' },
   needs_attention: { label: 'Orders that need attention', description: 'For example a payment that arrived for an expired order.' },
-  order_cancelled: { label: 'Cancelled orders', description: 'When a buyer cancels or an order expires unpaid.' },
+  order_cancelled: { label: 'Cancelled orders', description: 'When a confirmed order is cancelled by the buyer or UpChatz.' },
 }
 
 const recipientStatus: Record<AlertRecipientStatus, { label: string; tone: Tone }> = {
@@ -207,7 +207,7 @@ export function AlertsPage() {
       <SectionCard id="alert-commands" title="Reply from WhatsApp" description="Only confirmed numbers can use these.">
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[max-content_1fr]">
           <dt className="font-medium text-ink">Mark packed / Mark shipped / Cancel</dt>
-          <dd className="text-muted">Buttons on each new-order alert. After Mark shipped, reply with the courier name and AWB number.</dd>
+          <dd className="text-muted">Buttons on each new-order alert. After Mark shipped, reply with the courier name and AWB number. Cancel asks you to confirm first.</dd>
           <dt className="font-mono text-ink">ORDERS</dt>
           <dd className="text-muted">Lists your open orders.</dd>
           <dt className="font-mono text-ink">HELP</dt>

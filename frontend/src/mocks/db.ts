@@ -27,6 +27,10 @@ export type MockDb = {
   refreshTokens: Map<string, string>
 }
 
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString()
+}
+
 function membershipId(index: number) {
   return `9c2e4a6b-1d3f-4b5a-8c7e-${String(index + 1).padStart(12, '0')}`
 }
@@ -49,7 +53,8 @@ function build(): MockDb {
         role: 'agent',
         status: 'pending',
         invited_by: { id: priya.id, email: priya.email, full_name: priya.full_name },
-        expires_at: daysAgo(-5),
+        // Accepting checks the real clock, so pending invitations expire relative to now, not SEED_NOW.
+        expires_at: daysFromNow(5),
         created_at: daysAgo(2),
       },
       {
@@ -60,7 +65,7 @@ function build(): MockDb {
         role: 'agent',
         status: 'pending',
         invited_by: { id: farhan.id, email: farhan.email, full_name: farhan.full_name },
-        expires_at: daysAgo(-6),
+        expires_at: daysFromNow(6),
         created_at: daysAgo(1),
       },
     ],
