@@ -1,6 +1,7 @@
 import pytest
 
 from apps.accounts.factories import UserFactory
+from apps.payments.testing import fake_payments  # noqa: F401  (fixture for every app's tests)
 from apps.tenants.factories import MembershipFactory, WorkspaceFactory
 from apps.tenants.models import Membership
 from apps.whatsapp.client import override_client

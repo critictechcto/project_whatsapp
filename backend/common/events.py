@@ -229,16 +229,18 @@ class PlatformInboundMessage:
 
 @dataclass(frozen=True, slots=True)
 class PaymentLinkPaid:
-    """A seller's payment link was paid in full. Emitted on commit by ``apps.payments`` after
-    the webhook signature, amount and link were verified. Receivers dedupe on
+    """A seller's payment link was paid in full. Emitted once, on commit, by ``apps.payments``
+    when the link state fetched from the gateway is paid and the amount and currency match.
+    The state is fetched when the buyer returns from the gateway, by polling, or after an
+    optional seller webhook whose signature was verified. Receivers dedupe on
     ``payment_link_id`` (a link is paid at most once)."""
 
     workspace_id: uuid.UUID
     order_id: uuid.UUID
     payment_link_id: uuid.UUID  # payments.PaymentLink primary key
-    provider: str  # razorpay
-    provider_link_id: str  # plink_...
-    provider_payment_id: str  # pay_...
+    provider: str  # razorpay | cashfree
+    provider_link_id: str  # the gateway's link id (Razorpay plink_..., Cashfree link_id)
+    provider_payment_id: str  # the gateway's payment id; may be "" when it couldn't be fetched
     amount_paise: int
     currency: str
     paid_at: datetime
@@ -246,7 +248,9 @@ class PaymentLinkPaid:
 
 @dataclass(frozen=True, slots=True)
 class PaymentLinkExpired:
-    """A payment link expired unpaid. Emitted on commit by ``apps.payments``."""
+    """A payment link expired unpaid (seen on the gateway by the return page, polling or an
+    optional webhook, or expired locally after the final poll keeps failing). Emitted on commit
+    by ``apps.payments``; ``provider`` is razorpay or cashfree."""
 
     workspace_id: uuid.UUID
     order_id: uuid.UUID
@@ -258,8 +262,9 @@ class PaymentLinkExpired:
 
 @dataclass(frozen=True, slots=True)
 class PaymentLinkCancelled:
-    """A payment link was cancelled (by UpChatz or in the provider dashboard). Emitted on commit
-    by ``apps.payments``."""
+    """A payment link was cancelled, by UpChatz or on the gateway side (seen by the return
+    page, polling or an optional webhook). Emitted on commit by ``apps.payments``; ``provider``
+    is razorpay or cashfree."""
 
     workspace_id: uuid.UUID
     order_id: uuid.UUID
