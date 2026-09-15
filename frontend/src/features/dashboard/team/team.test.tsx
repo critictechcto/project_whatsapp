@@ -4,7 +4,7 @@ import { db } from '../../../mocks/db'
 import { server } from '../../../mocks/node'
 import { ids } from '../../../mocks/seed'
 import { errorResponse, http } from '../../../mocks/utils'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 
 const teamPath = `/app/w/${ids.sharmaSweets}/team`
 
@@ -23,7 +23,7 @@ describe('team', () => {
     const { user } = renderDashboard(teamPath)
     await user.click(await screen.findByRole('button', { name: 'Invite teammate' }))
 
-    const dialog = await screen.findByRole('dialog', { name: 'Invite a teammate' })
+    const dialog = await findDialog({ name: 'Invite a teammate' })
     await user.type(within(dialog).getByLabelText(/^Email/), 'neha.gupta@sharmasweets.in')
     await user.selectOptions(within(dialog).getByLabelText(/^Role/), 'agent')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
@@ -37,7 +37,7 @@ describe('team', () => {
     signIn()
     const { user } = renderDashboard(teamPath)
     await user.click(await screen.findByRole('button', { name: 'Invite teammate' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Invite a teammate' })
+    const dialog = await findDialog({ name: 'Invite a teammate' })
     await user.type(within(dialog).getByLabelText(/^Email/), 'priya.nair@sharmasweets.in')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
 
@@ -75,7 +75,7 @@ describe('team', () => {
     await user.click(await screen.findByRole('button', { name: 'Actions for Priya Nair' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Change role' }))
 
-    const dialog = await screen.findByRole('dialog', { name: 'Change role for Priya Nair' })
+    const dialog = await findDialog({ name: 'Change role for Priya Nair' })
     await user.click(within(dialog).getByRole('radio', { name: /^Agent/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Save role' }))
 

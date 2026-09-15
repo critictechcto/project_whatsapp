@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { platformState, PLATFORM_DISPLAY_NUMBER, storeState, type MockRecipient } from './mockState'
 
 const alertsPath = `/app/w/${ids.sharmaSweets}/store/alerts`
@@ -24,7 +24,7 @@ describe('order alerts', () => {
     expect(screen.getByText('STOP')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Add number' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Add alert number' })
+    const dialog = await findDialog({ name: 'Add alert number' })
     expect(dialog).toHaveTextContent(`You'll get a WhatsApp message from UpChatz (${PLATFORM_DISPLAY_NUMBER}) — tap Confirm`)
 
     await user.click(within(dialog).getByRole('button', { name: 'Add and send confirmation' }))
@@ -62,7 +62,7 @@ describe('order alerts', () => {
     const { user } = renderDashboard(alertsPath)
 
     await user.click(await screen.findByRole('button', { name: 'Add number' }, lazy))
-    const dialog = await screen.findByRole('dialog', { name: 'Add alert number' })
+    const dialog = await findDialog({ name: 'Add alert number' })
     await user.type(within(dialog).getByLabelText(/^Name/), 'Meena')
     await user.type(within(dialog).getByLabelText(/^WhatsApp number/), '9811100003')
     // Someone else adds the third number meanwhile.
@@ -80,7 +80,7 @@ describe('order alerts', () => {
     const { user } = renderDashboard(alertsPath)
 
     await user.click(await screen.findByRole('button', { name: 'Remove Rohit Sharma' }, lazy))
-    const dialog = await screen.findByRole('dialog', { name: 'Remove Rohit Sharma?' })
+    const dialog = await findDialog({ name: 'Remove Rohit Sharma?' })
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(storeState(ids.sharmaSweets).recipients).toHaveLength(0))
     expect(await screen.findByText('No alert numbers yet')).toBeInTheDocument()

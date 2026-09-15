@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../../mocks/db'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { catalogMock, collectionId } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/catalog`
@@ -119,7 +119,7 @@ describe('products list', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Reorder' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Reorder products' })
+    const dialog = await findDialog({ name: 'Reorder products' })
     expect(within(dialog).getByRole('button', { name: 'Save order' })).toBeDisabled()
     await user.click(await within(dialog).findByRole('button', { name: 'Move Kaju katli 500 g down' }))
     await user.click(within(dialog).getByRole('button', { name: 'Save order' }))
@@ -143,7 +143,7 @@ describe('CSV import', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Import CSV' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Import products from CSV' })
+    const dialog = await findDialog({ name: 'Import products from CSV' })
     expect(within(dialog).getByRole('table', { name: 'CSV columns' })).toBeInTheDocument()
     expect(within(dialog).getByRole('link', { name: 'Download sample CSV' })).toHaveAttribute('href', expect.stringMatching(/^data:text\/csv/))
 

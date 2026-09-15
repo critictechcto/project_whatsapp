@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { catalogMock, collectionId } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/catalog/collections`
@@ -22,7 +22,7 @@ describe('collections', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'New collection' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'New collection' })
+    const dialog = await findDialog({ name: 'New collection' })
 
     await user.type(within(dialog).getByLabelText(/^Name/), 'Seasonal festival specials')
     await user.type(within(dialog).getByLabelText(/^Description/), 'x'.repeat(73))
@@ -50,7 +50,7 @@ describe('collections', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Delete Laddus' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Delete Laddus?' })
+    const dialog = await findDialog({ name: 'Delete Laddus?' })
     expect(within(dialog).getByText(/in your catalog without a collection/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Delete collection' }))
 

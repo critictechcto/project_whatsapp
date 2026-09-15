@@ -4,7 +4,7 @@ import type { RoleEnum } from '../../../api/types'
 import { dispatch } from '../../../lib/realtime/registry'
 import { db } from '../../../mocks/db'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { campaignIds, campaignRecords, findCampaign, toCampaign } from './mockState'
 import { actionCopy } from './status'
 
@@ -90,7 +90,7 @@ describe('campaign report', () => {
 
     findCampaign(ids.sharmaSweets, campaignIds.diwali)!.campaign.status = 'completed'
     await user.click(screen.getByRole('button', { name: actionCopy.pause.label }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await findDialog()
     await user.click(within(dialog).getByRole('button', { name: actionCopy.pause.confirm }))
 
     expect(await screen.findByText(/That action isn't available for the campaign's current status/)).toBeInTheDocument()

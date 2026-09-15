@@ -5,7 +5,7 @@ import { formatPaise } from '../../../lib/money'
 import { dispatch } from '../../../lib/realtime/registry'
 import { db } from '../../../mocks/db'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { seededOrder } from './mockState'
 
 const ws = `/app/w/${ids.sharmaSweets}`
@@ -64,7 +64,7 @@ describe('order detail', () => {
     expect(screen.queryByRole('button', { name: 'Mark packed' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Confirm order' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await findDialog()
     await user.click(within(dialog).getByRole('button', { name: 'Confirm order' }))
 
     expect(await screen.findByText('Order confirmed')).toBeInTheDocument()
@@ -77,7 +77,7 @@ describe('order detail', () => {
     const { user, record } = await openOrder('confirmedCod')
 
     await user.click(screen.getByRole('button', { name: 'Mark shipped' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await findDialog()
     await user.click(within(dialog).getByRole('button', { name: 'Mark shipped' }))
     expect(await within(dialog).findByText('Enter the courier name.')).toBeInTheDocument()
     expect(within(dialog).getByText('Enter the AWB number.')).toBeInTheDocument()
@@ -114,7 +114,7 @@ describe('order detail', () => {
     expect(record.order.payment_link?.status).toBe('created')
 
     await user.click(screen.getByRole('button', { name: 'Cancel order' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await findDialog()
     expect(within(dialog).getByText(/If a payment link is still open, it's cancelled too/)).toBeInTheDocument()
 
     const restock = within(dialog).getByRole('checkbox', { name: /Return items to stock/ })
@@ -171,7 +171,7 @@ describe('order detail', () => {
   it('explains a 409 invalid transition and refreshes the order', async () => {
     const { user, record } = await openOrder('confirmedCod')
     await user.click(screen.getByRole('button', { name: 'Mark packed' }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await findDialog()
 
     // Someone else delivered it in the meantime.
     record.order.status = 'delivered'

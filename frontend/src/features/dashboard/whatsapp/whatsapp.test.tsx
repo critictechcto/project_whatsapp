@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 
 // Tests run in live API mode, so replace the Facebook SDK with a launcher that succeeds at once.
 vi.mock('../../../lib/integrations/facebook', async (importOriginal) => {
@@ -38,7 +38,7 @@ describe('WhatsApp', () => {
     const { user } = renderDashboard(`/app/w/${ids.kaveriClinic}/whatsapp`)
     await user.click(await screen.findByRole('button', { name: 'Connect WhatsApp' }))
 
-    const dialog = await screen.findByRole('dialog', { name: 'Connect WhatsApp' })
+    const dialog = await findDialog({ name: 'Connect WhatsApp' })
     const start = within(dialog).getByRole('button', { name: 'Continue with Facebook' })
     await vi.waitFor(() => expect(start).toBeEnabled())
     await user.click(start)

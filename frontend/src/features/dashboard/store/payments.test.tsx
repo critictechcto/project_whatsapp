@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { storeState } from './mockState'
 import { formToAccountPatch, paymentsSchema, razorpayModeFromKey } from './payments'
 
@@ -84,7 +84,7 @@ describe('payments page', () => {
     const { user } = renderDashboard(paymentsPath)
 
     await user.click(await screen.findByRole('radio', { name: /^Cashfree/ }, lazy))
-    const dialog = await screen.findByRole('dialog', { name: 'Switch to Cashfree?' })
+    const dialog = await findDialog({ name: 'Switch to Cashfree?' })
     expect(dialog).toHaveTextContent('Your saved Razorpay keys will be cleared')
     await user.click(within(dialog).getByRole('button', { name: 'Switch and clear keys' }))
     await waitFor(() => expect(storeState(ids.sharmaSweets).account.provider).toBe('cashfree'))
@@ -119,7 +119,7 @@ describe('payments page', () => {
     expect(screen.getByLabelText(/^Webhook secret/)).toHaveValue('')
 
     await user.click(screen.getByRole('button', { name: 'Rotate URL' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Rotate the webhook URL?' })
+    const dialog = await findDialog({ name: 'Rotate the webhook URL?' })
     await user.click(within(dialog).getByRole('button', { name: 'Rotate URL' }))
     await waitFor(() => expect(screen.getByLabelText('Webhook URL')).not.toHaveValue('https://api.upchatz.com/webhooks/payments/merchants/whk_sharma_0001/'))
   })

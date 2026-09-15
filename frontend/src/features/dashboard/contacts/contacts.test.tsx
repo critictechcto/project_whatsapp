@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../../mocks/db'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { contactId, contactsMock, mockTagIds } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/contacts`
@@ -36,7 +36,7 @@ describe('contacts list', () => {
     expect(await screen.findByRole('link', { name: newest }, LAZY)).toBeInTheDocument()
     await user.type(screen.getByRole('searchbox', { name: 'Search contacts' }), 'Ananya')
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('q')).toBe('Ananya'))
-    expect(await screen.findByRole('link', { name: 'Ananya Khan' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Ananya Khan' }, LAZY)).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument())
 
     await user.clear(screen.getByRole('searchbox', { name: 'Search contacts' }))
@@ -61,7 +61,7 @@ describe('contacts list', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Add contact' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Add contact' })
+    const dialog = await findDialog({ name: 'Add contact' })
 
     // Aarav Patel's number (+919012345678), typed the way people write Indian mobiles.
     await user.type(within(dialog).getByLabelText(/^WhatsApp phone number/), '90123 45678')
@@ -77,7 +77,7 @@ describe('contacts list', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Add contact' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Add contact' })
+    const dialog = await findDialog({ name: 'Add contact' })
     await user.type(within(dialog).getByLabelText(/^WhatsApp phone number/), '12345')
     await user.click(within(dialog).getByRole('button', { name: 'Add contact' }))
     expect(await within(dialog).findByText(/Enter a valid number with its country code/)).toBeInTheDocument()
@@ -95,7 +95,7 @@ describe('contacts list', () => {
     expect(within(bar).getByText('2 selected')).toBeInTheDocument()
     await user.click(within(bar).getByRole('button', { name: 'Add tags' }))
 
-    const dialog = await screen.findByRole('dialog', { name: 'Add tags' })
+    const dialog = await findDialog({ name: 'Add tags' })
     await chooseOption(user, within(dialog).getByRole('combobox', { name: /^Tags/ }), 'VIP')
     await user.click(within(dialog).getByRole('button', { name: 'Add tags' }))
 
@@ -118,7 +118,7 @@ describe('contact detail', () => {
     expect(within(history).getByText(/Checkout form on sharmasweets\.in/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Record opt-out' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Record marketing opt-out' })
+    const dialog = await findDialog({ name: 'Record marketing opt-out' })
     await user.type(within(dialog).getByLabelText(/^Note/), 'Asked on a call to stop offers')
     await user.click(within(dialog).getByRole('button', { name: 'Record opt-out' }))
 
@@ -135,7 +135,7 @@ describe('contact detail', () => {
     signIn()
     const { user } = renderDashboard(`${base}/${contactId(0)}`)
     await user.click(await screen.findByRole('button', { name: 'Record opt-in' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Record marketing opt-in' })
+    const dialog = await findDialog({ name: 'Record marketing opt-in' })
     await user.click(within(dialog).getByRole('button', { name: 'Record opt-in' }))
     expect(await within(dialog).findByText('Describe how the customer opted in.')).toBeInTheDocument()
   })

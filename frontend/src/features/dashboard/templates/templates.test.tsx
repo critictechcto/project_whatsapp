@@ -4,7 +4,7 @@ import { db } from '../../../mocks/db'
 import { server } from '../../../mocks/node'
 import { ids, seedTemplates } from '../../../mocks/seed'
 import { http, validationError } from '../../../mocks/utils'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { rejectionInfo, statusExplanations } from './lib/constants'
 
 const base = `/app/w/${ids.sharmaSweets}/templates`
@@ -214,7 +214,7 @@ describe('roles', () => {
     signIn()
     const { user, router } = renderDashboard(`${base}/${approved.id}`)
     await user.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 10_000 }))
-    const dialog = await screen.findByRole('dialog')
+    const dialog = await findDialog()
     expect(within(dialog).getByText(/can't create a new template named/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Delete template' }))
     await waitFor(() => expect(router.state.location.pathname).toBe(base))

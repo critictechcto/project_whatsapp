@@ -6,7 +6,7 @@ import { db } from '../../../mocks/db'
 import { server } from '../../../mocks/node'
 import { ids } from '../../../mocks/seed'
 import { apiUrl } from '../../../mocks/utils'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { inboxMockIds, inboxState } from './mockData'
 
 const base = `/app/w/${ids.sharmaSweets}/inbox`
@@ -71,7 +71,7 @@ describe('conversation list', () => {
     const { router, user } = renderDashboard(base)
 
     await user.click(await screen.findByRole('button', { name: 'New conversation' }))
-    const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
+    const dialog = await findDialog({ name: 'New conversation' })
     await user.type(within(dialog).getByRole('combobox'), 'Aarav')
     await user.click(await screen.findByRole('option', { name: /Aarav Patel/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Open conversation' }))
@@ -163,7 +163,7 @@ describe('thread and composer', () => {
     expect(screen.getByRole('button', { name: 'Attach file' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: 'Send template' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Send a template' })
+    const dialog = await findDialog({ name: 'Send a template' })
     await user.click(within(dialog).getByRole('combobox', { name: 'Template' }))
     // Templates mocks also seed a Hindi order_shipped; pick the non-Hindi one.
     const templateOptions = await screen.findAllByRole('option', { name: /order_shipped/ })

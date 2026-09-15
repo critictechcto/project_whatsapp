@@ -1,8 +1,9 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
-import { render, type RenderOptions } from '@testing-library/react'
+import { render, screen, waitFor, type ByRoleOptions, type RenderOptions } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement, ReactNode } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
+import { expect } from 'vitest'
 import { createQueryClient } from '../api/queryClient'
 import { ToastProvider } from '../components/app/Toast'
 import { dashboardRoutes } from '../features/dashboard/router'
@@ -29,6 +30,16 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions & {
   const user = userEvent.setup()
   const result = render(ui, { ...options, wrapper: ({ children }) => <Providers queryClient={queryClient}>{children}</Providers> })
   return { ...result, queryClient, user }
+}
+
+/**
+ * Finds an open dialog once its initial focus has landed. The focus manager moves focus on the next
+ * animation frame; on a slow machine that frame can arrive mid-typing and send keystrokes elsewhere.
+ */
+export async function findDialog(options?: ByRoleOptions) {
+  const dialog = await screen.findByRole('dialog', options)
+  await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+  return dialog
 }
 
 /** Renders the whole dashboard at `path` with an in-memory router. */

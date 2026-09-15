@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { db } from '../../../mocks/db'
 import { ids } from '../../../mocks/seed'
 import { dispatch } from '../../../lib/realtime/registry'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { catalogMock, metaCatalogId } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/catalog/whatsapp`
@@ -34,7 +34,7 @@ describe('native WhatsApp catalog', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Connect a Meta catalog' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Connect a Meta catalog' })
+    const dialog = await findDialog({ name: 'Connect a Meta catalog' })
 
     expect(await within(dialog).findByRole('combobox', { name: 'WhatsApp Business Account' })).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Connect catalog' }))
@@ -53,7 +53,7 @@ describe('native WhatsApp catalog', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Connect a Meta catalog' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Connect a Meta catalog' })
+    const dialog = await findDialog({ name: 'Connect a Meta catalog' })
     await user.click(await within(dialog).findByRole('radio', { name: 'Create a new catalog' }))
     await user.type(within(dialog).getByLabelText(/^New catalog name/), 'Sharma Sweets Diwali')
     await user.click(within(dialog).getByRole('button', { name: 'Create and connect' }))
@@ -68,7 +68,7 @@ describe('native WhatsApp catalog', () => {
     signIn()
     const { user } = renderDashboard(base)
     await user.click(await screen.findByRole('button', { name: 'Connect a Meta catalog' }, LAZY))
-    const dialog = await screen.findByRole('dialog', { name: 'Connect a Meta catalog' })
+    const dialog = await findDialog({ name: 'Connect a Meta catalog' })
 
     const notice = await within(dialog).findByRole('alert', undefined, LAZY)
     expect(notice).toHaveTextContent('Reconnect WhatsApp to allow catalog access')

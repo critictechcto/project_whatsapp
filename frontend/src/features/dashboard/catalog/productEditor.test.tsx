@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { catalogMock, productId } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/catalog`
@@ -116,7 +116,7 @@ describe('product editor', () => {
     const heading = await screen.findByRole('heading', { level: 1 }, LAZY)
     const name = heading.textContent!
     await user.click(screen.getByRole('button', { name: 'Delete' }))
-    const dialog = await screen.findByRole('dialog', { name: `Delete ${name}?` })
+    const dialog = await findDialog({ name: `Delete ${name}?` })
     expect(within(dialog).getByText(/Past orders keep their item names and prices/)).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Delete product' }))
     await waitFor(() => expect(router.state.location.pathname).toBe(base))
