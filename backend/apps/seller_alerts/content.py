@@ -356,6 +356,17 @@ def stale_option() -> Outbound:
     return help_message("This option is no longer available.")
 
 
+def cancel_confirmation(order: Order) -> Outbound:
+    """Asked after *Cancel*; the order changes only on *Yes, cancel*."""
+    return _reply(
+        f"Cancel order {order.number}? The buyer will be told and items go back to stock.",
+        [
+            (build_reply_id("alerts", "cancel_yes", order.pk), "Yes, cancel"),
+            (build_reply_id("alerts", "cancel_no", order.pk), "Keep order"),
+        ],
+    )
+
+
 def awb_prompt(order: Order) -> Outbound:
     return text(
         f"Send the courier and AWB number for order {order.number}, for example:\n"

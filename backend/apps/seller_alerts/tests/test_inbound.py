@@ -124,14 +124,76 @@ def test_an_invalid_transition_gets_a_friendly_reply(
     assert body_of(reply) == "Order SS-1001 can't be marked as packed because it is shipped."
 
 
-def test_cancel(recipient, order, orders_stub, receive, fake_graph):
+def test_cancel_asks_for_confirmation_first(recipient, order, orders_stub, receive, fake_graph):
     receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:cancel:{order.pk}")
+
+    assert orders_stub.calls == []
+    order.refresh_from_db()
+    assert order.status == Order.Status.CONFIRMED
+    [reply] = fake_graph.sent_messages
+    assert reply["type"] == "interactive"  # free-form: the seller's window is open
+    assert body_of(reply) == (
+        "Cancel order SS-1001? The buyer will be told and items go back to stock."
+    )
+    assert reply_ids(reply) == [
+        f"upc:alerts:cancel_yes:{order.pk}",
+        f"upc:alerts:cancel_no:{order.pk}",
+    ]
+    assert [b["reply"]["title"] for b in reply["interactive"]["action"]["buttons"]] == [
+        "Yes, cancel",
+        "Keep order",
+    ]
+
+
+def test_yes_cancel_cancels(recipient, order, orders_stub, receive, fake_graph):
+    receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:cancel:{order.pk}")
+    receive(recipient.wa_id, type="interactive", reply_id=f"upc:alerts:cancel_yes:{order.pk}")
 
     assert orders_stub.calls == [
         ("cancel_order", order.pk, "seller_whatsapp", "Cancelled by the seller on WhatsApp")
     ]
+    order.refresh_from_db()
+    assert order.status == Order.Status.CANCELLED
+    assert body_of(fake_graph.sent_messages[-1]) == "Order SS-1001 is cancelled."
+
+
+def test_keep_order_changes_nothing(recipient, order, orders_stub, receive, fake_graph):
+    receive(recipient.wa_id, type="interactive", reply_id=f"upc:alerts:cancel_no:{order.pk}")
+
+    assert orders_stub.calls == []
+    order.refresh_from_db()
+    assert order.status == Order.Status.CONFIRMED
     [reply] = fake_graph.sent_messages
-    assert body_of(reply) == "Order SS-1001 is cancelled."
+    assert body_of(reply) == "Okay, order SS-1001 is unchanged."
+
+
+def test_a_repeated_yes_cancel_is_handled_once(recipient, order, orders_stub, receive, fake_graph):
+    event = receive(
+        recipient.wa_id, type="interactive", reply_id=f"upc:alerts:cancel_yes:{order.pk}"
+    )
+    receive(recipient.wa_id, type="interactive", reply_id=event.reply_id, wamid=event.wamid)
+    receive(recipient.wa_id, type="interactive", reply_id=event.reply_id)  # an old tap
+
+    assert [call[0] for call in orders_stub.calls] == ["cancel_order", "cancel_order"]
+    first, second = (body_of(message) for message in fake_graph.sent_messages)
+    assert first == "Order SS-1001 is cancelled."
+    assert second == "Order SS-1001 can't be cancelled because it is cancelled."
+
+
+@pytest.mark.parametrize("action", ["cancel", "cancel_yes"])
+def test_cancel_on_a_shipped_order_gets_a_friendly_reply(
+    recipient, order, orders_stub, receive, fake_graph, action
+):
+    order.status = Order.Status.SHIPPED
+    order.save()
+
+    receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:{action}:{order.pk}")
+
+    order.refresh_from_db()
+    assert order.status == Order.Status.SHIPPED
+    [reply] = fake_graph.sent_messages
+    assert reply["type"] == "text"
+    assert body_of(reply) == "Order SS-1001 can't be cancelled because it is shipped."
 
 
 def test_another_workspaces_order_is_refused(
@@ -139,13 +201,13 @@ def test_another_workspaces_order_is_refused(
 ):
     foreign = OrderFactory(workspace=other_workspace)
 
-    for action in ("pack", "ship", "cancel"):
+    for action in ("pack", "ship", "cancel", "cancel_yes", "cancel_no"):
         receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:{action}:{foreign.pk}")
     receive(recipient.wa_id, type="interactive", reply_id=f"upc:alerts:orders:{foreign.pk}")
 
     assert orders_stub.calls == []
     assert not PendingSellerReply.objects.exists()
-    assert len(fake_graph.sent_messages) == 4
+    assert len(fake_graph.sent_messages) == 6
     assert all(
         body_of(reply).startswith("This option is no longer available.")
         for reply in fake_graph.sent_messages

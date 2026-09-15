@@ -1,4 +1,5 @@
-"""Create the seller alert templates in UpChatz's WABA (``manage.py sync_platform_templates``)."""
+"""Create and update the seller alert templates in UpChatz's WABA
+(``manage.py sync_platform_templates``)."""
 
 import logging
 from dataclasses import dataclass
@@ -6,6 +7,7 @@ from dataclasses import dataclass
 from django.conf import settings
 
 from apps.message_templates import validators
+from apps.whatsapp.client.errors import GraphAPIError, GraphPermissionError, TokenInvalidError
 
 from .content import PLATFORM_TEMPLATES, PlatformTemplate
 from .platform import platform_client
@@ -13,6 +15,8 @@ from .platform import platform_client
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 100
+# Meta only allows edits in these statuses; an APPROVED template's category can't change.
+EDITABLE_STATUSES = frozenset({"APPROVED", "REJECTED", "PAUSED"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,8 +25,8 @@ class TemplateSyncResult:
     language: str
     status: str  # Meta's status: APPROVED, PENDING, REJECTED, ...
     category: str
-    action: str  # created | unchanged | outdated
-    note: str = ""
+    action: str  # created | unchanged | updated | outdated
+    note: str = ""  # for outdated: why the template couldn't be updated
 
 
 def _existing_templates(client, waba_id: str) -> dict[tuple[str, str], dict]:
@@ -41,13 +45,56 @@ def _existing_templates(client, waba_id: str) -> dict[tuple[str, str], dict]:
             return found
 
 
+def _update(client, template: PlatformTemplate, item: dict) -> TemplateSyncResult:
+    """Edit Meta's copy to match the definition when Meta allows it."""
+    status = str(item.get("status") or "UNKNOWN").upper()
+    category = str(item.get("category") or "").upper()
+
+    def result(action: str, note: str = "", new_status: str = status) -> TemplateSyncResult:
+        return TemplateSyncResult(
+            name=template.name,
+            language=template.language,
+            status=new_status,
+            category=category,
+            action=action,
+            note=note,
+        )
+
+    if status not in EDITABLE_STATUSES:
+        return result("outdated", f"Meta doesn't allow edits while the template is {status}")
+    definition = template.definition()
+    validators.validate_template(**definition)
+    # The category of an approved template can't be edited; send it only when it may change.
+    new_category = (
+        template.category if status != "APPROVED" and category != template.category else None
+    )
+    try:
+        client.edit_message_template(
+            str(item["id"]), components=definition["components"], category=new_category
+        )
+    except (TokenInvalidError, GraphPermissionError):
+        raise
+    except GraphAPIError as exc:
+        if exc.retryable:
+            raise
+        logger.warning("Meta refused to edit platform template %s: %s", template.name, exc)
+        return result("outdated", f"Meta refused the edit: {exc.message or exc}")
+    logger.info("Updated platform template %s", template.name)
+    if new_category:
+        category = new_category
+    # Meta re-reviews edits: a rejected template goes back to review, approved and paused ones
+    # are re-approved unless the review fails.
+    return result("updated", new_status="PENDING" if status == "REJECTED" else status)
+
+
 def sync_platform_templates(
     templates: tuple[PlatformTemplate, ...] = PLATFORM_TEMPLATES,
 ) -> list[TemplateSyncResult]:
-    """Create any missing platform template and report the status of every one. Idempotent.
+    """Create missing platform templates, edit the ones that differ from their definition where
+    Meta allows it, and report the status of every one. Idempotent.
 
-    The Graph client has no template edit call, so a template that differs from its definition
-    is reported as ``outdated`` rather than changed. Graph errors propagate.
+    A template Meta won't let us edit (its status, or the edit limit on approved templates) is
+    reported as ``outdated`` with the reason. Other Graph errors propagate.
     """
     waba_id = settings.PLATFORM_WA_WABA_ID
     client = platform_client()
@@ -69,18 +116,16 @@ def sync_platform_templates(
                     action="created",
                 )
             )
-            continue
-        matches = template.matches(item.get("components"))
-        results.append(
-            TemplateSyncResult(
-                name=template.name,
-                language=template.language,
-                status=str(item.get("status") or "UNKNOWN").upper(),
-                category=str(item.get("category") or "").upper(),
-                action="unchanged" if matches else "outdated",
-                note=""
-                if matches
-                else "differs from the definition; edit it in WhatsApp Manager to match",
+        elif template.matches(item.get("components")):
+            results.append(
+                TemplateSyncResult(
+                    name=template.name,
+                    language=template.language,
+                    status=str(item.get("status") or "UNKNOWN").upper(),
+                    category=str(item.get("category") or "").upper(),
+                    action="unchanged",
+                )
             )
-        )
+        else:
+            results.append(_update(client, template, item))
     return results

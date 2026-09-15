@@ -130,7 +130,14 @@ _CODE_MAP: dict[int, type[GraphAPIError]] = {
 }
 
 
-def _class_for_code(code: int | None, http_status: int) -> type[GraphAPIError]:
+def _class_for_code(
+    code: int | None, http_status: int, subcode: int | None = None
+) -> type[GraphAPIError]:
+    # Template management errors arrive as code 100 (or an unlisted code) with a 2388xxx
+    # subcode, e.g. 2388039 when a template in review is edited.
+    is_template_subcode = subcode is not None and 2388000 <= subcode <= 2388999
+    if is_template_subcode and _CODE_MAP.get(code) in (None, InvalidParameterError):
+        return TemplateError
     if code is not None:
         if code in _CODE_MAP:
             return _CODE_MAP[code]
@@ -170,11 +177,13 @@ def error_from_response(
     code = int(code) if isinstance(code, int | str) and str(code).isdigit() else None
     error_data = error.get("error_data")
     details = error_data.get("details") if isinstance(error_data, Mapping) else None
-    return _class_for_code(code, http_status)(
+    subcode = error.get("error_subcode")
+    subcode = int(subcode) if isinstance(subcode, int | str) and str(subcode).isdigit() else None
+    return _class_for_code(code, http_status, subcode)(
         error.get("message", ""),
         http_status=http_status,
         code=code,
-        subcode=error.get("error_subcode"),
+        subcode=subcode,
         error_type=error.get("type"),
         fbtrace_id=error.get("fbtrace_id"),
         details=details,

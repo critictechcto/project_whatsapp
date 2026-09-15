@@ -115,6 +115,20 @@ class GraphClient(Protocol):
         Without ``template_id`` every language of ``name`` is deleted."""
         ...
 
+    def edit_message_template(
+        self, template_id: str, *, components: list[JSON], category: str | None = None
+    ) -> JSON:
+        """``POST /{template_id}`` with ``{"components", "category"?}`` → ``{"success": true}``.
+
+        Meta rules (https://developers.facebook.com/documentation/business-messaging/whatsapp/templates/template-management):
+        only ``APPROVED``, ``REJECTED`` or ``PAUSED`` templates can be edited (a template in review
+        fails with subcode 2388039); only the category, components and TTL can change, and the
+        category of an ``APPROVED`` template can't. ``components`` replaces every component. An
+        ``APPROVED`` template can be edited once per 24 hours and 10 times per 30 days; rejected
+        and paused ones without limit. Edited approved or paused templates are re-approved
+        automatically unless they fail review."""
+        ...
+
     # --- Commerce: catalogs (needs catalog_management + business_management) ---------------
 
     def list_waba_catalogs(self, waba_id: str) -> list[JSON]:

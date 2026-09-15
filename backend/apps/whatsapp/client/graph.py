@@ -257,6 +257,14 @@ class HttpGraphClient:
             params["hsm_id"] = template_id
         return self._call("DELETE", f"{waba_id}/message_templates", params=params)
 
+    def edit_message_template(
+        self, template_id: str, *, components: list[JSON], category: str | None = None
+    ) -> JSON:
+        body: JSON = {"components": components}
+        if category:
+            body["category"] = category
+        return self._call("POST", template_id, json=body)
+
     # --- Commerce: catalogs ---------------------------------------------------------------------
 
     def _all_pages(self, path: str, params: dict[str, Any] | None = None) -> list[JSON]:
