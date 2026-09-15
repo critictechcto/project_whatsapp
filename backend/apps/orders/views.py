@@ -35,6 +35,7 @@ from .serializers import (
     StarterTemplatesResultSerializer,
     StoreChecklistSerializer,
     StoreSettingsSerializer,
+    with_request_defaults,
 )
 
 # Orders that count as sales in the summary: confirmed or later, not cancelled or expired.
@@ -228,7 +229,7 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
         order = self.get_object()
         serializer = OrderTransitionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+        data = with_request_defaults(serializer.validated_data)
         services.transition(
             order,
             data["to_status"],
@@ -252,7 +253,7 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
         order = self.get_object()
         serializer = CancelOrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+        data = with_request_defaults(serializer.validated_data)
         services.cancel_order(
             order,
             actor=DASHBOARD,
@@ -267,7 +268,9 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
         operation_id="orders_mark_cod_collected_create",
         request=None,
         responses=OrderSerializer,
-        description="Only COD orders that are shipped or delivered.",
+        description=(
+            "Only COD orders that are shipped or delivered; otherwise 409 invalid_order_transition."
+        ),
     )
     @action(detail=True, methods=["post"], url_path="mark-cod-collected")
     def mark_cod_collected(self, request, pk=None):
@@ -279,7 +282,10 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
         operation_id="orders_mark_refunded_create",
         request=None,
         responses=OrderSerializer,
-        description="Only paid orders that are cancelled or need attention; refund in Razorpay.",
+        description=(
+            "Only paid orders that are cancelled or need attention (otherwise 409 "
+            "invalid_order_transition); refund in Razorpay."
+        ),
     )
     @action(detail=True, methods=["post"], url_path="mark-refunded")
     def mark_refunded(self, request, pk=None):

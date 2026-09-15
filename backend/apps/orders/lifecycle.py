@@ -22,9 +22,9 @@ from apps.payments.exceptions import (
     PaymentProviderError,
 )
 from common import events, realtime
-from common.exceptions import Conflict
 
 from . import notifications, transitions
+from .exceptions import InvalidOrderTransition
 from .models import Order, OrderEvent
 
 logger = logging.getLogger(__name__)
@@ -322,9 +322,14 @@ def mark_cod_collected(order: Order, *, actor: str, user=None) -> Order:
             or order.payment_status != Order.PaymentStatus.COD_PENDING
             or order.status not in (Status.SHIPPED, Status.DELIVERED)
         ):
-            raise Conflict(
-                "Cash can be marked collected only for cash-on-delivery orders that are shipped "
-                "or delivered and not yet collected."
+            raise InvalidOrderTransition(
+                order.status,
+                Order.PaymentStatus.COD_COLLECTED,
+                allowed=order.allowed_transitions,
+                detail=(
+                    "Cash can be marked collected only for cash-on-delivery orders that are "
+                    "shipped or delivered and not yet collected."
+                ),
             )
         order.payment_status = Order.PaymentStatus.COD_COLLECTED
         order.cod_collected_at = timezone.now()
@@ -347,8 +352,13 @@ def mark_refunded(order: Order, *, actor: str, user=None) -> Order:
             Status.CANCELLED,
             Status.NEEDS_ATTENTION,
         ):
-            raise Conflict(
-                "Only paid orders that are cancelled or need attention can be marked refunded."
+            raise InvalidOrderTransition(
+                order.status,
+                Order.PaymentStatus.REFUNDED_MANUAL,
+                allowed=order.allowed_transitions,
+                detail=(
+                    "Only paid orders that are cancelled or need attention can be marked refunded."
+                ),
             )
         order.payment_status = Order.PaymentStatus.REFUNDED_MANUAL
         order.refunded_at = timezone.now()

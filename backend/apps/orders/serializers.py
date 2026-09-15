@@ -141,7 +141,9 @@ class OrderTransitionSerializer(serializers.Serializer):
     courier_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     awb_number = serializers.CharField(max_length=64, required=False, allow_blank=True)
     tracking_url = serializers.URLField(max_length=500, required=False, allow_blank=True)
-    notify_buyer = serializers.BooleanField(default=True)
+    # No ``default=``: openapi-typescript types fields with a default as required. The view applies
+    # the defaults (``REQUEST_DEFAULTS``).
+    notify_buyer = serializers.BooleanField(required=False, help_text="Default true.")
 
     def validate_tracking_url(self, value: str) -> str:
         if value and not value.lower().startswith("https://"):
@@ -161,9 +163,19 @@ class OrderTransitionSerializer(serializers.Serializer):
 
 
 class CancelOrderSerializer(serializers.Serializer):
-    reason = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
-    restock = serializers.BooleanField(default=True)
-    notify_buyer = serializers.BooleanField(default=True)
+    reason = serializers.CharField(
+        max_length=200, required=False, allow_blank=True, help_text='Default "".'
+    )
+    restock = serializers.BooleanField(required=False, help_text="Default true.")
+    notify_buyer = serializers.BooleanField(required=False, help_text="Default true.")
+
+
+# Values for the optional order action fields when a request leaves them out.
+REQUEST_DEFAULTS = {"notify_buyer": True, "restock": True, "reason": ""}
+
+
+def with_request_defaults(validated_data: dict) -> dict:
+    return {**REQUEST_DEFAULTS, **validated_data}
 
 
 class OrderNotesSerializer(serializers.Serializer):
