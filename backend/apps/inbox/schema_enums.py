@@ -23,7 +23,7 @@ MESSAGE_TYPES = (
     "unsupported",
 )
 MESSAGE_STATUSES = ("queued", "sending", "sent", "delivered", "read", "failed", "received")
-MESSAGE_SOURCES = ("inbound", "inbox", "campaign", "automation", "api")
+MESSAGE_SOURCES = ("inbound", "inbox", "campaign", "automation", "api", "commerce")
 SEND_MESSAGE_TYPES = ("text", "template", "media")
 
 ENUM_NAME_OVERRIDES = {

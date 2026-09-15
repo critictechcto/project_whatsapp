@@ -41,7 +41,7 @@ pytestmark = pytest.mark.django_db
             Message.Status,
             ["queued", "sending", "sent", "delivered", "read", "failed", "received"],
         ),
-        (Message.Source, ["inbound", "inbox", "campaign", "automation", "api"]),
+        (Message.Source, ["inbound", "inbox", "campaign", "automation", "api", "commerce"]),
     ],
 )
 def test_enum_values_match_the_contract(choices, values):

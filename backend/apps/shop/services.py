@@ -6,7 +6,7 @@ other text are forwarded to ``apps.orders.services``. It runs with the conversat
 ``BotSession`` row locked, re-validates every reply id against current data, and is idempotent
 on the message's wamid.
 
-Replies are session messages sent with source ``automation`` and ``source_ref`` ``"shop"``.
+Replies are session messages sent with source ``commerce`` and ``source_ref`` ``"shop"``.
 Outside the service window (or on any other send policy error) the bot logs and stops.
 """
 
@@ -374,7 +374,7 @@ class _Turn:
                     contact=self.conversation.contact,
                     content=message_content,
                     conversation=self.conversation,
-                    source=Message.Source.AUTOMATION,
+                    source=Message.Source.COMMERCE,
                     source_ref=BOT_SOURCE_REF,
                     idempotency_key=key,
                 )

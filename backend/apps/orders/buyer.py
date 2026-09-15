@@ -1,9 +1,9 @@
 """Messages to buyers: sending with policy errors logged instead of raised, and the shared text
 (order summaries, addresses, status cards).
 
-Every commerce message is sent with source ``automation`` and ``source_ref`` ``order:<id>`` (the
-inbox has no commerce source). Pass an idempotency key derived from the triggering inbound
-message or state change, so a redelivered event never sends twice.
+Every commerce message is sent with source ``commerce`` and ``source_ref`` ``order:<id>``. Pass
+an idempotency key derived from the triggering inbound message or state change, so a
+redelivered event never sends twice.
 """
 
 import logging
@@ -19,7 +19,7 @@ from .money import format_inr
 
 logger = logging.getLogger(__name__)
 
-SOURCE = Message.Source.AUTOMATION
+SOURCE = Message.Source.COMMERCE
 SOURCE_REF_PREFIX = "order:"
 MAX_SUMMARY_LINES = 12
 IDEMPOTENCY_KEY_MAX_LENGTH = 255
