@@ -50,6 +50,7 @@ All five are registered in `LOCAL_APPS` and mounted in `config/urls.py` (lead). 
 | `AlertRecipientStatusEnum` | `pending`, `verified`, `opted_out` |
 | `AlertEventEnum` | `new_order`, `needs_attention`, `order_cancelled` |
 | `MessageTypeEnum` (inbox, extended) | adds `order` |
+| `MessageSourceEnum` (inbox, extended) | adds `commerce`: shop messages use `source_ref` `shop`, order messages `order:<order_id>`; commerce automation actions keep `automation` |
 
 Stage filter: `checkout` covers `draft` through `pending_payment`; `open` covers `confirmed`, `packed`, `shipped` and `needs_attention`; `closed` covers `delivered`, `cancelled` and `expired`.
 
@@ -57,18 +58,19 @@ Stage filter: `checkout` covers `draft` through `pending_payment`; `open` covers
 
 | Code | When |
 |---|---|
-| `commerce_not_enabled` | The store is disabled (`StoreSettings.enabled` false), or the plan lacks the `commerce` feature |
+| `commerce_not_enabled` | The store is disabled (`StoreSettings.enabled` false), or the plan lacks the `commerce` feature (`CommerceNotEnabled`, a `FeatureNotAvailable` subclass). Catalog writes need the feature; disconnecting a Meta catalog doesn't |
 | `catalog_not_connected` | A native-catalog action runs without a connected `MetaCatalog`, or `shop_mode=native_catalog` is chosen without one |
 | `catalog_permissions_missing` | The seller's token lacks `catalog_management`/`business_management`; `details.reconnect_url` is null and the UI tells the seller to reconnect WhatsApp |
 | `payment_account_missing` | Online payment or verification is attempted without gateway keys |
 | `payment_account_invalid` | The gateway rejected the keys (on verify) |
-| `invalid_order_transition` | `details: {from_status, to_status, allowed: [..]}` |
+| `invalid_order_transition` | `details: {from_status, to_status, allowed: [..]}`; also mark-COD-collected and mark-refunded on an order that isn't eligible |
 | `out_of_stock` | `details: {items: [{sku, name, requested, available}]}` |
 | `alert_number_unverified` | The action needs a verified alert recipient |
-| `platform_alerts_unavailable` | `PLATFORM_WA_*` is not configured |
+| `platform_alerts_unavailable` | `PLATFORM_WA_*` is not configured, or Meta refused the verification template (other than an unreachable number or a transient error) |
 | `alert_recipient_limit` | More than 3 recipients per workspace |
 | `verification_recently_sent` | A verification was re-sent within 5 minutes |
-| `sku_taken` (400 `invalid` field error on `sku`) | Duplicate SKU in the workspace |
+| 400 field error on `sku` (no separate error code) | Duplicate SKU in the workspace |
+| `upstream_unavailable` (503, wave 2) | Payment verify can't reach the gateway; resending a verification hits a transient Meta error |
 
 ## Catalog: `/api/v1/catalog/`
 
@@ -82,7 +84,7 @@ Stage filter: `checkout` covers `draft` through `pending_payment`; `open` covers
   - `sale_price_paise`: int | null, and < `price_paise`
   - `effective_price_paise`: read-only
   - `currency`: `INR`, read-only
-  - `image_url`: absolute public URL | null, read-only
+  - `image_url`: absolute public URL | null, read-only. The image is a `FileField` stored content-hashed under `catalog/products/<workspace_id>/<aa>/<sha256>.<ext>`; replaced files are kept because order items snapshot the URL
   - `collection`: `CollectionRef` (`id`, `name`) | null
   - `availability`: `ProductAvailabilityEnum`; set by the seller, and a tracked `stock_qty` of 0 makes buyers see it as out of stock
   - `stock_qty`: int ≥ 0 | null, where null means untracked
@@ -95,10 +97,11 @@ Stage filter: `checkout` covers `draft` through `pending_payment`; `open` covers
   - `created_at`, `updated_at`
 - `ProductWriteRequest` (create and PATCH): `sku` (create only), `name`, `description?`, `price_paise`, `sale_price_paise?`, `collection_id?` (uuid | null), `availability?`, `stock_qty?`, `max_qty_per_order?`, `position?`, `is_active?`.
 - `Collection`: `id`, `name` (≤ 24, a list row title), `description` (≤ 72, a list row description, "" allowed), `position`, `is_active`, `product_count` (read-only), `created_at`, `updated_at`. Request `CollectionWriteRequest`: `name`, `description?`, `position?`, `is_active?`.
-- `ReorderRequest`: `ids: uuid[]` (the full ordering; positions are rewritten 0..n).
+- `ReorderRequest`: `ids: uuid[]` (the ordering; positions are rewritten 0..n). Ids left out keep their relative order after the listed ones; a duplicate id or an id from another workspace is 400.
 - `ProductImportResult`: `created_count`, `updated_count`, `skipped_count`, `errors: ProductImportRowError[]` (`row`, `sku`, `reason`).
   - CSV columns: `sku` (required), `name`, `description`, `price` (rupees, "249" or "249.50"), `sale_price`, `collection` (by name; created when missing), `stock_qty`, `max_qty_per_order`, `availability` (`in_stock`/`out_of_stock`), `is_active` (`true`/`false`).
-  - Limits: ≤ 5,000 rows, ≤ 2 MB. Images are not imported.
+  - An empty cell keeps the stored value. New products need `name` and `price`. For a duplicate SKU in the file, the first row wins.
+  - Limits: ≤ 5,000 rows (more rejects the whole file), ≤ 2 MB. Images are not imported.
 - `MetaCatalog`:
   - `id`
   - `waba` (`MetaCatalogWaba`: `id`, `waba_id`, `name`)
@@ -111,29 +114,35 @@ Stage filter: `checkout` covers `draft` through `pending_payment`; `open` covers
   - `created_at`, `updated_at`
 - `AvailableCatalog`: `id` (Meta catalog id), `name`.
 - `MetaCatalogConnectRequest`: `waba_id` (uuid of `WhatsAppBusinessAccount`) and exactly one of `catalog_id` (connect an existing catalog) or `create_name` (create one in the seller's business, then connect it).
-- `CommerceSettingsRequest`: `phone_number_id` (uuid), `is_cart_enabled?`, `is_catalog_visible?`.
+- `CommerceSettingsRequest` (PATCH, generated as `PatchedCommerceSettingsRequest`): `phone_number_id` (uuid), `is_cart_enabled?`, `is_catalog_visible?`.
 
 ### Endpoints
 | Method + path | Role | Notes |
 |---|---|---|
 | GET `products/` / POST | viewer / admin | filters `collection` (uuid or `none`), `is_active`, `availability`, `meta_review_status`, `search` (name/sku); ordered by `position`, `name` |
 | GET / PATCH / DELETE `products/{id}/` | viewer / admin | DELETE is soft in Meta terms: it queues a catalog DELETE; past order items keep their snapshots |
-| POST / DELETE `products/{id}/image/` | admin | multipart `file` (JPEG/PNG, ≤ 8 MB, ≥ 500×500 px) → `Product`; DELETE → `Product` |
+| POST / DELETE `products/{id}/image/` | admin | multipart `file` (JPEG/PNG, ≤ 8 MB, ≥ 500×500 px) → `Product`; DELETE → 204 |
 | POST `products/import/` | admin | multipart `file` → `ProductImportResult` |
 | POST `products/reorder/` | admin | `ReorderRequest` → 204 |
 | GET `collections/` / POST | viewer / admin | ordered by `position` |
 | GET / PATCH / DELETE `collections/{id}/` | viewer / admin | DELETE sets its products' collection to null |
 | POST `collections/reorder/` | admin | `ReorderRequest` → 204 |
-| GET `meta-catalogs/` / POST | viewer / admin | POST `MetaCatalogConnectRequest` → 201 `MetaCatalog` (409 `catalog_permissions_missing`) |
+| GET `meta-catalogs/` / POST | viewer / admin | POST `MetaCatalogConnectRequest` → 201 `MetaCatalog` for a new catalog, 200 when it replaces the WABA's catalog (409 `catalog_permissions_missing`); connecting runs a full sync |
 | GET `meta-catalogs/available/?waba_id=<uuid>` | admin | unpaginated `AvailableCatalog[]` owned by the seller's business |
 | GET / DELETE `meta-catalogs/{id}/` | viewer / admin | DELETE disconnects locally (the store falls back to bot mode) |
 | POST `meta-catalogs/{id}/sync/` | admin | full resync → 202 `MetaCatalog` |
 | PATCH `meta-catalogs/{id}/commerce-settings/` | admin | `CommerceSettingsRequest` → `MetaCatalog` |
 
+Writes (everything except GET and the catalog DELETE) need the plan's `commerce` feature: 409 `commerce_not_enabled`.
+
 Sync rules:
-- Saving, deleting or changing the image of a product queues a debounced `catalog.sync_products` for connected catalogs; `catalog.poll_sync_status` updates the product fields.
+- Saving or changing the image of a product queues a debounced `catalog.sync_products` for connected catalogs; deletes are not debounced. `catalog.poll_sync_status` updates the product fields.
+- An incremental sync sends products changed since `MetaCatalog.last_synced_at`; a manual resync or a connect runs a full sync.
+- `reserve_stock`/`release_stock` queue a sync when a tracked stock crosses zero.
 - Meta needs a public `image_link`, so products without an image stay `not_synced`.
+- A sync fails with a message in `last_sync_error` when the WABA has no phone number (the `link` needs one).
 - `link` is the store link (`wa.me`).
+- Known limitation: `meta_sync_status` and `meta_review_status` are per product, not per catalog.
 
 ## Orders: `/api/v1/orders/`
 
@@ -156,8 +165,8 @@ Sync rules:
 - `OrderItem`: `id`, `product_id` (null once the product is deleted), `sku`, `name`, `image_url` (null), `unit_price_paise`, `quantity`, `line_total_paise`.
 - `OrderAddress`: `name`, `phone_e164`, `line1`, `line2`, `landmark`, `city`, `state`, `pincode` (6 digits), `country` (`IN`).
 - `OrderEvent`: `id`, `type`, `from_status` (""), `to_status` (""), `actor`, `user` (`UserSummary` | null), `detail`, `message_id` (null), `created_at`.
-- `OrderTransitionRequest`: `to_status` (`packed` | `shipped` | `delivered` | `confirmed`, the last only from `needs_attention`), `courier_name?`, `awb_number?`, `tracking_url?` (https URL), `notify_buyer` (default true). `shipped` requires `courier_name` and `awb_number`.
-- `CancelOrderRequest`: `reason` (≤ 200), `restock` (default true), `notify_buyer` (default true).
+- `OrderTransitionRequest`: `to_status` (`packed` | `shipped` | `delivered` | `confirmed`, the last only from `needs_attention`), `courier_name?`, `awb_number?`, `tracking_url?` (https URL), `notify_buyer?` (default true). `shipped` requires `courier_name` and `awb_number`.
+- `CancelOrderRequest`: `reason?` (≤ 200, default ""), `restock?` (default true), `notify_buyer?` (default true).
 - `OrderNotesRequest`: `notes` (≤ 2000).
 - `OrderSummary`: `today_count`, `today_revenue_paise` (confirmed-or-later orders created today in the workspace time zone, excluding cancelled and expired), `open_count`, `needs_attention_count`, `awaiting_payment_count`.
 
@@ -169,8 +178,8 @@ Sync rules:
 | GET `{id}/events/` | viewer | oldest first, paginated |
 | POST `{id}/transition/` | agent | `OrderTransitionRequest` → `Order` |
 | POST `{id}/cancel/` | agent | `CancelOrderRequest` → `Order`; also cancels an open payment link |
-| POST `{id}/mark-cod-collected/` | agent | only COD at `shipped`/`delivered` → `Order` |
-| POST `{id}/mark-refunded/` | admin | only `paid` orders that are `cancelled`/`needs_attention` → `Order` (`refunded_manual`; the refund happens in the seller's payment gateway) |
+| POST `{id}/mark-cod-collected/` | agent | only COD at `shipped`/`delivered` → `Order`; otherwise 409 `invalid_order_transition` |
+| POST `{id}/mark-refunded/` | admin | only `paid` orders that are `cancelled`/`needs_attention` → `Order` (`refunded_manual`; the refund happens in the seller's payment gateway); otherwise 409 `invalid_order_transition` |
 | GET `summary/` | viewer | `OrderSummary` |
 
 **Transitions** (anything else is 409 `invalid_order_transition`):
@@ -201,7 +210,7 @@ Cancelling or expiring releases reserved stock (`restock`). Every change writes 
   - `serviceable_pincodes: str[]` (empty = everywhere)
   - `support_message` (the reply to *Talk to us*)
   - `powered_by_footer` (bool, default true)
-  - `phone_number_id` (uuid | null: the store number, default the workspace default number)
+  - `phone_number_id` (uuid | null: the store number, default the workspace default number). Only the store number runs the buyer bot
   - `store_link` (read-only `https://wa.me/<digits>?text=Hi` | null)
   - `notification_templates` (`OrderNotificationTemplates`: `confirmed`, `packed`, `shipped`, `delivered`, `cancelled`, `payment_reminder`, each a `MessageTemplate` uuid | null)
   - `updated_at`
@@ -209,7 +218,7 @@ Cancelling or expiring releases reserved stock (`restock`). Every change writes 
   1. `whatsapp_connected`
   2. `products_added`
   3. `payments_configured` (a verified account, or COD enabled)
-  4. `order_templates_ready`
+  4. `order_templates_ready` (the 5 status templates are mapped and approved; `payment_reminder` is optional)
   5. `alert_number_verified`
   6. `store_enabled`
 - `StarterTemplatesResult`: `created: str[]`, `existing: str[]` (template names).
@@ -225,13 +234,15 @@ WhatsApp message charges: under Meta's current pricing, Meta bills the seller's 
 | GET `checklist/` | viewer | |
 | POST `starter-templates/` | admin | creates the missing starter templates below in the store number's WABA (UTILITY, `en`) and maps any unmapped `notification_templates` → `StarterTemplatesResult` |
 
-**Starter templates** (body parameters in order):
-- `upc_order_confirmed`: name, order number, total (₹ formatted), payment ("Paid online" / "Cash on delivery")
-- `upc_order_packed`: name, order number
-- `upc_order_shipped`: name, order number, courier, AWB, tracking URL or "—"
-- `upc_order_delivered`: name, order number
-- `upc_order_cancelled`: name, order number, reason
-- `upc_payment_reminder`: name, order number, total, payment link
+**Starter templates** (body parameters in order; a mapped template must have exactly this many variables):
+| Template | Variables | Body parameters |
+|---|---|---|
+| `upc_order_confirmed` | 4 | name, order number, total (₹ formatted), payment ("Paid online" / "Cash on delivery") |
+| `upc_order_packed` | 2 | name, order number |
+| `upc_order_shipped` | 5 | name, order number, courier, AWB, tracking URL or "—" |
+| `upc_order_delivered` | 2 | name, order number |
+| `upc_order_cancelled` | 3 | name, order number, reason |
+| `upc_payment_reminder` | 4 | name, order number, total, payment link |
 
 Buyer notifications use an interactive or text message while the service window is open, and the mapped template otherwise. If no template is mapped outside the window, the `OrderEvent` is `notification_failed`.
 
@@ -250,15 +261,19 @@ class PaymentProvider(Protocol):            # one implementation per gateway, pl
         # verifies the signature first; raises InvalidWebhookSignature
 LinkRequest(reference_id, amount_paise, currency, description, customer_name, customer_phone_e164,
             expire_by, return_url, notes)
-LinkState(provider_link_id, short_url, status, amount_paid_paise, provider_payment_id, paid_at, raw)
+LinkState(provider_link_id, short_url, status, amount_paid_paise, provider_payment_id, paid_at, raw,
+          amount_paise, currency, expires_at)
 WebhookLinkUpdate(event_id, event_type, provider_link_id, state: LinkState | None)
 get_provider(account: PaymentAccount, *, transport=None) -> PaymentProvider
 ```
 Errors are `PaymentProviderError(message, provider, status_code, retryable)` in `apps.payments.exceptions`. Our code uses integer paise everywhere; rupee conversion happens only inside a provider.
 
-- **Razorpay:** `common.razorpay.RazorpayTransport` with the seller's key id and secret. Payment Links API: `reference_id` ≤ 40, `expire_by` ≥ 15 minutes ahead, `callback_url` = the return URL with `callback_method=get`, SMS and email notifications off, `notes`. Mode comes from the `rzp_test_`/`rzp_live_` key prefix and must match. Optional webhook: HMAC-SHA256 of the raw body with the account's `webhook_secret` (`X-Razorpay-Signature`), deduped on `x-razorpay-event-id`.
-- **Cashfree:** PG API, sandbox for `test` and production for `live`, with `x-client-id`, `x-client-secret` and a pinned `x-api-version`. Payment Links API: `link_id` = `reference_id`, amount in rupees with 2 decimals, link expiry time, `link_meta.return_url`, Cashfree's own notifications off. The optional webhook is signed with the secret key (no separate webhook secret) and deduped on its event id, or a hash of the body when there is none.
-- The payments agent checks exact field names, status values, signature formats and the verify call against the official Razorpay and Cashfree docs, and reports any deviation.
+- **Razorpay:** `common.razorpay.RazorpayTransport` with the seller's key id and secret. Payment Links API: `reference_id` ≤ 40, `expire_by` ≥ 15 minutes ahead, `callback_url` = the return URL with `callback_method=get`, SMS and email notifications off, `notes`. `expire_by` is pushed to at least now + 16 minutes. Mode comes from the `rzp_test_`/`rzp_live_` key prefix and must match. Verify calls `GET /v1/payments?count=1`. Optional webhook: HMAC-SHA256 of the raw body with the account's `webhook_secret` (`X-Razorpay-Signature`), deduped on `x-razorpay-event-id`.
+- **Cashfree:** PG API, sandbox for `test` and production for `live`, with `x-client-id`, `x-client-secret` and `x-api-version: 2026-01-01`. Payment Links API: `link_id` = `reference_id`, amount in rupees with 2 decimals, link expiry time, `link_meta.return_url`, Cashfree's own notifications off.
+  - Cashfree has no credential-check endpoint, so verify fetches a made-up link id: 404 means the keys are valid, 401/403 invalid.
+  - Link status `PAID`, or `COMPLETED`, counts as paid.
+  - The payment id comes from the webhook's `order.transaction_id`, or from two extra calls when polling (blank if they fail).
+  - The optional webhook is signed with the secret key (no separate webhook secret) and deduped on `x-idempotency-key`, else `sha256:<body hash>`. A body that isn't JSON is ignored, and polling confirms the payment instead.
 
 ### Components
 - `PaymentAccount`: `provider` (default `razorpay`), `mode` (null until set), `key_id` (""; Razorpay key id or Cashfree App ID), `has_key_secret`, `has_webhook_secret`, `status`, `verified_at`, `last_error`, `webhook_url` (optional; read-only absolute URL built from `PUBLIC_API_BASE_URL`, "" until saved), `webhook_events: str[]` (read-only, for the chosen provider), `updated_at`.
@@ -271,17 +286,18 @@ Errors are `PaymentProviderError(message, provider, status_code, retryable)` in 
 ### Endpoints
 | Method + path | Role | Notes |
 |---|---|---|
-| GET / PATCH / DELETE `account/` | admin / admin / owner | secrets are never returned |
-| POST `account/verify/` | admin | one authenticated read call on the gateway → `PaymentAccount` (409 `payment_account_missing` / `payment_account_invalid`) |
-| POST `account/rotate-webhook/` | admin | new webhook token → `PaymentAccount` (only matters if the seller set up the optional webhook) |
+| GET / PATCH / DELETE `account/` | admin / admin / owner | secrets are never returned; DELETE with no account → 204 |
+| POST `account/verify/` | admin | one authenticated read call on the gateway → `PaymentAccount` (409 `payment_account_missing` / `payment_account_invalid`; 503 `upstream_unavailable` when the gateway can't be reached) |
+| POST `account/rotate-webhook/` | admin | new webhook token → `PaymentAccount` (only matters if the seller set up the optional webhook); 409 `payment_account_missing` with no account |
 | GET `links/` | viewer | filter `order`, `status` |
-| GET `/pay/return/{payment_link_id}/` | public | Where the gateway sends the buyer after paying. It never trusts query parameters: it refreshes the link from the gateway, then renders a small HTML page ("Payment received for order SS-1001, you can go back to WhatsApp" or "We're confirming your payment") with a `wa.me` button for the store number. 404 for an unknown link; throttled per IP. Not in the OpenAPI schema. |
+| GET `/pay/return/{payment_link_id}/` | public | Where the gateway sends the buyer after paying. It never trusts query parameters: it refreshes the link from the gateway, then renders a small HTML page ("Payment received for order SS-1001, you can go back to WhatsApp", "We're confirming your payment" or "This payment link is no longer active") with a `wa.me` button for the store number. 404 for an unknown link; throttled per IP. Not in the OpenAPI schema. |
 | POST `/webhooks/payments/merchants/{token}/` | public | Optional. 404 for an unknown token; the provider verifies the signature (400 when invalid); idempotent per workspace on the event id (`PaymentWebhookEvent`); always 200 after a valid signature. Not in the OpenAPI schema. |
 
 **Confirmation.** The return page, polling and the webhook all end in the same `LinkState` handling:
-- `payments.poll_open_links` (beat every minute) refreshes `created` links whose `next_poll_at` has passed. Polls run 2, 4, 6, 10, 15, 20, 25 and 30 minutes after creation, then once more at `expires_at` + 2 minutes. After that an unpaid link is `expired`.
+- `payments.poll_open_links` (beat every minute) refreshes `created` links whose `next_poll_at` has passed. Polls run 2, 4, 6, 10, 15, 20, 25 and 30 minutes after creation, then once more at `expires_at` + 2 minutes. That final poll cancels a still-open link on the gateway, then marks it `expired`. If the final poll keeps failing, the link expires locally after 6 retries 5 minutes apart.
 - A link becomes `paid` only when the fetched state is paid and the amount and currency match. `PaymentLinkPaid` is emitted exactly once (row lock on the link). Partial payments are logged and never confirm an order.
 - Expiry or cancellation on the gateway side emits `PaymentLinkExpired` / `PaymentLinkCancelled`.
+- Tests never call a gateway: use the `fake_payments` fixture (root `conftest.py`) or `override_provider(FakePaymentProvider())`.
 
 **Link rules:**
 - `reference_id` = `<order number>-<attempt>` (≤ 40 characters, unique per workspace).
@@ -294,22 +310,35 @@ Errors are `PaymentProviderError(message, provider, status_code, retryable)` in 
 
 ### Components
 - `AlertRecipient`: `id`, `name` (≤ 60), `phone_e164`, `status`, `events: AlertEventEnum[]` (default all), `verified_at`, `last_sent_at`, `created_at`. Request `AlertRecipientRequest`: `name`, `phone_e164` (create only), `events?`.
+- Models beyond the API: `AlertRecipient.wa_id` and `last_inbound_at` (the phone's 24-hour window with the platform number), `AlertMessage` (outbound log; `dedupe_key` `<recipient>:<order>:<event>:<new_status>` so an alert goes out once), `PendingSellerReply` (the courier and AWB question after *Mark shipped*, expires after 30 minutes) and `AlertInboundMessage` (inbound log keyed on `wamid`, with outcome `handled` or `ignored`).
 - `PlatformAlertsInfo`: `available` (bool), `display_phone_number` ("" when unavailable).
 
 ### Endpoints
 | Method + path | Role | Notes |
 |---|---|---|
 | GET `platform/` | viewer | `PlatformAlertsInfo` |
-| GET `recipients/` / POST | viewer / admin | POST sends the `upc_seller_verify` template from the platform number → 201 (409 `platform_alerts_unavailable`, `alert_recipient_limit`) |
+| GET `recipients/` / POST | viewer / admin | POST sends the `upc_seller_verify` template from the platform number → 201 (409 `platform_alerts_unavailable`, `alert_recipient_limit`). An unreachable number (Meta 131026) → 400 on `phone_e164` and the recipient isn't kept; a transient Meta error → 201 without starting the resend cooldown; other Meta errors → 409 `platform_alerts_unavailable` |
 | PATCH / DELETE `recipients/{id}/` | admin | |
-| POST `recipients/{id}/resend-verification/` | admin | 409 `verification_recently_sent` |
+| POST `recipients/{id}/resend-verification/` | admin | 409 `verification_recently_sent`; 503 `upstream_unavailable` on a transient Meta error |
 
-**Platform templates** (UpChatz WABA, UTILITY, `en`, synced by `manage.py sync_platform_templates`):
+**Platform templates** (UpChatz WABA, UTILITY, `en`). `manage.py sync_platform_templates` creates missing ones and edits the ones that differ from their definition where Meta allows it (`[created]`, `[unchanged]`, `[updated]`, or `[outdated: <reason>]` for a status Meta can't edit or the edit limit of approved templates):
 - `upc_seller_verify`: body params store name. Button *Confirm*, payload `upc:alerts:verify:<recipient_id>`.
 - `upc_new_order`: body params store name, order number, item summary (≤ 200 characters), total, payment. Buttons *Mark packed*, *Mark shipped*, *Cancel*, with payloads `upc:alerts:pack|ship|cancel:<order_id>`.
-- `upc_order_attention`: body params store name, order number, reason.
+- `upc_order_attention`: body params store name, order number, reason. `order_cancelled` alerts reuse it outside the window with the reason "it was cancelled by the buyer|UpChatz (<cancel reason>)", so there is no cancellation template to approve.
 
-Only `verified` recipients receive alerts, and commands are accepted only from a verified recipient's `from_wa_id`. Each order action re-checks that the order belongs to one of that recipient's workspaces. One phone may be a recipient for several workspaces: `ORDERS` lists them all, and a bare "courier AWB" reply applies to the order that asked for it.
+Only `verified` recipients receive alerts, and commands are accepted only from a verified recipient's `from_wa_id`. Recipients are matched on `wa_id`, the E.164 number without "+". That holds for India; some countries' `wa_id`s differ from the dialled number. *Confirm* is accepted only from the phone the verification was sent to. Each order action re-checks that the order belongs to one of that recipient's workspaces. One phone may be a recipient for several workspaces: `ORDERS` lists them all, and a bare "courier AWB" reply applies to the order that asked for it last (for 30 minutes).
+
+Seller actions:
+| Tap | Result |
+|---|---|
+| *Mark packed* | `transition(order, "packed", actor="seller_whatsapp")` |
+| *Mark shipped* | asks for "courier AWB [tracking URL]", then `transition(..., "shipped")` |
+| *Cancel* | asks "Cancel order SS-1001? The buyer will be told and items go back to stock." with *Yes, cancel* (`upc:alerts:cancel_yes:<order_id>`) and *Keep order* (`upc:alerts:cancel_no:<order_id>`). The question is a free-form message: the seller's window is open because they just tapped |
+| *Yes, cancel* | re-checks the recipient, workspace and order state under a lock, then `cancel_order(order, actor="seller_whatsapp", reason="Cancelled by the seller on WhatsApp")` |
+| *Keep order* | "Okay, order SS-1001 is unchanged." |
+| `ORDERS` row (`upc:alerts:orders:<order_id>`) | the order's details with the buttons its status allows |
+
+Old or repeated taps (an order already cancelled or shipped, the same `wamid` twice) get a friendly reply and change nothing.
 
 Texting `STOP` sets `opted_out`.
 
@@ -319,11 +348,11 @@ Every commerce reply id has the form `upc:<scope>:<action>[:<arg>...]`. It is at
 
 | Scope | Actions (args) | Owner |
 |---|---|---|
-| `shop` | `menu`, `browse` (no args: collections), `col` (collection_id, offset), `prod` (product_id), `add` (product_id, qty), `qty` (product_id), `cart`, `clear`, `checkout`, `orders`, `talk` | shop |
+| `shop` | `menu`, `browse` (no args: collections), `col` (collection_id, offset; or the pseudo collections `all`, offset when there are no collections, and `other`, offset for products without one), `prod` (product_id), `add` (product_id, qty), `qty` (product_id), `cart`, `clear`, `checkout`, `orders`, `talk` | shop |
 | `chk` | `confirm` (order_id), `edit` (order_id), `pay` (order_id, `online`/`cod`), `retry` (order_id), `cancel` (order_id) | orders |
 | `ord` | `view` (order_id), `list` | orders |
 | `nfm` | `address_message` (set by the webhook parser for `nfm_reply`) | orders |
-| `alerts` | `verify` (recipient_id), `pack` / `ship` / `cancel` (order_id), `orders` | seller_alerts |
+| `alerts` | `verify` (recipient_id), `pack` / `ship` / `cancel` / `cancel_yes` / `cancel_no` (order_id), `orders` (no args: the open orders list; order_id: one order's actions) | seller_alerts |
 
 **Claiming:**
 - `is_claimed_by_commerce(event)` is true for inbound `order` messages, for any well-formed `upc:` reply id, and for anything a registered claimer accepts.
@@ -334,7 +363,7 @@ Every commerce reply id has the form `upc:<scope>:<action>[:<arg>...]`. It is at
 
 ### Events added to `common/events.py`
 - `PlatformInboundMessage(phone_number_id, wamid, from_wa_id, timestamp, type, text, reply_id, profile_name, context_wamid, payload, webhook_event_id)`: the webhooks app routes messages whose `metadata.phone_number_id == PLATFORM_WA_PHONE_NUMBER_ID` here, before workspace resolution. Statuses for that number are dropped with a debug log.
-- `PaymentLinkPaid(workspace_id, order_id, payment_link_id, provider, provider_link_id, provider_payment_id, amount_paise, currency, paid_at)`, `PaymentLinkExpired(..., occurred_at)`, `PaymentLinkCancelled(..., occurred_at)`: emitted on commit by payments. Orders reacts idempotently (keyed on `payment_link_id` and the order's state).
+- `PaymentLinkPaid(workspace_id, order_id, payment_link_id, provider, provider_link_id, provider_payment_id, amount_paise, currency, paid_at)`, `PaymentLinkExpired(..., occurred_at)`, `PaymentLinkCancelled(..., occurred_at)`: emitted on commit by payments, whichever of the return page, polling or the optional webhook sees the state first. `provider` is `razorpay` or `cashfree`; `provider_payment_id` may be "". Orders reacts idempotently (keyed on `payment_link_id` and the order's state).
 - `OrderStatusChanged(workspace_id, order_id, order_number, contact_id, phone_number_id, old_status, new_status, payment_status, payment_method, total_paise, actor, actor_user_id, occurred_at)`: emitted on commit by orders. Seller alerts react to it.
 
 ### Webhook parser (`apps/webhooks/parsers.py`)
@@ -366,7 +395,7 @@ ImageHeader(url: str)
 Limits (enforced): body ≤ 1024, footer ≤ 60, text header ≤ 60, list button ≤ 20, row title ≤ 24, row description ≤ 72, ids ≤ 200 (rows) / 256 (buttons). Error 1026 on `address_message` (unsupported client) marks the message failed with `error_code="1026"`; orders falls back to asking for the address as text.
 
 ### Graph client (`apps/whatsapp/client`, frozen signatures; Http and Fake implemented)
-`list_waba_catalogs(waba_id)`, `list_business_catalogs(business_id)`, `create_catalog(business_id, *, name)`, `connect_catalog(waba_id, catalog_id)`, `batch_catalog_items(catalog_id, requests)`, `get_catalog_batch_status(catalog_id, handle)`, `list_catalog_products(catalog_id, *, after=None, limit=100)`, `get_commerce_settings(phone_number_id)`, `update_commerce_settings(phone_number_id, *, is_cart_enabled=None, is_catalog_visible=None)`. `get_waba` also requests `owner_business_info` (for `business_id`).
+`list_waba_catalogs(waba_id)`, `list_business_catalogs(business_id)`, `create_catalog(business_id, *, name)`, `connect_catalog(waba_id, catalog_id)`, `batch_catalog_items(catalog_id, requests)`, `get_catalog_batch_status(catalog_id, handle)`, `list_catalog_products(catalog_id, *, after=None, limit=100)`, `get_commerce_settings(phone_number_id)`, `update_commerce_settings(phone_number_id, *, is_cart_enabled=None, is_catalog_visible=None)`, `edit_message_template(template_id, *, components, category=None)` (`POST /{template_id}`; Meta allows edits only to `APPROVED`, `REJECTED` or `PAUSED` templates, at most once per 24 hours and 10 times per 30 days for approved ones, and never the category of an approved one). `get_waba` also requests `owner_business_info` (for `business_id`). Template management errors (subcodes 2388xxx) map to `TemplateError`.
 
 ### Catalog services (`apps/catalog/services.py`)
 ```python
@@ -389,16 +418,21 @@ connected_catalog(workspace, phone_number) -> MetaCatalog | None     # connected
 ```python
 get_store_settings(workspace) -> StoreSettings
 start_checkout(*, workspace, conversation, cart: PricedCart, source: str, source_wamid: str | None = None,
-               quoted_total_paise: int | None = None) -> Order     # supersedes the active checkout; sends the next step
+               quoted_total_paise: int | None = None) -> Order     # supersedes the active checkout; sends every buyer message
 handle_checkout_reply(message: Message, reply: ReplyId) -> bool     # chk, ord, nfm scopes
-handle_checkout_text(message: Message) -> bool                      # typed address while awaiting it
+handle_checkout_text(message: Message) -> bool                      # False unless a checkout waits for typed text
 send_recent_orders(conversation) -> None                             # "My orders" list (≤ 10)
 transition(order, to_status, *, actor, user=None, courier_name="", awb_number="", tracking_url="",
            notify_buyer=True) -> Order
-cancel_order(order, *, actor, user=None, reason="", restock=True, notify_buyer=True) -> Order
+cancel_order(order, *, actor, user=None, reason="", restock=True, notify_buyer=True,
+             system=False) -> Order                                  # system=True also allows the system-only moves
 mark_cod_collected(order, *, actor, user=None) -> Order
 open_orders_for_workspaces(workspace_ids, *, limit=10) -> list[Order]
 ```
+- `start_checkout` raises `CheckoutRejected(reason)` (`empty_cart` or `below_minimum`, in `apps.orders.exceptions`, re-exported by services) after telling the buyer why, and `catalog.OutOfStock` when the stock reservation fails.
+- *Edit cart* (`chk:edit`) cancels the checkout and sends the shop cart (`upc:shop:cart`); a stale checkout reply sends the shop menu (`upc:shop:menu`).
+- Order messages to buyers are recorded with source `commerce` and `source_ref` `order:<order_id>`.
+
 There is one active checkout per (contact, phone number), enforced by a partial unique constraint on non-terminal checkout statuses. Order numbers come from `OrderCounter` (`<order_prefix>-<n>`, starting at 1001).
 
 ### Payments services (`apps/payments/services.py`)
@@ -418,7 +452,12 @@ Shared Razorpay transport: `common/razorpay.py` (`RazorpayTransport`, `RazorpayE
 ### Shop (`apps/shop`)
 - The receiver on `MessageRecorded` (inbound) handles `shop` replies, menu keywords, typed quantities while awaiting one, and `order` messages (native cart → `price_items` with `CartLine(sku=product_retailer_id)` → `start_checkout(source="native_cart", source_wamid=wamid, quoted_total_paise=…)`).
 - It forwards `chk`/`ord`/`nfm` replies and awaited text to `orders.services`.
+- Only the store number (`StoreSettings.phone_number`, else the workspace default number) runs the bot.
+- Collections: with no collections, products are listed under the pseudo collection `col:all:<offset>`; products without a collection appear under `col:other:<offset>`.
+- The cart is kept during checkout and cleared when the order moves from the checkout stage to `confirmed`.
+- Shop messages are recorded with source `commerce` and `source_ref` `shop`.
 - `BotSession` expires 24 h after the last buyer message.
+- Claim order follows `LOCAL_APPS` (automations before shop).
 
 ### Seller alerts (`apps/seller_alerts`)
 The platform client is `get_client(settings.PLATFORM_WA_ACCESS_TOKEN)` sending from `PLATFORM_WA_PHONE_NUMBER_ID`. Its outbound log (`AlertMessage`) is platform-level and never appears in a workspace inbox. It reacts to `OrderStatusChanged` (new_status `confirmed` with old in the checkout stage → `new_order`; `needs_attention`; `cancelled` by the buyer or system) and to `PlatformInboundMessage`.
@@ -431,7 +470,9 @@ Feature `commerce` is added to `FEATURES` and enabled on every plan and the tria
 ### Automations
 - Claimed messages are skipped (see Claiming).
 - New actions, added to `SEND_ACTIONS`: `send_shop_menu {}`, `send_catalog {}`, `send_collection {collection_id}`.
-- They call shop services through an integration hook registered by `apps.shop`.
+- They call shop services through an integration hook registered by `apps.shop` (`apps.automations.hooks`).
+- `send_catalog` in bot mode sends the collections list.
+- Skip codes: `store_unavailable`, `store_empty`, `collection_empty`. Failure code: `collection_not_found`.
 - `AutomationActionTypeEnum` gains those values.
 
 ### Settings (lead-owned, in `config/settings/base.py`)
@@ -464,6 +505,7 @@ Tasks and beat entries:
 - `apps.orders.services` and `apps.orders.models` (read, FKs), used by shop, seller_alerts and payments (FK only).
 - `apps.payments.services` and `apps.payments.exceptions`, used by orders.
 - `apps.inbox.interactive`.
+- `apps.automations.hooks`, used by shop to register the commerce automation actions.
 - `common.commerce` and `common.razorpay`.
 
 Everything else goes through `common/events.py` signals.
