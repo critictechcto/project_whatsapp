@@ -222,8 +222,20 @@ def test_mark_cod_collected(auth_client, workspace):
     assert response.status_code == 200, response.content
     assert response.json()["payment_status"] == "cod_collected"
     assert cod.events.filter(type=OrderEvent.Type.COD_COLLECTED).exists()
-    assert client.post(url(online, "mark-cod-collected/"), format="json").status_code == 409
-    assert client.post(url(early, "mark-cod-collected/"), format="json").status_code == 409
+
+    response = client.post(url(online, "mark-cod-collected/"), format="json")
+    assert response.status_code == 409
+    assert error(response)["code"] == "invalid_order_transition"
+    assert error(response)["details"] == {
+        "from_status": "delivered",
+        "to_status": "cod_collected",
+        "allowed": [],
+    }
+    response = client.post(url(early, "mark-cod-collected/"), format="json")
+    assert response.status_code == 409
+    assert error(response)["code"] == "invalid_order_transition"
+    assert error(response)["details"]["allowed"] == ["packed", "shipped", "cancelled"]
+    assert "cash-on-delivery" in error(response)["message"]
 
 
 def test_mark_refunded_is_for_paid_orders_that_were_cancelled(auth_client, workspace):
@@ -236,7 +248,60 @@ def test_mark_refunded_is_for_paid_orders_that_were_cancelled(auth_client, works
     assert response.status_code == 200, response.content
     assert response.json()["payment_status"] == "refunded_manual"
     assert Order.objects.get(pk=cancelled.pk).refunded_at is not None
-    assert client.post(url(confirmed, "mark-refunded/"), format="json").status_code == 409
+
+    response = client.post(url(confirmed, "mark-refunded/"), format="json")
+    assert response.status_code == 409
+    assert error(response)["code"] == "invalid_order_transition"
+    assert error(response)["details"] == {
+        "from_status": "confirmed",
+        "to_status": "refunded_manual",
+        "allowed": ["packed", "shipped", "cancelled"],
+    }
+
+
+def test_optional_action_fields_default_when_left_out(auth_client, workspace, monkeypatch):
+    calls = {}
+
+    def capture(name):
+        def record(order, *args, **kwargs):
+            calls[name] = kwargs
+            return order
+
+        return record
+
+    monkeypatch.setattr(services, "transition", capture("transition"))
+    monkeypatch.setattr(services, "cancel_order", capture("cancel_order"))
+    order = OrderFactory(workspace=workspace)
+    client = auth_client(Role.AGENT)
+
+    response = client.post(url(order, "transition/"), {"to_status": "packed"}, format="json")
+    assert response.status_code == 200, response.content
+    assert client.post(url(order, "cancel/"), {}, format="json").status_code == 200
+    assert calls["transition"]["notify_buyer"] is True
+    assert {k: calls["cancel_order"][k] for k in ("reason", "restock", "notify_buyer")} == {
+        "reason": "",
+        "restock": True,
+        "notify_buyer": True,
+    }
+
+    body = {"reason": "Out of stock", "restock": False, "notify_buyer": False}
+    assert client.post(url(order, "cancel/"), body, format="json").status_code == 200
+    assert {k: calls["cancel_order"][k] for k in body} == body
+
+
+def test_optional_action_fields_are_optional_in_the_schema():
+    from drf_spectacular.generators import SchemaGenerator
+
+    schemas = SchemaGenerator().get_schema(request=None, public=True)["components"]["schemas"]
+    for name, fields in {
+        "OrderTransitionRequest": ("notify_buyer",),
+        "CancelOrderRequest": ("reason", "restock", "notify_buyer"),
+    }.items():
+        schema = schemas[name]
+        for field in fields:
+            assert field not in schema.get("required", ())
+            # openapi-typescript types a property with a default as required.
+            assert "default" not in schema["properties"][field]
 
 
 def test_notes_update_writes_one_event(auth_client, workspace):

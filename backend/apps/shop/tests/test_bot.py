@@ -149,7 +149,7 @@ def test_menu_to_checkout(
     assert buyer.new_replies() == []  # orders sends the next step
 
     replies = buyer.replies()
-    assert {(m.source, m.source_ref) for m in replies} == {(Message.Source.AUTOMATION, "shop")}
+    assert {(m.source, m.source_ref) for m in replies} == {(Message.Source.COMMERCE, "shop")}
     for reply in replies:
         assert_message_limits(reply)
     assert session_of(conversation).expires_at == (

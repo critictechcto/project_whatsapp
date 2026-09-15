@@ -3216,7 +3216,7 @@ paths:
   /api/v1/orders/{id}/mark-cod-collected/:
     post:
       operationId: orders_mark_cod_collected_create
-      description: Only COD orders that are shipped or delivered.
+      description: Only COD orders that are shipped or delivered; otherwise 409 invalid_order_transition.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3245,8 +3245,8 @@ paths:
   /api/v1/orders/{id}/mark-refunded/:
     post:
       operationId: orders_mark_refunded_create
-      description: Only paid orders that are cancelled or need attention; refund in
-        Razorpay.
+      description: Only paid orders that are cancelled or need attention (otherwise
+        409 invalid_order_transition); refund in Razorpay.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -5851,14 +5851,14 @@ components:
       properties:
         reason:
           type: string
-          default: ''
+          description: Default "".
           maxLength: 200
         restock:
           type: boolean
-          default: true
+          description: Default true.
         notify_buyer:
           type: boolean
-          default: true
+          description: Default true.
     CancelSubscriptionRequest:
       type: object
       properties:
@@ -7087,6 +7087,7 @@ components:
       - campaign
       - automation
       - api
+      - commerce
       type: string
       description: |-
         * `inbound` - inbound
@@ -7094,6 +7095,7 @@ components:
         * `campaign` - campaign
         * `automation` - automation
         * `api` - api
+        * `commerce` - commerce
     MessageStatusEnum:
       enum:
       - queued
@@ -8044,7 +8046,7 @@ components:
             maxLength: 0
         notify_buyer:
           type: boolean
-          default: true
+          description: Default true.
       required:
       - to_status
     OrderTransitionTargetEnum:

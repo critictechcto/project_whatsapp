@@ -133,6 +133,7 @@ class Message(TenantScopedModel):
         CAMPAIGN = "campaign", "Campaign"
         AUTOMATION = "automation", "Automation"
         API = "api", "API"
+        COMMERCE = "commerce", "Commerce"
 
     MEDIA_TYPES = frozenset({Type.IMAGE, Type.VIDEO, Type.AUDIO, Type.DOCUMENT, Type.STICKER})
 

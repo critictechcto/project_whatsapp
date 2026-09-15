@@ -84,7 +84,7 @@ def test_start_checkout_snapshots_items_and_asks_for_the_address(conversation, s
     assert event_types(order) == ["created"]
     message = last_outbound(conversation.contact)
     assert interactive_type(message) == "address_message"
-    assert (message.source, message.source_ref) == ("automation", f"order:{order.pk}")
+    assert (message.source, message.source_ref) == ("commerce", f"order:{order.pk}")
 
 
 def test_free_shipping_above_the_threshold(conversation, store, product):
