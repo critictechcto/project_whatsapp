@@ -48,7 +48,8 @@ RECIPIENT_UPDATED_FRAME = "alert_recipient.updated"
 NEW_ORDER = "new_order"
 NEEDS_ATTENTION = "needs_attention"
 ORDER_CANCELLED = "order_cancelled"
-# Cancellations the seller made themselves (dashboard or WhatsApp) don't alert.
+# Cancellations the seller made themselves (dashboard or WhatsApp) don't alert, and neither do
+# checkouts the seller never got a new-order alert for (superseded carts, Edit cart, buyer cancel).
 CANCELLED_ALERT_ACTORS = frozenset({"buyer", "system"})
 
 
@@ -312,7 +313,11 @@ def alert_event_for(event: OrderStatusChanged) -> str | None:
         return NEW_ORDER
     if new == Order.Status.NEEDS_ATTENTION:
         return NEEDS_ATTENTION
-    if new == Order.Status.CANCELLED and event.actor in CANCELLED_ALERT_ACTORS:
+    if (
+        new == Order.Status.CANCELLED
+        and event.actor in CANCELLED_ALERT_ACTORS
+        and old not in Order.CHECKOUT_STATUSES
+    ):
         return ORDER_CANCELLED
     return None
 

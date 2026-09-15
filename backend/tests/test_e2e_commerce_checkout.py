@@ -132,14 +132,6 @@ def test_a_second_cart_supersedes_the_active_checkout(
     assert f"Your earlier checkout {first.number} was replaced by this new one." in texts
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "seller_alerts.services.alert_event_for alerts order_cancelled for any buyer/system "
-        "cancellation, including checkouts the seller never got a new-order alert for "
-        "(superseded carts, Edit cart, Cancel order during checkout)."
-    ),
-)
 def test_a_superseded_checkout_does_not_alert_the_seller(
     workspace, buyer, kaju, gateway, recipient, fake_payments, fake_graph
 ):
