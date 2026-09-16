@@ -15,6 +15,7 @@ from django.db.models import F, Q
 from django.db.models.functions import Lower
 
 from common.models import TenantScopedModel
+from common.storage import public_media_storage
 
 CURRENCY = "INR"
 MIN_PRICE_PAISE = 100
@@ -118,7 +119,13 @@ class Product(TenantScopedModel):
     )
     position = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
-    image = models.FileField(upload_to=product_image_path, max_length=255, blank=True)
+    # Public storage: Meta and WhatsApp clients fetch product images without auth.
+    image = models.FileField(
+        upload_to=product_image_path,
+        storage=public_media_storage,
+        max_length=255,
+        blank=True,
+    )
 
     # Meta catalog sync (catalog.sync_products / catalog.poll_sync_status).
     meta_sync_status = models.CharField(
