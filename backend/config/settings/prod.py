@@ -1,17 +1,40 @@
-"""Production settings. Every secret is required; the process refuses to start without them."""
+"""Production settings. Every secret is required; the process refuses to start without them.
+
+Required: DJANGO_SECRET_KEY, TOKEN_ENCRYPTION_KEYS, DJANGO_ALLOWED_HOSTS, DATABASE_URL, REDIS_URL
+and WS_ALLOWED_ORIGINS. Importing these settings never connects to Postgres or Redis, so build
+steps can use ``config.settings.build`` (placeholders, no secrets) for ``collectstatic``.
+"""
 
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 from .base import SENTRY_DSN, env
 
-DEBUG = False
-SECRET_KEY = env("DJANGO_SECRET_KEY")
 
-TOKEN_ENCRYPTION_KEYS = env.list("TOKEN_ENCRYPTION_KEYS")
+def _require(name: str) -> str:
+    value = env.str(name, default="").strip()
+    if not value:
+        raise ImproperlyConfigured(f"Set the {name} environment variable.")
+    return value
+
+
+DEBUG = False
+SECRET_KEY = _require("DJANGO_SECRET_KEY")
+
+TOKEN_ENCRYPTION_KEYS = [key for key in env.list("TOKEN_ENCRYPTION_KEYS", default=[]) if key]
 if not TOKEN_ENCRYPTION_KEYS:
     raise ImproperlyConfigured("TOKEN_ENCRYPTION_KEYS must contain at least one Fernet key.")
 
+_require("DJANGO_ALLOWED_HOSTS")
+ALLOWED_HOSTS = [host for host in env.list("DJANGO_ALLOWED_HOSTS") if host]
+# base.py falls back to local Postgres/Redis; production must point at the real services.
+_require("DATABASE_URL")
+_require("REDIS_URL")
+
+# --- Behind the platform's HTTPS router -----------------------------------------------------
+# The router terminates TLS and sets X-Forwarded-Proto. Host is passed through unchanged, so
+# USE_X_FORWARDED_HOST stays off (it would let clients choose the host Django trusts). Health
+# probes skip host validation and the redirect via common.health.HealthCheckMiddleware.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
 SECURE_REDIRECT_EXEMPT = [r"^healthz/$", r"^readyz/$"]
@@ -37,7 +60,9 @@ if MEDIA_STORAGE == "s3":  # noqa: F405
             "MEDIA_STORAGE=s3 requires " + ", ".join(_missing_storage) + " to be set."
         )
 
-if not WS_ALLOWED_ORIGINS:  # noqa: F405
+# Required explicitly: base.py would otherwise fall back to the local dev origin.
+WS_ALLOWED_ORIGINS = [origin for origin in env.list("WS_ALLOWED_ORIGINS", default=[]) if origin]
+if not WS_ALLOWED_ORIGINS:
     raise ImproperlyConfigured("WS_ALLOWED_ORIGINS must list the dashboard origin(s).")
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
