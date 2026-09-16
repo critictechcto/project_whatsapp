@@ -13,6 +13,7 @@ import { Navbar } from './sections/Navbar'
 import { OfficialVsUnofficial } from './sections/OfficialVsUnofficial'
 import { Pricing } from './sections/Pricing'
 import { SellOnWhatsApp } from './sections/SellOnWhatsApp'
+import { ScrollStory } from './scenes/story/ScrollStory'
 import { Security } from './sections/Security'
 import { UseCases } from './sections/UseCases'
 
@@ -32,6 +33,7 @@ export function LandingPage() {
         <BuiltFor />
         <OfficialVsUnofficial />
         <HowItWorks />
+        <ScrollStory />
         <Features />
         <SellOnWhatsApp />
         <GettingConnected />

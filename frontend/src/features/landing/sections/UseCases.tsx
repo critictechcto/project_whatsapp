@@ -55,7 +55,7 @@ export function UseCases() {
     <section id="use-cases" className="border-t border-line py-20 md:py-28">
       <Container>
         <SectionHeader
-          index="07"
+          index="08"
           eyebrow="Use cases"
           title="Messages your customers actually want to receive."
           description="WhatsApp works best for timely, useful messages. These are the ones Indian businesses send most — each one a template you can set up in minutes."

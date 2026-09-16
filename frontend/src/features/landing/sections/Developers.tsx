@@ -58,7 +58,7 @@ export function Developers() {
         <div className="lg:col-span-5">
           <SectionHeader
             inverse
-            index="09"
+            index="10"
             eyebrow="Developers"
             title="A clean API on top of Meta’s."
             description="Trigger messages from your store, CRM or billing system. We handle Meta’s tokens, template formats, retries and rate limits, so your code stays short."

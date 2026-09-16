@@ -74,8 +74,8 @@ describe('Sell on WhatsApp section', () => {
 
     const section = container.querySelector('section#sell')!
     expect(within(section as HTMLElement).getByRole('heading', { level: 2, name: 'Your shop, inside the chat your buyers already use.' })).toBeInTheDocument()
-    // Numbered eyebrow: "04 — Sell on WhatsApp".
-    expect(section.querySelector('p')).toHaveTextContent(/^04\s*Sell on WhatsApp$/)
+    // Numbered eyebrow: "05 — Sell on WhatsApp".
+    expect(section.querySelector('p')).toHaveTextContent(/^05\s*Sell on WhatsApp$/)
 
     const steps = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
     expect(steps.slice(0, 6)).toEqual([

@@ -148,7 +148,7 @@ export function Security() {
       <Container>
         <div className="grid items-end gap-10 lg:grid-cols-12">
           <SectionHeader
-            index="10"
+            index="11"
             eyebrow="Security & data"
             title="Your customers’ data, handled with care."
             description="WhatsApp conversations are personal. We treat access to them that way."

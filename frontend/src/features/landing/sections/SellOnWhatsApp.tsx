@@ -62,7 +62,7 @@ export function SellOnWhatsApp() {
     <section id="sell" className="border-t border-line bg-paper-2/50 py-20 md:py-28">
       <Container>
         <SectionHeader
-          index="04"
+          index="05"
           eyebrow="Sell on WhatsApp"
           title="Your shop, inside the chat your buyers already use."
           description="Buyers browse, order and track deliveries on WhatsApp, and pay through a payment link or cash on delivery. You manage orders from the dashboard or straight from your phone."

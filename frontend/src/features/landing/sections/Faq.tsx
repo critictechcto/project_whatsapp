@@ -61,7 +61,7 @@ export function Faq() {
     <section id="faq" className="border-t border-line py-20 md:py-28">
       <Container className="grid gap-12 lg:grid-cols-12 lg:gap-10">
         <div className="lg:col-span-4">
-          <SectionHeader index="11" eyebrow="FAQ" title="Questions we hear every week." />
+          <SectionHeader index="12" eyebrow="FAQ" title="Questions we hear every week." />
           <p className="mt-6 text-[15.5px] leading-relaxed text-muted">
             Something not covered here? Email{' '}
             <a href={`mailto:${site.email.sales}`} className="text-ink underline decoration-line underline-offset-4 hover:decoration-ink">

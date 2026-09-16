@@ -160,7 +160,7 @@ export function Features() {
     <section id="product" className="py-20 md:py-28">
       <Container>
         <SectionHeader
-          index="03"
+          index="04"
           eyebrow="Product"
           title="Everything you need to run WhatsApp as a real channel."
           description="Campaigns, reminders, conversations and reporting in one workspace — built around how WhatsApp’s official platform actually works."

@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
     // the landing entry import them. Dynamic imports alone keep the dashboard, charts
     // (components/app/charts/LazyTrendChart) and MSW (App.tsx, mock mode only) out of the landing bundle.
     build: {
+      // three.js alone is ~520 kB minified and cannot be split further; it lives only in the lazy
+      // scroll-story chunk (StoryCanvas, ~140 kB gzip), which desktops fetch near that section.
+      chunkSizeWarningLimit: 600,
       rolldownOptions: {
         output: {
           codeSplitting: {
