@@ -25,6 +25,11 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       restoreMocks: true,
+      // jsdom tests are CPU-bound. The default (all logical cores but one) oversubscribes
+      // hyperthreads: on a 10-core/16-thread machine it spent twice the CPU for no wall-clock gain
+      // and pushed findBy waits past their timeouts. Forks, not threads: worker startup with
+      // threads was ~4x slower here.
+      maxWorkers: '50%',
       // Dashboard tests render whole routed pages and lazy chunks; the full parallel suite on a
       // loaded machine needs far more than the 5 s default.
       testTimeout: 30_000,
