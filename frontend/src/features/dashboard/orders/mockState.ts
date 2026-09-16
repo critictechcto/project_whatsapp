@@ -38,6 +38,9 @@ const products: MockProduct[] = [
   { sku: 'NAMKEEN-MIX-400', name: 'Jaipuri namkeen mix (400 g)', price: 18_000, color: '#b7832f', image: false },
   { sku: 'MILK-CAKE-500', name: 'Milk cake (500 g)', price: 42_000, color: '#caa27a', image: true },
   { sku: 'MAWA-KACHORI-6', name: 'Mawa kachori (6 pcs)', price: 24_000, color: '#b9772f', image: true },
+  // Kabir's shop bot order in the inbox mock (SS-1042).
+  { sku: 'SS-KAJU-250', name: 'Kaju Katli 250 g', price: 22_000, color: '#d9c7a1', image: true },
+  { sku: 'SS-SOAN-250', name: 'Soan Papdi 250 g', price: 10_000, color: '#e9d9a6', image: false },
 ]
 
 function productImage(product: MockProduct): string | null {
@@ -56,7 +59,7 @@ function productImage(product: MockProduct): string | null {
 const CONTACT_PREFIX = 'e0f1a2b3-c4d5-4e6f-8a9b-'
 
 /** Contact index → inbox mock conversation number. */
-const conversationByContact: Record<number, number> = { 1: 1, 2: 2, 5: 3, 7: 5, 8: 6, 10: 7, 12: 9 }
+const conversationByContact: Record<number, number> = { 1: 1, 2: 2, 5: 3, 6: 10, 7: 5, 8: 6, 10: 7, 12: 9 }
 
 function contact(i: number): Schemas['ConversationContact'] {
   return {
@@ -105,6 +108,10 @@ function userSummary(userId: string): Schemas['UserSummary'] | null {
 
 type Seed = {
   key?: string
+  /** Fixed id and number, for orders the inbox mock links to. */
+  id?: string
+  number?: string
+  freeShipping?: boolean
   hoursAgo: number
   contact: number
   lines: [product: number, quantity: number][]
@@ -118,6 +125,8 @@ type Seed = {
   codCollected?: boolean
   courier?: [name: string, awb: string, url: string]
   notifyShippedFailed?: boolean
+  /** The order confirmation was sent but Meta later failed it with this error code. */
+  confirmationFailedCode?: string
   priceChanged?: boolean
   notes?: string
 }
@@ -200,6 +209,22 @@ const seeds: Seed[] = [
   { key: 'confirmedCod', hoursAgo: 5, contact: 19, lines: [[1, 1], [8, 1]], status: 'confirmed', method: 'cod' },
   { hoursAgo: 3, contact: 10, lines: [[0, 1]], status: 'packed', method: 'online' },
   { hoursAgo: 1.5, contact: 12, lines: [[9, 1], [3, 1]], status: 'confirmed', method: 'cod' },
+  {
+    key: 'kabirShop',
+    id: '7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01',
+    number: 'SS-1042',
+    hoursAgo: 1.15,
+    contact: 6,
+    lines: [
+      [10, 2],
+      [11, 1],
+    ],
+    status: 'confirmed',
+    method: 'online',
+    source: 'bot',
+    freeShipping: true,
+    confirmationFailedCode: '131042',
+  },
   { hoursAgo: 0.6, contact: 20, lines: [[2, 2]], status: 'awaiting_payment_method' },
   { hoursAgo: 0.4, contact: 21, lines: [[6, 1], [1, 1]], status: 'awaiting_address', source: 'native_cart' },
   { hoursAgo: 0.3, contact: 22, lines: [[0, 1]], status: 'awaiting_confirmation', priceChanged: true, source: 'native_cart' },
@@ -220,7 +245,7 @@ function orderId(n: number) {
 const ORDER_PREFIX = 'SS'
 
 function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): OrderRecord {
-  const number = `${ORDER_PREFIX}-${1000 + n}`
+  const number = seed.number ?? `${ORDER_PREFIX}-${1000 + n}`
   const created = now - seed.hoursAgo * HOUR
   let t = created
   const iso = () => new Date(t).toISOString()
@@ -242,13 +267,13 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     }
   })
   const subtotal = items.reduce((sum, item) => sum + item.line_total_paise, 0)
-  const shipping = subtotal >= FREE_SHIPPING_ABOVE_PAISE ? 0 : SHIPPING_PAISE
+  const shipping = seed.freeShipping || subtotal >= FREE_SHIPPING_ABOVE_PAISE ? 0 : SHIPPING_PAISE
   const codFee = seed.method === 'cod' ? COD_FEE_PAISE : 0
   const total = subtotal + shipping + codFee
   const person = contact(seed.contact)
 
   const order: MockOrder = {
-    id: orderId(n),
+    id: seed.id ?? orderId(n),
     number,
     status: 'draft',
     payment_status: 'unpaid',
@@ -287,7 +312,14 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
 
   const events: MockOrderEvent[] = []
   const record: OrderRecord = { workspaceId, order, events }
-  const event = (type: EventType, actor: EventActor, detail = '', options: { from?: OrderStatus; to?: OrderStatus; user?: string } = {}) => {
+  const event = (
+    type: EventType,
+    actor: EventActor,
+    detail = '',
+    options: { from?: OrderStatus; to?: OrderStatus; user?: string; failedCode?: string } = {},
+  ) => {
+    // Buyer notifications carry their message and its delivery status.
+    const notification = type === 'notification_sent'
     events.push({
       id: `3a4b5c6d-7e8f-4a9b-8c0d-${String(n * 100 + events.length).padStart(12, '0')}`,
       type,
@@ -296,7 +328,9 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
       actor,
       user: options.user ? userSummary(options.user) : null,
       detail,
-      message_id: null,
+      message_id: notification ? `5c6d7e8f-9a0b-4c1d-8e2f-${String(n * 100 + events.length).padStart(12, '0')}` : null,
+      message_status: notification ? (options.failedCode ? 'failed' : 'read') : null,
+      message_error_code: options.failedCode ?? '',
       created_at: iso(),
     })
   }
@@ -381,7 +415,7 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     move('confirmed', 'buyer', 'Chose cash on delivery.')
   }
   order.confirmed_at = iso()
-  event('notification_sent', 'system', 'Sent the order confirmation.')
+  event('notification_sent', 'system', 'Sent the order confirmation.', { failedCode: seed.confirmationFailedCode })
 
   const target = seed.status === 'cancelled' ? (seed.cancelledFrom ?? 'confirmed') : seed.status
   const steps: OrderStatus[] = ['packed', 'shipped', 'delivered']
@@ -450,7 +484,9 @@ function state(): Snapshot {
       if (seed.key) keys.set(seed.key, record.order.id)
       return record
     })
-    snapshot = { token: db.refreshTokens, records, counter: seeds.length, keys }
+    // New orders are numbered after the highest seeded number (fixed numbers included).
+    const highest = Math.max(...records.map((record) => Number(record.order.number.split('-')[1]) - 1000))
+    snapshot = { token: db.refreshTokens, records, counter: Math.max(seeds.length, highest), keys }
   }
   return snapshot
 }
@@ -498,6 +534,8 @@ export function addEvent(
     user: options.userId ? userSummary(options.userId) : null,
     detail: options.detail ?? '',
     message_id: null,
+    message_status: null,
+    message_error_code: '',
     created_at: at,
   })
   record.order.updated_at = at

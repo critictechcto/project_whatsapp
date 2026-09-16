@@ -199,4 +199,34 @@ describe('order detail', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Mark packed' })).not.toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Mark shipped' })).toBeInTheDocument()
   })
+
+  it('warns when Meta did not deliver a buyer notification', async () => {
+    await openOrder('kabirShop')
+
+    const timeline = region('Timeline')
+    expect(await within(timeline).findByText('Buyer notification not delivered')).toBeInTheDocument()
+    expect(within(timeline).getByText(/Not delivered: add a payment method in WhatsApp Manager\./)).toBeInTheDocument()
+    expect(within(timeline).getByText(/Add or update it in WhatsApp Manager/)).toBeInTheDocument()
+  })
+
+  it('refreshes the timeline when a listed notification fails later', async () => {
+    const { record } = await openOrder('confirmedCod')
+    const timeline = region('Timeline')
+    expect(await within(timeline).findByText('Buyer notified')).toBeInTheDocument()
+
+    const notification = record.events.find((event) => event.type === 'notification_sent')!
+    notification.message_status = 'failed'
+    notification.message_error_code = '131047'
+    act(() => {
+      dispatch({
+        v: 1,
+        type: 'message.status',
+        workspace_id: ids.sharmaSweets,
+        data: { conversation_id: record.order.conversation_id ?? '', message_id: notification.message_id!, status: 'failed' },
+      })
+    })
+
+    expect(await within(timeline).findByText('Buyer notification not delivered')).toBeInTheDocument()
+    expect(within(timeline).getByText(/24-hour customer service window had closed/)).toBeInTheDocument()
+  })
 })

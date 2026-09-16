@@ -1,10 +1,12 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { errorMessage } from '../../../../api/errors'
 import { Button, Skeleton } from '../../../../components/app'
+import { describeDeliveryError } from '../../../../components/app/whatsapp/deliveryError'
 import { cn } from '../../../../lib/cn'
 import { formatDateTime } from '../../../../lib/datetime'
 import { useWorkspace } from '../../../../lib/workspace'
-import { useOrderEvents, type EventType, type Order, type OrderEvent } from '../api'
+import { useNotificationStatusUpdates, useOrderEvents, type EventType, type Order, type OrderEvent } from '../api'
 import { eventActor, eventTitle } from '../labels'
 import { Notice } from './Notice'
 import { SectionCard } from './SectionCard'
@@ -36,17 +38,41 @@ function NotificationFailedHint() {
   )
 }
 
+/** A buyer notification that was sent but that Meta later reported as not delivered. */
+function isUndelivered(event: OrderEvent): boolean {
+  return event.type === 'notification_sent' && event.message_status === 'failed'
+}
+
+function UndeliveredHint({ code }: { code: string }) {
+  const { summary, action } = describeDeliveryError(code)
+  return (
+    <div className="mt-1 text-[13px]">
+      <p className="text-signal">
+        {summary}
+        {code && <span className="ml-1 font-mono text-[11px]">({code})</span>}
+      </p>
+      {action && <p className="text-ink-2">{action}</p>}
+    </div>
+  )
+}
+
 function TimelineEntry({ event, buyerName, timeZone }: { event: OrderEvent; buyerName: string; timeZone: string }) {
   return (
     <li className="relative flex gap-3 pb-5 last:pb-0">
       <div aria-hidden="true" className="flex w-3 shrink-0 flex-col items-center">
-        <span className={cn('mt-1.5 size-2.5 rounded-full ring-4 ring-card', dotTones[event.type] ?? 'bg-muted/50')} />
+        <span
+          className={cn(
+            'mt-1.5 size-2.5 rounded-full ring-4 ring-card',
+            isUndelivered(event) ? 'bg-signal' : (dotTones[event.type] ?? 'bg-muted/50'),
+          )}
+        />
         <span className="timeline-line mt-1 w-px flex-1 bg-line" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-ink">{eventTitle(event)}</p>
+        <p className="text-sm font-medium text-ink">{isUndelivered(event) ? 'Buyer notification not delivered' : eventTitle(event)}</p>
         {event.detail && <p className="text-[13px] text-ink-2">{event.detail}</p>}
         {event.type === 'notification_failed' && <NotificationFailedHint />}
+        {isUndelivered(event) && <UndeliveredHint code={event.message_error_code} />}
         <p className="mt-0.5 text-[12px] text-muted">
           {eventActor(event, buyerName)} · <time dateTime={event.created_at}>{formatDateTime(event.created_at, timeZone)}</time>
         </p>
@@ -58,6 +84,11 @@ function TimelineEntry({ event, buyerName, timeZone }: { event: OrderEvent; buye
 export function OrderTimeline({ order }: { order: Order }) {
   const { workspaceId, timeZone } = useWorkspace()
   const events = useOrderEvents(workspaceId, order.id)
+  const notificationIds = useMemo(
+    () => new Set(events.items.flatMap((event) => (event.type === 'notification_sent' && event.message_id ? [event.message_id] : []))),
+    [events.items],
+  )
+  useNotificationStatusUpdates(workspaceId, order.id, notificationIds)
 
   return (
     <SectionCard title="Timeline">
