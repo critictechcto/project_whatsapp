@@ -20,6 +20,24 @@ export default defineConfig(({ mode }) => {
     // No manualChunks: grouping recharts/msw pulled shared deps (React) into those groups and made
     // the landing entry import them. Dynamic imports alone keep the dashboard, charts
     // (components/app/charts/LazyTrendChart) and MSW (App.tsx, mock mode only) out of the landing bundle.
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                // Mock builds only: MSW's own packages (tldts alone is ~245 kB of public-suffix data)
+                // made the mock worker chunk ~590 kB. This group lists MSW's dependency tree and
+                // nothing shared, and does not follow dependencies, so React stays where it was.
+                name: 'msw',
+                test: /[\\/]node_modules[\\/](msw|@mswjs[\\/][^\\/]+|tough-cookie|tldts|tldts-core|path-to-regexp|rettime|@open-draft[\\/][^\\/]+|set-cookie-parser|headers-polyfill|strict-event-emitter|outvariant|is-node-process|until-async|cookie|graphql|statuses|type-fest|picocolors)[\\/]/,
+                includeDependenciesRecursively: false,
+              },
+            ],
+          },
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
