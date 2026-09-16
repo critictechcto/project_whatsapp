@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
+import { MagneticButton } from '../../../components/ui/MagneticButton'
 import { Container } from '../../../components/ui/Container'
 import { Logo } from '../../../components/ui/Logo'
 import { isLandingPath, sectionHref, site } from '../../../config/site'
@@ -94,9 +95,9 @@ export function Navbar() {
           <Button href={site.links.login} variant="ghost" size="sm">
             Log in
           </Button>
-          <Button href={site.links.signup} size="sm">
+          <MagneticButton href={site.links.signup} size="sm" max={6}>
             Start free trial
-          </Button>
+          </MagneticButton>
         </div>
 
         <button

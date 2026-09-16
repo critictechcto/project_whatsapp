@@ -1,3 +1,4 @@
+import { ScrollProgressBar } from '../../components/ui/ScrollProgressBar'
 import { BuiltFor } from './sections/BuiltFor'
 import { Developers } from './sections/Developers'
 import { Faq } from './sections/Faq'
@@ -24,6 +25,7 @@ export function LandingPage() {
       >
         Skip to content
       </a>
+      <ScrollProgressBar />
       <Navbar />
       <main id="main">
         <Hero />
