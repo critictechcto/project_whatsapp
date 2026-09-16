@@ -5,7 +5,7 @@ import { db } from '../../../mocks/db'
 import { server } from '../../../mocks/node'
 import { ids } from '../../../mocks/seed'
 import { http, paginate } from '../../../mocks/utils'
-import { renderDashboard, signIn } from '../../../test/render'
+import { fill, renderDashboard, signIn } from '../../../test/render'
 import { automationState, hoursFor, ruleIds } from './mockState'
 import { emptyAction, ruleSchema, ruleToForm } from './ruleForm'
 
@@ -55,7 +55,7 @@ describe('rule editor', () => {
     expect(add).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Remove action 1' })).toBeDisabled()
 
-    await user.type(screen.getByLabelText(/^Message/), 'Our price list is on its way.')
+    await fill(user, screen.getByLabelText(/^Message/), 'Our price list is on its way.')
     await user.click(screen.getByRole('button', { name: 'Create rule' }))
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Automations' })).toBeInTheDocument()
@@ -124,7 +124,7 @@ describe('rule editor', () => {
 
     await user.type(await screen.findByLabelText(/^Rule name/), 'Appointment reply')
     await user.type(screen.getByLabelText(/^Keywords/), 'appointment{Enter}')
-    await user.type(screen.getByLabelText(/^Message/), 'Reply with a date to book.')
+    await fill(user, screen.getByLabelText(/^Message/), 'Reply with a date to book.')
     await user.click(screen.getByRole('button', { name: 'Create rule' }))
 
     expect(await screen.findByText("Keyword automations aren't included in your plan")).toBeInTheDocument()

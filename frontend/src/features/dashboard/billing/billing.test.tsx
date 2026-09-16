@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ids } from '../../../mocks/seed'
-import { renderDashboard, signIn } from '../../../test/render'
+import { fill, renderDashboard, signIn } from '../../../test/render'
 
 // Tests run in live API mode; pay instantly instead of loading Razorpay Checkout.
 vi.mock('../../../lib/integrations/razorpay', async (importOriginal) => {
@@ -32,13 +32,13 @@ describe('billing', () => {
     expect(router.state.location.pathname).toBe(`/app/w/${ids.sharmaSweets}/billing/profile`)
     expect(new URLSearchParams(router.state.location.search).get('next')).toBe('plans')
 
-    await user.type(await screen.findByLabelText(/^Legal name/), 'Sharma Sweets Private Limited')
+    await fill(user, await screen.findByLabelText(/^Legal name/), 'Sharma Sweets Private Limited')
     await user.type(screen.getByLabelText(/^GSTIN/), '08aabcs1429b1zx')
     expect(screen.getByLabelText(/^State/)).toHaveValue('08')
     const email = screen.getByLabelText(/^Invoice email/)
     await user.clear(email)
-    await user.type(email, 'accounts@sharmasweets.in')
-    await user.type(screen.getByLabelText(/^Address line 1/), 'Shop 12, Johari Bazar')
+    await fill(user, email, 'accounts@sharmasweets.in')
+    await fill(user, screen.getByLabelText(/^Address line 1/), 'Shop 12, Johari Bazar')
     await user.type(screen.getByLabelText(/^City/), 'Jaipur')
     await user.type(screen.getByLabelText(/^PIN code/), '302003')
     await user.click(screen.getByRole('button', { name: 'Save and continue' }))
@@ -63,10 +63,10 @@ describe('billing', () => {
     signIn()
     const { user } = renderDashboard(`/app/w/${ids.sharmaSweets}/billing/profile`)
 
-    await user.type(await screen.findByLabelText(/^Legal name/), 'Sharma Sweets Private Limited')
+    await fill(user, await screen.findByLabelText(/^Legal name/), 'Sharma Sweets Private Limited')
     await user.type(screen.getByLabelText(/^GSTIN/), '08AABCS1429B1ZX')
     await user.selectOptions(screen.getByLabelText(/^State/), '27')
-    await user.type(screen.getByLabelText(/^Address line 1/), 'Shop 12, Johari Bazar')
+    await fill(user, screen.getByLabelText(/^Address line 1/), 'Shop 12, Johari Bazar')
     await user.type(screen.getByLabelText(/^City/), 'Jaipur')
     await user.type(screen.getByLabelText(/^PIN code/), '302003')
     await user.click(screen.getByRole('button', { name: 'Save billing details' }))

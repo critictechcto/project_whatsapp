@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ids } from '../../../mocks/seed'
-import { findDialog, renderDashboard, signIn } from '../../../test/render'
+import { fill, findDialog, renderDashboard, signIn } from '../../../test/render'
 import { catalogMock, collectionId } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/catalog/collections`
@@ -24,8 +24,8 @@ describe('collections', () => {
     await user.click(await screen.findByRole('button', { name: 'New collection' }, LAZY))
     const dialog = await findDialog({ name: 'New collection' })
 
-    await user.type(within(dialog).getByLabelText(/^Name/), 'Seasonal festival specials')
-    await user.type(within(dialog).getByLabelText(/^Description/), 'x'.repeat(73))
+    await fill(user, within(dialog).getByLabelText(/^Name/), 'Seasonal festival specials')
+    await fill(user, within(dialog).getByLabelText(/^Description/), 'x'.repeat(73))
     expect(within(dialog).getByText('26/24')).toBeInTheDocument()
     expect(within(dialog).getByText('73/72')).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Create collection' }))
@@ -38,7 +38,7 @@ describe('collections', () => {
     await user.clear(within(dialog).getByLabelText(/^Name/))
     await user.type(within(dialog).getByLabelText(/^Name/), 'Festival specials')
     await user.clear(within(dialog).getByLabelText(/^Description/))
-    await user.type(within(dialog).getByLabelText(/^Description/), 'Ghewar, gujiya and Diwali boxes')
+    await fill(user, within(dialog).getByLabelText(/^Description/), 'Ghewar, gujiya and Diwali boxes')
     await user.click(within(dialog).getByRole('button', { name: 'Create collection' }))
 
     await waitFor(() => expect(catalogMock().collections.map((c) => c.name)).toContain('Festival specials'))

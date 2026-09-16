@@ -1,8 +1,8 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { render, screen, waitFor, type ByRoleOptions, type RenderOptions } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import type { ReactElement, ReactNode } from 'react'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router'
 import { expect } from 'vitest'
 import { createQueryClient } from '../api/queryClient'
 import { ToastProvider } from '../components/app/Toast'
@@ -40,6 +40,29 @@ export async function findDialog(options?: ByRoleOptions) {
   const dialog = await screen.findByRole('dialog', options)
   await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
   return dialog
+}
+
+/**
+ * Clicks a field and pastes `text` into it. For long free text whose keystrokes are not under test:
+ * `user.type` dispatches four events per character and re-renders the form after each one.
+ */
+export async function fill(user: UserEvent, element: HTMLElement, text: string) {
+  await user.click(element)
+  await user.paste(text)
+}
+
+/**
+ * Imports every lazy dashboard route module. The first import of a page transforms and evaluates
+ * its whole chunk, which under a loaded parallel run can outlast a `findBy*` timeout; tests that
+ * visit many areas in one go call this from `beforeAll` so they wait on rendering, not on imports.
+ */
+export async function preloadDashboardRoutes(routes: RouteObject[] = dashboardRoutes): Promise<void> {
+  await Promise.all(
+    routes.map(async (route) => {
+      if (typeof route.lazy === 'function') await route.lazy()
+      if (route.children) await preloadDashboardRoutes(route.children)
+    }),
+  )
 }
 
 /** Renders the whole dashboard at `path` with an in-memory router. */

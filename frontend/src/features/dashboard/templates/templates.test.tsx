@@ -4,7 +4,7 @@ import { db } from '../../../mocks/db'
 import { server } from '../../../mocks/node'
 import { ids, seedTemplates } from '../../../mocks/seed'
 import { http, validationError } from '../../../mocks/utils'
-import { findDialog, renderDashboard, signIn } from '../../../test/render'
+import { fill, findDialog, renderDashboard, signIn } from '../../../test/render'
 import { rejectionInfo, statusExplanations } from './lib/constants'
 
 const base = `/app/w/${ids.sharmaSweets}/templates`
@@ -134,7 +134,7 @@ describe('template builder', () => {
     await user.type(screen.getByRole('textbox', { name: /Example for \{\{1\}\}/ }), 'Ananya')
     expect(within(preview).getByText('Namaste Ananya, your order is ready.')).toBeInTheDocument()
 
-    await user.type(screen.getByRole('textbox', { name: /^Footer text/ }), 'Sharma Sweets, Jaipur')
+    await fill(user, screen.getByRole('textbox', { name: /^Footer text/ }), 'Sharma Sweets, Jaipur')
     expect(within(preview).getByText('Sharma Sweets, Jaipur')).toBeInTheDocument()
   })
 
@@ -156,7 +156,7 @@ describe('template builder', () => {
     await user.type(screen.getByRole('textbox', { name: /Example for \{\{1\}\}/ }), 'Ananya')
     await user.click(screen.getByRole('button', { name: 'Visit website' }))
     await user.type(screen.getByRole('textbox', { name: /^Button text/ }), 'Track order')
-    await user.type(screen.getByRole('textbox', { name: /^Website URL/ }), 'https://sharmasweets.in/track')
+    await fill(user, screen.getByRole('textbox', { name: /^Website URL/ }), 'https://sharmasweets.in/track')
     await user.click(screen.getByRole('button', { name: 'Submit for review' }))
 
     await waitFor(() => expect(screen.getByRole('textbox', { name: /^Website URL/ })).toHaveAttribute('aria-invalid', 'true'))

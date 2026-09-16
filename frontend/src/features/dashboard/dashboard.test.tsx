@@ -1,9 +1,9 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { getActiveWorkspaceId } from '../../api/client'
 import { createQueryClient } from '../../api/queryClient'
 import { DEMO_EMAIL, DEMO_PASSWORD, ids } from '../../mocks/seed'
-import { renderDashboard, signIn } from '../../test/render'
+import { preloadDashboardRoutes, renderDashboard, signIn } from '../../test/render'
 import { navItems } from './registry'
 import { enterWorkspace } from './shell/workspaceSwitch'
 
@@ -66,6 +66,9 @@ describe('API errors in forms', () => {
 })
 
 describe('app shell', () => {
+  // Thirteen lazy areas in one test: import them up front so each findBy waits on rendering only.
+  beforeAll(() => preloadDashboardRoutes(), 60_000)
+
   it('renders every nav area', async () => {
     signIn()
     const { user } = renderDashboard(`/app/w/${ids.sharmaSweets}`)

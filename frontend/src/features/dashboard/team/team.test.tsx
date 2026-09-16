@@ -4,7 +4,7 @@ import { db } from '../../../mocks/db'
 import { server } from '../../../mocks/node'
 import { ids } from '../../../mocks/seed'
 import { errorResponse, http } from '../../../mocks/utils'
-import { findDialog, renderDashboard, signIn } from '../../../test/render'
+import { fill, findDialog, renderDashboard, signIn } from '../../../test/render'
 
 const teamPath = `/app/w/${ids.sharmaSweets}/team`
 
@@ -24,7 +24,7 @@ describe('team', () => {
     await user.click(await screen.findByRole('button', { name: 'Invite teammate' }))
 
     const dialog = await findDialog({ name: 'Invite a teammate' })
-    await user.type(within(dialog).getByLabelText(/^Email/), 'neha.gupta@sharmasweets.in')
+    await fill(user, within(dialog).getByLabelText(/^Email/), 'neha.gupta@sharmasweets.in')
     await user.selectOptions(within(dialog).getByLabelText(/^Role/), 'agent')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
 
@@ -38,7 +38,7 @@ describe('team', () => {
     const { user } = renderDashboard(teamPath)
     await user.click(await screen.findByRole('button', { name: 'Invite teammate' }))
     const dialog = await findDialog({ name: 'Invite a teammate' })
-    await user.type(within(dialog).getByLabelText(/^Email/), 'priya.nair@sharmasweets.in')
+    await fill(user, within(dialog).getByLabelText(/^Email/), 'priya.nair@sharmasweets.in')
     await user.click(within(dialog).getByRole('button', { name: 'Send invitation' }))
 
     expect(await within(dialog).findByText('This person is already a member of the workspace.')).toBeInTheDocument()

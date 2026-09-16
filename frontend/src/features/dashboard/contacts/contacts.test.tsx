@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../../mocks/db'
 import { ids } from '../../../mocks/seed'
-import { findDialog, renderDashboard, signIn } from '../../../test/render'
+import { fill, findDialog, renderDashboard, signIn } from '../../../test/render'
 import { contactId, contactsMock, mockTagIds } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/contacts`
@@ -119,7 +119,7 @@ describe('contact detail', () => {
 
     await user.click(screen.getByRole('button', { name: 'Record opt-out' }))
     const dialog = await findDialog({ name: 'Record marketing opt-out' })
-    await user.type(within(dialog).getByLabelText(/^Note/), 'Asked on a call to stop offers')
+    await fill(user, within(dialog).getByLabelText(/^Note/), 'Asked on a call to stop offers')
     await user.click(within(dialog).getByRole('button', { name: 'Record opt-out' }))
 
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Consent history' })).getByText('Opted out')).toBeInTheDocument())
