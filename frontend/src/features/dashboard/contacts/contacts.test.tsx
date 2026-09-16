@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../../mocks/db'
 import { ids } from '../../../mocks/seed'
-import { findDialog, renderDashboard, signIn } from '../../../test/render'
+import { fill, findDialog, renderDashboard, signIn } from '../../../test/render'
 import { contactId, contactsMock, mockTagIds } from './mockState'
 
 const base = `/app/w/${ids.sharmaSweets}/contacts`
@@ -36,15 +36,20 @@ describe('contacts list', () => {
     expect(await screen.findByRole('link', { name: newest }, LAZY)).toBeInTheDocument()
     await user.type(screen.getByRole('searchbox', { name: 'Search contacts' }), 'Ananya')
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('q')).toBe('Ananya'))
-    expect(await screen.findByRole('link', { name: 'Ananya Khan' }, LAZY)).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Ananya Khan' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument()
+    }, LAZY)
 
     await user.clear(screen.getByRole('searchbox', { name: 'Search contacts' }))
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('q')).toBeNull())
     await chooseOption(user, screen.getByRole('combobox', { name: 'Filter by tags' }), 'Wholesale')
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).getAll('tag')).toEqual([mockTagIds.wholesale]))
-    expect(await screen.findByRole('link', { name: wholesale })).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument())
+    // Check both together: `wholesale` is also in the unfiltered list, which stays until the tag results render.
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: wholesale })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument()
+    })
   })
 
   it('restores filters from the URL', async () => {
@@ -119,7 +124,7 @@ describe('contact detail', () => {
 
     await user.click(screen.getByRole('button', { name: 'Record opt-out' }))
     const dialog = await findDialog({ name: 'Record marketing opt-out' })
-    await user.type(within(dialog).getByLabelText(/^Note/), 'Asked on a call to stop offers')
+    await fill(user, within(dialog).getByLabelText(/^Note/), 'Asked on a call to stop offers')
     await user.click(within(dialog).getByRole('button', { name: 'Record opt-out' }))
 
     await waitFor(() => expect(within(screen.getByRole('list', { name: 'Consent history' })).getByText('Opted out')).toBeInTheDocument())

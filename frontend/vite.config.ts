@@ -20,11 +20,34 @@ export default defineConfig(({ mode }) => {
     // No manualChunks: grouping recharts/msw pulled shared deps (React) into those groups and made
     // the landing entry import them. Dynamic imports alone keep the dashboard, charts
     // (components/app/charts/LazyTrendChart) and MSW (App.tsx, mock mode only) out of the landing bundle.
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                // Mock builds only: MSW's own packages (tldts alone is ~245 kB of public-suffix data)
+                // made the mock worker chunk ~590 kB. This group lists MSW's dependency tree and
+                // nothing shared, and does not follow dependencies, so React stays where it was.
+                name: 'msw',
+                test: /[\\/]node_modules[\\/](msw|@mswjs[\\/][^\\/]+|tough-cookie|tldts|tldts-core|path-to-regexp|rettime|@open-draft[\\/][^\\/]+|set-cookie-parser|headers-polyfill|strict-event-emitter|outvariant|is-node-process|until-async|cookie|graphql|statuses|type-fest|picocolors)[\\/]/,
+                includeDependenciesRecursively: false,
+              },
+            ],
+          },
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       restoreMocks: true,
+      // jsdom tests are CPU-bound. The default (all logical cores but one) oversubscribes
+      // hyperthreads: on a 10-core/16-thread machine it spent twice the CPU for no wall-clock gain
+      // and pushed findBy waits past their timeouts. Forks, not threads: worker startup with
+      // threads was ~4x slower here.
+      maxWorkers: '50%',
       // Dashboard tests render whole routed pages and lazy chunks; the full parallel suite on a
       // loaded machine needs far more than the 5 s default.
       testTimeout: 30_000,

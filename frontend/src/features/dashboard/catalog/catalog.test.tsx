@@ -51,21 +51,28 @@ describe('products list', () => {
 
     await user.type(screen.getByRole('searchbox', { name: 'Search products' }), 'pista')
     await waitFor(() => expect(search(router).get('q')).toBe('pista'))
-    expect(await within(table).findByRole('link', { name: 'Pista roll 250 g' })).toBeInTheDocument()
-    await waitFor(() => expect(within(table).queryByRole('link', { name: 'Kaju katli 500 g' })).not.toBeInTheDocument())
+    // Check both together: Pista roll is also in the unfiltered list, which stays until the search results render.
+    await waitFor(() => {
+      expect(within(table).getByRole('link', { name: 'Pista roll 250 g' })).toBeInTheDocument()
+      expect(within(table).queryByRole('link', { name: 'Kaju katli 500 g' })).not.toBeInTheDocument()
+    })
 
     await user.clear(screen.getByRole('searchbox', { name: 'Search products' }))
     await waitFor(() => expect(search(router).get('q')).toBeNull())
     expect(await within(table).findByRole('link', { name: 'Kaju katli 500 g' })).toBeInTheDocument()
     await user.selectOptions(screen.getByRole('combobox', { name: 'Collection' }), 'Laddus')
     await waitFor(() => expect(search(router).get('collection')).toBe(collectionId(2)))
-    expect(await within(table).findByRole('link', { name: /Motichoor/ })).toBeInTheDocument()
-    await waitFor(() => expect(within(table).queryByRole('link', { name: 'Kaju katli 500 g' })).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(within(table).getByRole('link', { name: /Motichoor/ })).toBeInTheDocument()
+      expect(within(table).queryByRole('link', { name: 'Kaju katli 500 g' })).not.toBeInTheDocument()
+    })
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Collection' }), 'No collection')
     await waitFor(() => expect(search(router).get('collection')).toBe('none'))
-    expect(await within(table).findByRole('link', { name: 'Malai ghewar (4 pcs)' })).toBeInTheDocument()
-    await waitFor(() => expect(within(table).queryByRole('link', { name: /Motichoor/ })).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(within(table).getByRole('link', { name: 'Malai ghewar (4 pcs)' })).toBeInTheDocument()
+      expect(within(table).queryByRole('link', { name: /Motichoor/ })).not.toBeInTheDocument()
+    })
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Active' }), 'Active only')
     await waitFor(() => expect(search(router).get('active')).toBe('true'))
