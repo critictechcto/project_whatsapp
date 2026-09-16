@@ -10,6 +10,7 @@ from pathlib import Path
 import environ
 
 from common.enum_overrides import AppEnumNameOverrides
+from common.redis_tls import redis_ssl_options
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
 REPO_ROOT = BASE_DIR.parent
@@ -66,6 +67,8 @@ LOCAL_APPS = [
 INSTALLED_APPS = ["daphne", *DJANGO_APPS, *THIRD_PARTY_APPS, *LOCAL_APPS]
 
 MIDDLEWARE = [
+    # First: health probes skip ALLOWED_HOSTS and the HTTPS redirect (see common/health.py).
+    "common.health.HealthCheckMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -104,23 +107,41 @@ DATABASES = {
         default="postgres://upchatz:upchatz@localhost:5433/upchatz",
     ),
 }
+# Query parameters in the URL (e.g. ``?sslmode=require``) become connection OPTIONS.
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+# Set true when connecting through PgBouncer in transaction pooling mode: server-side cursors
+# (used by QuerySet.iterator()) can't survive across pooled transactions. iterator() still works,
+# it just fetches each result set in one go.
+DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = env.bool(
+    "DATABASE_DISABLE_SERVER_SIDE_CURSORS", default=False
+)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# One Redis for cache, channel layer and Celery broker. A ``rediss://`` URL turns on TLS with
+# certificate verification for each of them (common.redis_tls). The inbox send limiter builds its
+# own client from REDIS_URL; redis-py verifies rediss:// certificates by default there too.
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+# Escape hatches for managed Redis whose certificate isn't in the system trust store: a CA bundle
+# path, or the verification level (required | optional | none). Keep "required" in production.
+REDIS_SSL_CA_CERTS = env("REDIS_SSL_CA_CERTS", default="")
+REDIS_SSL_CERT_REQS = env("REDIS_SSL_CERT_REQS", default="required")
+REDIS_SSL_OPTIONS = redis_ssl_options(
+    REDIS_URL, cert_reqs=REDIS_SSL_CERT_REQS, ca_certs=REDIS_SSL_CA_CERTS
+)
 
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": REDIS_URL,
+        "OPTIONS": {**REDIS_SSL_OPTIONS},
     },
 }
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [REDIS_URL]},
+        "CONFIG": {"hosts": [{"address": REDIS_URL, **REDIS_SSL_OPTIONS}]},
     },
 }
 
@@ -224,7 +245,14 @@ FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 # --- Celery ---------------------------------------------------------------------------------
 # Beat entries are collected from each app's optional `schedules.py` (see config/celery.py).
 
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_URL)
+# Empty or unset = REDIS_URL (an empty value would otherwise make Celery fall back to AMQP).
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="") or REDIS_URL
+# Without this kombu connects to rediss:// with CERT_NONE; None keeps plain redis:// as is.
+CELERY_BROKER_USE_SSL = (
+    redis_ssl_options(CELERY_BROKER_URL, cert_reqs=REDIS_SSL_CERT_REQS, ca_certs=REDIS_SSL_CA_CERTS)
+    or None
+)
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_TASK_DEFAULT_QUEUE = "default"

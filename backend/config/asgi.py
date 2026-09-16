@@ -6,6 +6,12 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
 
 django_asgi_app = get_asgi_application()
 
+from django.conf import settings  # noqa: E402
+from django.core.exceptions import ImproperlyConfigured  # noqa: E402
+
+if getattr(settings, "BUILD_ONLY", False):
+    raise ImproperlyConfigured("config.settings.build is for collectstatic only; use prod.")
+
 from channels.routing import ProtocolTypeRouter  # noqa: E402
 
 from common.ws_auth import websocket_application  # noqa: E402
