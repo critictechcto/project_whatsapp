@@ -36,15 +36,20 @@ describe('contacts list', () => {
     expect(await screen.findByRole('link', { name: newest }, LAZY)).toBeInTheDocument()
     await user.type(screen.getByRole('searchbox', { name: 'Search contacts' }), 'Ananya')
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('q')).toBe('Ananya'))
-    expect(await screen.findByRole('link', { name: 'Ananya Khan' }, LAZY)).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Ananya Khan' })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument()
+    }, LAZY)
 
     await user.clear(screen.getByRole('searchbox', { name: 'Search contacts' }))
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('q')).toBeNull())
     await chooseOption(user, screen.getByRole('combobox', { name: 'Filter by tags' }), 'Wholesale')
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).getAll('tag')).toEqual([mockTagIds.wholesale]))
-    expect(await screen.findByRole('link', { name: wholesale })).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument())
+    // Check both together: `wholesale` is also in the unfiltered list, which stays until the tag results render.
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: wholesale })).toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: newest })).not.toBeInTheDocument()
+    })
   })
 
   it('restores filters from the URL', async () => {
