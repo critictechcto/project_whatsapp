@@ -3,12 +3,49 @@ import { Menu, X } from 'lucide-react'
 import { Button } from '../../../components/ui/Button'
 import { Container } from '../../../components/ui/Container'
 import { Logo } from '../../../components/ui/Logo'
-import { site } from '../../../config/site'
+import { isLandingPath, sectionHref, site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
+
+const navIds: string[] = site.nav.map((item) => item.id)
+
+/**
+ * The id of the nav section crossing a band just above the middle of the viewport, or null. Observes
+ * only when `enabled` (the landing page). State changes only when the active section changes, so
+ * scrolling does not re-render the navbar.
+ */
+function useActiveSection(enabled: boolean) {
+  const [active, setActive] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!enabled || typeof IntersectionObserver === 'undefined') return
+    const sections = navIds
+      .map((id) => document.getElementById(id))
+      .filter((element): element is HTMLElement => element !== null)
+    if (sections.length === 0) return
+
+    const visible = new Set<string>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id)
+          else visible.delete(entry.target.id)
+        }
+        setActive(navIds.find((id) => visible.has(id)) ?? null)
+      },
+      { rootMargin: '-40% 0px -55% 0px' },
+    )
+    sections.forEach((section) => observer.observe(section))
+    return () => observer.disconnect()
+  }, [enabled])
+
+  return active
+}
 
 export function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const onLanding = isLandingPath()
+  const active = useActiveSection(onLanding)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -25,19 +62,31 @@ export function Navbar() {
       )}
     >
       <Container className="flex h-16 items-center justify-between gap-6">
-        <a href="#top" aria-label={`${site.name} home`}>
+        <a href={onLanding ? '#top' : import.meta.env.BASE_URL} aria-label={`${site.name} home`}>
           <Logo />
         </a>
 
         <nav aria-label="Primary" className="hidden lg:block">
           <ul className="flex items-center gap-7">
-            {site.nav.map((item) => (
-              <li key={item.href}>
-                <a href={item.href} className="text-[14px] text-muted transition-colors hover:text-ink">
-                  {item.label}
-                </a>
-              </li>
-            ))}
+            {site.nav.map((item) => {
+              const current = active === item.id
+              return (
+                <li key={item.id}>
+                  <a
+                    href={sectionHref(item.id)}
+                    aria-current={current ? 'true' : undefined}
+                    className={cn(
+                      'relative text-[14px] transition-colors hover:text-ink',
+                      current
+                        ? 'text-ink after:absolute after:inset-x-0 after:-bottom-1.5 after:h-px after:bg-accent'
+                        : 'text-muted',
+                    )}
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              )
+            })}
           </ul>
         </nav>
 
@@ -68,8 +117,13 @@ export function Navbar() {
             <nav aria-label="Mobile">
               <ul>
                 {site.nav.map((item) => (
-                  <li key={item.href} className="border-b border-line-2">
-                    <a href={item.href} onClick={() => setOpen(false)} className="block py-3.5 text-[16px]">
+                  <li key={item.id} className="border-b border-line-2">
+                    <a
+                      href={sectionHref(item.id)}
+                      aria-current={active === item.id ? 'true' : undefined}
+                      onClick={() => setOpen(false)}
+                      className={cn('block py-3.5 text-[16px]', active === item.id && 'text-accent-2')}
+                    >
                       {item.label}
                     </a>
                   </li>

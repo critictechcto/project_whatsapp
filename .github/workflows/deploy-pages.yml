@@ -47,6 +47,14 @@ jobs:
       # Pages has no SPA fallback: serve the app shell for deep links such as /app/login.
       - run: cp dist/index.html dist/404.html
 
+      # The 404.html fallback answers with HTTP 404, which Meta or Razorpay reviewers may reject for a
+      # privacy policy URL. Real files for the static pages make /privacy/, /terms/ and /contact/ return 200.
+      - run: |
+          for page in privacy terms contact; do
+            mkdir -p "dist/$page"
+            cp dist/index.html "dist/$page/index.html"
+          done
+
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v5
