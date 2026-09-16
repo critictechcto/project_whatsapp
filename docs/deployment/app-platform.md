@@ -193,7 +193,7 @@ Backend CI only runs when `backend/**` changes. Add a `workflow_dispatch` trigge
 
 | Symptom | Likely cause |
 |---|---|
-| Build fails in `collectstatic` with `ImproperlyConfigured` | A variable that `config.settings.prod` reads when it loads is missing, or it is only available at run time. Give it the `RUN_AND_BUILD_TIME` scope. |
+| Build fails in `collectstatic` with `ImproperlyConfigured` | The buildpack's own collectstatic ran with `config.settings.prod`. Check that the app-level `DISABLE_COLLECTSTATIC=1` (BUILD_TIME) is set and the `api` build command still uses `config.settings.build`. |
 | Health check fails, logs show `DisallowedHost` | The request's host is not in `DJANGO_ALLOWED_HOSTS` |
 | WebSocket closes straight away | `WS_ALLOWED_ORIGINS` must be `https://app.upchatz.com` |
 | Worker cannot connect to the broker | Valkey needs `rediss://` with TLS options; check `REDIS_URL` and `CELERY_BROKER_URL` |

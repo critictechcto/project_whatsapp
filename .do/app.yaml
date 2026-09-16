@@ -56,7 +56,9 @@ services:
       # Safer alternative: set false and deploy from CI after tests pass
       # (`doctl apps create-deployment <app-id>`), see docs/deployment/app-platform.md.
       deploy_on_push: true
-    # The Python buildpack installs requirements.txt and runs `manage.py collectstatic`.
+    # The Python buildpack installs requirements.txt. Only the api serves static files, so it
+    # collects them here with the placeholder build settings (see DISABLE_COLLECTSTATIC below).
+    build_command: DJANGO_SETTINGS_MODULE=config.settings.build python manage.py collectstatic --noinput
     run_command: daphne --proxy-headers -b 0.0.0.0 -p 8080 config.asgi:application
     http_port: 8080
     instance_size_slug: apps-s-1vcpu-1gb
@@ -149,10 +151,13 @@ databases:
     production: true
     cluster_name: upchatz-valkey
 
-# App-level variables reach every component. Django settings are imported during the buildpack's
-# collectstatic, so anything config.settings.prod reads at import is RUN_AND_BUILD_TIME. Database
-# and Valkey bindings are RUN_TIME only (base.py has defaults and collectstatic needs neither).
+# App-level variables reach every component. The buildpack's automatic collectstatic is off for
+# every Python component: config.settings.prod requires DATABASE_URL and REDIS_URL, which are
+# RUN_TIME only. The api build runs collectstatic with config.settings.build instead.
 envs:
+  - key: DISABLE_COLLECTSTATIC
+    value: "1"
+    scope: BUILD_TIME
   # --- Core ---------------------------------------------------------------------------------
   - key: DJANGO_SETTINGS_MODULE
     value: config.settings.prod

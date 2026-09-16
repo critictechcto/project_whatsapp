@@ -80,6 +80,9 @@ jobs:
                   errors.append("api must run daphne")
               if (api.get("health_check") or {}).get("http_path") != "/healthz/":
                   errors.append("api health check must be /healthz/")
+              # prod settings need runtime-only URLs, so collectstatic must use the build settings.
+              if "config.settings.build" not in (api.get("build_command") or ""):
+                  errors.append("api build_command must run collectstatic with config.settings.build")
           if "worker" not in workers:
               errors.append("missing worker 'worker'")
           scheduler = workers.get("scheduler")
@@ -120,6 +123,8 @@ jobs:
                       "WS_ALLOWED_ORIGINS"}
           app_envs = spec.get("envs") or []
           missing = required - {e.get("key") for e in app_envs}
+          if not any(e.get("key") == "DISABLE_COLLECTSTATIC" and e.get("value") == "1" for e in app_envs):
+              errors.append("app envs must set DISABLE_COLLECTSTATIC=1 (buildpack collectstatic would load prod settings)")
           if missing:
               errors.append(f"missing app envs: {sorted(missing)}")
 
