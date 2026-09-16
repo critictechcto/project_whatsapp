@@ -98,6 +98,8 @@
 /* Chat messages grow in when their beat arrives. */
 .sf-msg {
   --r: clamp(0, calc((var(--story-u, 0) - var(--at)) * 10), 1);
+  /* Never squeeze: older messages scroll off the top of the bottom-aligned chat instead. */
+  flex-shrink: 0;
   max-height: calc(var(--r) * 18rem);
   margin-top: calc(var(--r) * 8px);
   overflow: hidden;
@@ -115,6 +117,14 @@
 }
 .sf-fade {
   opacity: var(--on);
+}
+
+/* The parcel steps aside, between the two phones, when the seller's phone arrives. */
+.sf-parcel-slot {
+  --m4: clamp(0, calc((var(--story-u, 0) - 3.8) / 0.4), 1);
+  transform-style: preserve-3d;
+  transform: translate3d(calc(-195px * var(--m4) * var(--spread)), calc(70px * var(--m4)), 0);
+  transition: transform 0.45s var(--ease-soft);
 }
 
 /* A parcel: front, top and right faces of a box. */

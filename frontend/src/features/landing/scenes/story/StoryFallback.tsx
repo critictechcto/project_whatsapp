@@ -366,7 +366,9 @@ export function StoryFallback({ className }: { className?: string }) {
           ))}
 
           <Prop timing={{ x: 215, y: 170, z: 60, ry: -24, in: [2.0, 0.35] }}>
-            <Parcel />
+            <div className="sf-parcel-slot">
+              <Parcel />
+            </div>
           </Prop>
 
           <Prop timing={{ x: 200, y: -130, z: 130, ry: -16, in: [3.0, 0.35], out: [3.9, 0.3] }}>
