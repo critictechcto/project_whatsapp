@@ -74,3 +74,28 @@ if (!window.matchMedia) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function scrollIntoView() {}
 }
+
+/*
+ * jsdom re-parses `href` on every `anchor.host` read, and its selector engine reads `host` on each
+ * ancestor of an element for every `matches()` call (to detect shadow roots). getComputedStyle runs
+ * `matches()` per stylesheet rule and role queries run getComputedStyle per element, so URL parsing
+ * inside links (inbox rows, nav) was ~15% of test CPU. Memoise the result per element; it depends
+ * only on the href attribute and the document base URL, which form the cache key.
+ */
+const anchorHost = Object.getOwnPropertyDescriptor(HTMLAnchorElement.prototype, 'host')
+if (anchorHost?.get) {
+  const readHost = anchorHost.get
+  const hosts = new WeakMap<HTMLAnchorElement, { href: string | null; base: string; host: string }>()
+  Object.defineProperty(HTMLAnchorElement.prototype, 'host', {
+    ...anchorHost,
+    get(this: HTMLAnchorElement) {
+      const href = this.getAttribute('href')
+      const base = this.baseURI
+      const cached = hosts.get(this)
+      if (cached && cached.href === href && cached.base === base) return cached.host
+      const host = readHost.call(this) as string
+      hosts.set(this, { href, base, host })
+      return host
+    },
+  })
+}
