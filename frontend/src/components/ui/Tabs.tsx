@@ -1,33 +1,108 @@
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react'
+import { useOnScreen } from '../../features/landing/lib/useOnScreen'
 import { cn } from '../../lib/cn'
+import { prefersReducedMotion } from '../../lib/motion'
+import './Tabs.css'
 
 export type TabItem = { id: string; label: string; content: ReactNode }
 
-export function Tabs({ items, label }: { items: TabItem[]; label: string }) {
+type TabsProps = {
+  items: TabItem[]
+  label: string
+  /**
+   * Moves to the next tab after this many milliseconds, with a countdown line on the active tab.
+   * It runs only while the tabs are on screen, pauses while hovered or focused, and stops for good
+   * once the visitor picks a tab. Off with reduced motion.
+   */
+  autoAdvanceMs?: number
+}
+
+type Direction = 'forward' | 'back'
+
+export function Tabs({ items, label, autoAdvanceMs }: TabsProps) {
   const [active, setActive] = useState(0)
+  const [direction, setDirection] = useState<Direction>('forward')
+  const [userPicked, setUserPicked] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const [reducedMotion] = useState(prefersReducedMotion)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const baseId = useId()
+  const onScreen = useOnScreen(rootRef, '0px')
+
+  const autoAdvance = Boolean(autoAdvanceMs) && !userPicked && !reducedMotion && items.length > 1
+  const running = autoAdvance && onScreen && !hovered && !focused
+  const count = items.length
+
+  // Time left on the active tab's countdown, kept across pauses.
+  const remainingRef = useRef(autoAdvanceMs ?? 0)
+  useEffect(() => {
+    remainingRef.current = autoAdvanceMs ?? 0
+  }, [active, autoAdvanceMs])
+
+  useEffect(() => {
+    if (!running) return
+    const startedAt = Date.now()
+    const timer = window.setTimeout(() => {
+      setDirection('forward')
+      setActive((current) => (current + 1) % count)
+    }, remainingRef.current)
+    return () => {
+      window.clearTimeout(timer)
+      remainingRef.current = Math.max(0, remainingRef.current - (Date.now() - startedAt))
+    }
+  }, [running, active, count])
+
+  function select(next: Direction | null, index: number) {
+    setUserPicked(true)
+    if (index === active) return
+    setDirection(next ?? (index > active ? 'forward' : 'back'))
+    setActive(index)
+  }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    const last = items.length - 1
-    const next =
+    const last = count - 1
+    const move: [Direction, number] | null =
       event.key === 'ArrowRight'
-        ? (active + 1) % items.length
+        ? ['forward', (active + 1) % count]
         : event.key === 'ArrowLeft'
-          ? (active - 1 + items.length) % items.length
+          ? ['back', (active - 1 + count) % count]
           : event.key === 'Home'
-            ? 0
+            ? ['back', 0]
             : event.key === 'End'
-              ? last
+              ? ['forward', last]
               : null
-    if (next === null) return
+    if (move === null) return
     event.preventDefault()
-    setActive(next)
-    tabRefs.current[next]?.focus()
+    select(move[0], move[1])
+    tabRefs.current[move[1]]?.focus()
+  }
+
+  function onBlur(event: FocusEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false)
   }
 
   return (
-    <div>
+    <div
+      ref={rootRef}
+      data-auto-advance={autoAdvance ? (running ? 'running' : 'paused') : undefined}
+      onPointerEnter={(event) => {
+        if (event.pointerType === 'mouse') setHovered(true)
+      }}
+      onPointerLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={onBlur}
+    >
       <div
         role="tablist"
         aria-label={label}
@@ -48,31 +123,44 @@ export function Tabs({ items, label }: { items: TabItem[]; label: string }) {
               aria-selected={selected}
               aria-controls={`${baseId}-panel-${item.id}`}
               tabIndex={selected ? 0 : -1}
-              onClick={() => setActive(i)}
+              onClick={() => select(null, i)}
               className={cn(
                 'relative shrink-0 whitespace-nowrap px-4 py-3 text-[14px] font-medium transition-colors',
                 'after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:transition-colors',
+                selected && autoAdvance && 'after:opacity-15',
                 selected ? 'text-ink after:bg-ink' : 'text-muted after:bg-transparent hover:text-ink',
               )}
             >
               {item.label}
+              {selected && autoAdvance && (
+                <span
+                  key={active}
+                  aria-hidden="true"
+                  data-running={running}
+                  className="tabs-progress"
+                  style={{ '--tabs-duration': `${autoAdvanceMs}ms` } as CSSProperties}
+                />
+              )}
             </button>
           )
         })}
       </div>
-      {items.map((item, i) => (
-        <div
-          key={item.id}
-          id={`${baseId}-panel-${item.id}`}
-          role="tabpanel"
-          aria-labelledby={`${baseId}-tab-${item.id}`}
-          hidden={i !== active}
-          tabIndex={0}
-          className="tab-panel pt-10 focus-visible:outline-none"
-        >
-          {item.content}
-        </div>
-      ))}
+      <div className="tabs-stage">
+        {items.map((item, i) => (
+          <div
+            key={item.id}
+            id={`${baseId}-panel-${item.id}`}
+            role="tabpanel"
+            aria-labelledby={`${baseId}-tab-${item.id}`}
+            hidden={i !== active}
+            tabIndex={0}
+            data-direction={direction}
+            className="tabs-panel pt-10 focus-visible:outline-none"
+          >
+            {item.content}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

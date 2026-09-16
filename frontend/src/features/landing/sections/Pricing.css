@@ -1,0 +1,35 @@
+/* Pricing — sections/Pricing.tsx */
+
+/* A rolling price blurs its motion very slightly, like a counter wheel. */
+.pricing-amount {
+  display: inline-block;
+  transition: filter 0.2s ease-out;
+}
+.pricing-amount[data-rolling='true'] {
+  filter: blur(0.4px);
+}
+
+/* The recommended plan sits a step forward on wide screens and drifts gently while on screen. */
+@media (min-width: 64rem) {
+  .pricing-lift {
+    transform: translate3d(0, -12px, 0);
+  }
+}
+@media (min-width: 64rem) and (prefers-reduced-motion: no-preference) {
+  .pricing-lift {
+    animation: pricing-float 7s ease-in-out infinite;
+    animation-play-state: paused;
+  }
+  .pricing-lift[data-on-screen='true'] {
+    animation-play-state: running;
+  }
+}
+@keyframes pricing-float {
+  0%,
+  100% {
+    transform: translate3d(0, -12px, 0);
+  }
+  50% {
+    transform: translate3d(0, -18px, 0);
+  }
+}

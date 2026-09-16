@@ -166,7 +166,7 @@ export function Features() {
           description="Campaigns, reminders, conversations and reporting in one workspace — built around how WhatsApp’s official platform actually works."
         />
         <div className="mt-12">
-          <Tabs items={tabs} label="Product features" />
+          <Tabs items={tabs} label="Product features" autoAdvanceMs={7000} />
         </div>
       </Container>
     </section>

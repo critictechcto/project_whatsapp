@@ -1,0 +1,31 @@
+/* Page scroll progress — components/ui/ScrollProgressBar.tsx */
+.scroll-progress {
+  display: none;
+}
+
+@keyframes scroll-progress-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Browsers without scroll-driven animations, and reduced-motion users, show no bar. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-progress {
+      display: block;
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 60;
+      height: 2px;
+      pointer-events: none;
+      background: var(--color-accent);
+      transform-origin: 0 50%;
+      animation: scroll-progress-grow linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
