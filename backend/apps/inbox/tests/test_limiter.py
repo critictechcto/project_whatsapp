@@ -65,3 +65,26 @@ def test_redis_token_bucket():
         assert 0.0 < bucket.acquire(key) <= 1.0
     finally:
         redis.Redis.from_url(url).delete(f"{limiter.KEY_PREFIX}{key}")
+
+
+def test_redis_limiter_uses_verified_tls_for_rediss(monkeypatch, settings):
+    import ssl
+
+    import redis
+
+    settings.REDIS_SSL_CERT_REQS = "required"
+    settings.REDIS_SSL_CA_CERTS = ""
+    captured = {}
+
+    class FakeClient:
+        def register_script(self, script):
+            return script
+
+    def fake_from_url(url, **kwargs):
+        captured.update(kwargs)
+        return FakeClient()
+
+    monkeypatch.setattr(redis.Redis, "from_url", staticmethod(fake_from_url))
+    limiter.RedisTokenBucketLimiter("rediss://user:pw@example.com:25061/0")._get_script()
+
+    assert captured["ssl_cert_reqs"] == ssl.CERT_REQUIRED

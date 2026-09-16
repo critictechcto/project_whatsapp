@@ -87,7 +87,16 @@ class RedisTokenBucketLimiter:
         if self._script is None:
             import redis
 
-            client = redis.Redis.from_url(self.url, socket_timeout=1, socket_connect_timeout=1)
+            from common.redis_tls import redis_ssl_options
+
+            tls = redis_ssl_options(
+                self.url,
+                cert_reqs=getattr(settings, "REDIS_SSL_CERT_REQS", "required"),
+                ca_certs=getattr(settings, "REDIS_SSL_CA_CERTS", ""),
+            )
+            client = redis.Redis.from_url(
+                self.url, socket_timeout=1, socket_connect_timeout=1, **tls
+            )
             self._script = client.register_script(_BUCKET_SCRIPT)
         return self._script
 
