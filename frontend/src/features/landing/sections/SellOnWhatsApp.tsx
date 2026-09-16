@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type CSSProperties } from 'react'
 import { Container } from '../../../components/ui/Container'
 import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
@@ -6,8 +6,9 @@ import { site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
 import { prefersReducedMotion } from '../../../lib/motion'
 import { useOnScreen } from '../lib/useOnScreen'
-import { useShopSequence } from '../lib/useShopSequence'
+import { SHOP_STEP_MS, useShopSequence } from '../lib/useShopSequence'
 import { ShopJourneyMockup } from '../mockups/ShopJourneyMockup'
+import './SellOnWhatsApp.css'
 
 const steps = [
   {
@@ -54,7 +55,7 @@ const facts = [
 export function SellOnWhatsApp() {
   const stageRef = useRef<HTMLDivElement>(null)
   const onScreen = useOnScreen(stageRef)
-  const step = useShopSequence(onScreen)
+  const { step, autoplay, runKey, jumpTo } = useShopSequence(onScreen)
   const animate = !prefersReducedMotion()
 
   return (
@@ -68,32 +69,64 @@ export function SellOnWhatsApp() {
         />
 
         <div className="mt-14 grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-10">
-          <Reveal as="ol" className="min-w-0 lg:col-span-5">
-            {steps.map((item, i) => {
-              const state = i < step ? 'done' : i === step ? 'current' : 'upcoming'
-              return (
-                <li
-                  key={item.title}
-                  data-state={state}
-                  className={cn(
-                    'grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 border-l-2 py-3 pl-4 transition-colors duration-500',
-                    state === 'current' ? 'border-accent' : 'border-line',
-                  )}
-                >
-                  <span className={cn('pt-0.5 font-mono text-[12px]', state === 'upcoming' ? 'text-muted' : 'text-accent-2')}>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <div>
-                    <h3 className="text-[16px] font-semibold tracking-[-0.01em]">{item.title}</h3>
-                    <p className="mt-1 text-[14.5px] leading-relaxed text-muted">{item.body}</p>
-                  </div>
-                </li>
-              )
-            })}
+          <Reveal className="min-w-0 lg:col-span-5">
+            <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
+              Select a step to show it on the phones
+            </p>
+            <ol>
+              {steps.map((item, i) => {
+                const state = i < step ? 'done' : i === step ? 'current' : 'upcoming'
+                return (
+                  <li
+                    key={item.title}
+                    data-state={state}
+                    className={cn(
+                      'group relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 rounded-r-md border-l-2 py-3 pl-4 pr-2 transition-colors duration-500',
+                      'has-[button:focus-visible]:outline-2 has-[button:focus-visible]:outline-offset-2 has-[button:focus-visible]:outline-accent',
+                      state === 'current' ? 'border-accent bg-card/70' : 'border-line hover:border-muted hover:bg-card/40',
+                    )}
+                  >
+                    <span className={cn('pt-0.5 font-mono text-[12px]', state === 'upcoming' ? 'text-muted' : 'text-accent-2')}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div>
+                      <h3 className="text-[16px] font-semibold tracking-[-0.01em]">
+                        {/* The button's hit area stretches over the whole step. */}
+                        <button
+                          type="button"
+                          aria-current={state === 'current' ? 'step' : undefined}
+                          onClick={() => jumpTo(i)}
+                          className="cursor-pointer text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+                        >
+                          {item.title}
+                        </button>
+                      </h3>
+                      <p className="mt-1 text-[14.5px] leading-relaxed text-muted">{item.body}</p>
+                      {state === 'current' && (
+                        <span
+                          key={runKey}
+                          aria-hidden="true"
+                          className="shop-progress mt-3"
+                          data-progress={autoplay}
+                          style={{ '--step-ms': `${SHOP_STEP_MS}ms` } as CSSProperties}
+                        >
+                          <span />
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
           </Reveal>
 
           <Reveal delay={120} className="min-w-0 lg:col-span-7">
-            <div ref={stageRef} data-shop-step={step}>
+            <div
+              ref={stageRef}
+              data-shop-step={step}
+              data-shop-autoplay={autoplay}
+              data-paused={onScreen ? undefined : ''}
+            >
               <ShopJourneyMockup step={step} animate={animate} />
             </div>
           </Reveal>

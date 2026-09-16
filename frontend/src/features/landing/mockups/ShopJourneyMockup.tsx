@@ -1,21 +1,32 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { BatteryFull, ChevronLeft, ExternalLink, List, MapPin, Mic, ShoppingCart, Signal, Wifi } from 'lucide-react'
+import { BatteryFull, Check, ChevronLeft, ExternalLink, List, MapPin, Mic, ShoppingCart, Signal, Wifi } from 'lucide-react'
+import { usePointerTilt } from '../../../components/ui/usePointerTilt'
 import { site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
 import { SHOP_FINAL_STEP } from '../lib/useShopSequence'
 import { ChatBubble } from './ChatBubble'
+import { OrderTicketStack } from './OrderTicketStack'
+import './ShopJourneyMockup.css'
 
 /*
  * The "Sell on WhatsApp" journey on two phones: the buyer shopping with the seller's bot, and the
- * seller's own WhatsApp receiving the order alert. Entirely decorative; the section describes each
- * step in text.
+ * seller's own WhatsApp receiving the order alert, with a stack of example order tickets between
+ * them. Entirely decorative; the section describes each step in text.
  */
+
+/** Pause after a message starts popping in before its layer rises (chat-pop runs 0.45 s). */
+const LIFT_AFTER_POP_MS = 450
 
 type Beat = {
   /** Journey step at which this message appears. */
   step: number
   /** Stagger inside the step, in ms. */
   delay: number
+  /**
+   * While its step is showing, the message rises forward on its own layer ("card"), or only the
+   * `.shop-badge` inside it does ("badge"). It settles back when the step moves on.
+   */
+  lift?: 'card' | 'badge'
   node: ReactNode
 }
 
@@ -25,6 +36,7 @@ function Phone({
   initials,
   avatarClassName,
   className,
+  style,
   children,
 }: {
   name: string
@@ -32,10 +44,12 @@ function Phone({
   initials: string
   avatarClassName: string
   className?: string
+  style?: CSSProperties
   children: ReactNode
 }) {
   return (
     <div
+      style={style}
       className={cn(
         'rounded-[2.1rem] bg-ink p-[6px] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.14),inset_0_1px_0_rgb(255_255_255/0.22),0_40px_60px_-32px_rgb(16_39_31/0.5)]',
         className,
@@ -141,6 +155,7 @@ const buyerBeats: Beat[] = [
   {
     step: 0,
     delay: 1800,
+    lift: 'card',
     node: (
       <Card time="11:03" actions={[{ label: 'Add to cart' }, { label: 'Next item' }]} pressed="Add to cart">
         <ProductArt />
@@ -153,6 +168,7 @@ const buyerBeats: Beat[] = [
   {
     step: 1,
     delay: 0,
+    lift: 'card',
     node: (
       <Card time="11:04" actions={[{ label: 'Checkout' }, { label: 'Keep shopping' }]} pressed="Checkout">
         <span className="flex items-center gap-1 font-semibold">
@@ -222,9 +238,14 @@ const buyerBeats: Beat[] = [
   {
     step: 4,
     delay: 0,
+    lift: 'badge',
     node: (
       <Card time="11:06" actions={[{ label: 'My orders' }]}>
-        Payment received, thank you! Order SS-1042 is confirmed.
+        <span className="shop-badge mb-1 items-center gap-1 rounded-full bg-accent px-1.5 py-0.5 text-[9.5px] font-semibold text-white">
+          <Check className="size-2.5" />
+          Paid · ₹540
+        </span>
+        <span className="block">Payment received, thank you! Order SS-1042 is confirmed.</span>
       </Card>
     ),
   },
@@ -244,6 +265,7 @@ const sellerBeats: Beat[] = [
   {
     step: 5,
     delay: 0,
+    lift: 'card',
     node: (
       <Card time="11:06" actions={[{ label: 'Mark packed' }, { label: 'Mark shipped' }, { label: 'Cancel' }]} pressed="Mark shipped">
         <span className="block font-semibold">New order SS-1042 · ₹540</span>
@@ -273,7 +295,19 @@ function Beats({ beats, step, animate }: { beats: Beat[]; step: number; animate:
         className={animate ? 'chat-pop' : undefined}
         style={animate ? ({ animationDelay: `${beat.delay}ms` } as CSSProperties) : undefined}
       >
-        {beat.node}
+        {beat.lift ? (
+          // A separate element from the chat-pop wrapper, whose animation fill would pin its transform.
+          <div
+            className="shop-lift"
+            data-lift={beat.lift}
+            data-lifted={animate && step === beat.step ? '' : undefined}
+            style={{ '--lift-delay': `${beat.delay + LIFT_AFTER_POP_MS}ms` } as CSSProperties}
+          >
+            {beat.node}
+          </div>
+        ) : (
+          beat.node
+        )}
       </div>
     ))
 }
@@ -281,37 +315,46 @@ function Beats({ beats, step, animate }: { beats: Beat[]; step: number; animate:
 type ShopJourneyMockupProps = {
   /** Current step from `useShopSequence` (-1 before it starts). */
   step: number
-  /** Pop messages in as they arrive; false shows them statically (reduced motion). */
+  /** Pop messages in and lift layers as steps arrive; false shows everything statically (reduced motion). */
   animate: boolean
   className?: string
 }
 
 export function ShopJourneyMockup({ step, animate, className }: ShopJourneyMockupProps) {
+  // Only acts on fine pointers without reduced motion; everyone else gets the resting pose.
+  const tiltRef = usePointerTilt<HTMLDivElement>({ max: 5 })
+
   return (
-    <div aria-hidden="true" className={cn('flex flex-col items-center gap-6 sm:flex-row sm:items-end sm:justify-center', className)}>
-      <Phone
-        name="Sharma Sweets"
-        subtitle="Business account"
-        initials="SS"
-        avatarClassName="bg-accent text-white"
-        className="h-[520px] w-full max-w-[290px] sm:h-[560px] sm:w-[290px]"
-      >
-        <Beats beats={buyerBeats} step={step} animate={animate} />
-      </Phone>
-      <div className="flex w-full max-w-[290px] flex-col gap-2 sm:w-[236px]">
-        <p className="text-center font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted">Seller’s phone</p>
+    <div ref={tiltRef} aria-hidden="true" className={cn('shop-stage', className)}>
+      <div className="shop-scene shop-3d flex flex-col items-center gap-6 sm:flex-row sm:items-end sm:justify-center">
         <Phone
-          name={`${site.name} Alerts`}
-          subtitle="Order alerts"
-          initials="UA"
-          avatarClassName="bg-ink text-paper"
-          className="h-[380px] w-full sm:h-[440px]"
+          name="Sharma Sweets"
+          subtitle="Business account"
+          initials="SS"
+          avatarClassName="bg-accent text-white"
+          className="shop-depth h-[520px] w-full max-w-[290px] sm:h-[560px] sm:w-[290px]"
+          style={{ '--z': '24px' } as CSSProperties}
         >
-          <div className={cn(step >= SHOP_FINAL_STEP && 'opacity-60')}>
-            <Card time="Yesterday">SS-1039 delivered. Collect ₹860 cash on delivery from the courier.</Card>
-          </div>
-          <Beats beats={sellerBeats} step={step} animate={animate} />
+          <Beats beats={buyerBeats} step={step} animate={animate} />
         </Phone>
+        <div className="shop-3d flex w-full max-w-[290px] flex-col gap-3 sm:w-[236px]">
+          <OrderTicketStack step={step} animate={animate} className="shop-depth" style={{ '--z': '64px' } as CSSProperties} />
+          <div className="shop-depth flex flex-col gap-2" style={{ '--z': '-16px' } as CSSProperties}>
+            <p className="text-center font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted">Seller’s phone</p>
+            <Phone
+              name={`${site.name} Alerts`}
+              subtitle="Order alerts"
+              initials="UA"
+              avatarClassName="bg-ink text-paper"
+              className="h-[380px] w-full sm:h-[410px]"
+            >
+              <div className={cn(step >= SHOP_FINAL_STEP && 'opacity-60')}>
+                <Card time="Yesterday">SS-1039 delivered. Collect ₹860 cash on delivery from the courier.</Card>
+              </div>
+              <Beats beats={sellerBeats} step={step} animate={animate} />
+            </Phone>
+          </div>
+        </div>
       </div>
     </div>
   )
