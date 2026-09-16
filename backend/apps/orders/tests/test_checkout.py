@@ -9,7 +9,7 @@ from django.utils import timezone
 from apps.catalog.factories import ProductFactory
 from apps.catalog.services import DroppedLine
 from apps.contacts.factories import ContactFactory
-from apps.inbox.factories import ConversationFactory
+from apps.inbox.factories import ConversationFactory, MessageFactory
 from apps.inbox.models import Message
 from apps.orders import checkout, services
 from apps.orders.exceptions import CheckoutRejected
@@ -161,6 +161,21 @@ def test_start_checkout_is_idempotent_on_source_wamid(conversation, product):
     assert again.pk == first.pk
     assert Order.objects.count() == 1
     assert Message.objects.filter(direction=Message.Direction.OUTBOUND).count() == sent
+
+
+def test_the_inbound_message_that_started_checkout_links_to_the_order(conversation, product):
+    cart_message = MessageFactory(
+        conversation=conversation, inbound=True, type=Message.Type.ORDER, wamid="wamid.CART"
+    )
+    unrelated = MessageFactory(conversation=conversation, inbound=True, wamid="wamid.OTHER")
+
+    order = start(conversation, (product, 1), source="native_cart", source_wamid="wamid.CART")
+
+    cart_message.refresh_from_db()
+    unrelated.refresh_from_db()
+    assert cart_message.source_ref == f"order:{order.pk}"
+    assert cart_message.source == Message.Source.INBOUND
+    assert unrelated.source_ref == ""
 
 
 def test_new_checkout_supersedes_the_active_one(

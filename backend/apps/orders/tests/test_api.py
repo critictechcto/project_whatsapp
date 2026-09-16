@@ -6,6 +6,8 @@ import pytest
 from django.utils import timezone
 
 from apps.accounts.factories import UserFactory
+from apps.inbox.factories import ConversationFactory, MessageFactory
+from apps.inbox.models import Message
 from apps.orders.factories import (
     OrderEventFactory,
     OrderFactory,
@@ -173,6 +175,31 @@ def test_events_are_oldest_first(auth_client, workspace):
     assert results[1]["user"]["id"] == str(user.pk)
     assert results[1]["from_status"] == "confirmed"
     assert results[0]["message_id"] is None
+    assert results[0]["message_status"] is None
+    assert results[0]["message_error_code"] == ""
+
+
+def test_events_report_the_notification_message_delivery(auth_client, workspace):
+    order = OrderFactory(workspace=workspace)
+    conversation = ConversationFactory(workspace=workspace, contact=order.contact)
+    failed = MessageFactory(
+        conversation=conversation,
+        status=Message.Status.FAILED,
+        error_code="131042",
+        error_message="Business eligibility payment issue",
+    )
+    delivered = MessageFactory(
+        conversation=conversation, status=Message.Status.DELIVERED, error_code="stale"
+    )
+    OrderEventFactory(order=order, type="notification_sent", message=failed)
+    OrderEventFactory(order=order, type="notification_sent", message=delivered)
+
+    results = auth_client(Role.VIEWER).get(order_url(order, "events/")).json()["results"]
+
+    assert [(item["message_status"], item["message_error_code"]) for item in results] == [
+        ("failed", "131042"),
+        ("delivered", ""),
+    ]
 
 
 def test_summary(auth_client, workspace, other_workspace):

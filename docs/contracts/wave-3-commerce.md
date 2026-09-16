@@ -164,7 +164,7 @@ Sync rules:
   - `allowed_transitions: OrderStatusEnum[]` (read-only, for the dashboard)
 - `OrderItem`: `id`, `product_id` (null once the product is deleted), `sku`, `name`, `image_url` (null), `unit_price_paise`, `quantity`, `line_total_paise`.
 - `OrderAddress`: `name`, `phone_e164`, `line1`, `line2`, `landmark`, `city`, `state`, `pincode` (6 digits), `country` (`IN`).
-- `OrderEvent`: `id`, `type`, `from_status` (""), `to_status` (""), `actor`, `user` (`UserSummary` | null), `detail`, `message_id` (null), `created_at`.
+- `OrderEvent`: `id`, `type`, `from_status` (""), `to_status` (""), `actor`, `user` (`UserSummary` | null), `detail`, `message_id` (null), `message_status` (`MessageStatusEnum` | null: the current delivery status of that message, so a `notification_sent` whose message later failed can be shown as a warning), `message_error_code` (the Meta error code when that message failed, else ""), `created_at`.
 - `OrderTransitionRequest`: `to_status` (`packed` | `shipped` | `delivered` | `confirmed`, the last only from `needs_attention`), `courier_name?`, `awb_number?`, `tracking_url?` (https URL), `notify_buyer?` (default true). `shipped` requires `courier_name` and `awb_number`.
 - `CancelOrderRequest`: `reason?` (≤ 200, default ""), `restock?` (default true), `notify_buyer?` (default true).
 - `OrderNotesRequest`: `notes` (≤ 2000).
@@ -371,7 +371,9 @@ Every commerce reply id has the form `upc:<scope>:<action>[:<arg>...]`. It is at
 - `interactive.nfm_reply`: the text is `"Address shared"` (or `nfm_reply.body`), and `reply_id` is `upc:nfm:<name>` (e.g. `upc:nfm:address_message`). `response_json` is left raw in the payload.
 - The inbox stores `order` as `Message.Type.ORDER` and keeps `Message.payload`. `Message` gains optional response fields:
   - `interactive` (the outbound `interactive` object | null)
-  - `order` (`MessageOrder`: `catalog_id`, `items: [{product_retailer_id, quantity, item_price, currency}]` | null)
+  - `order` (`MessageOrder`: `catalog_id`, `items: [{product_retailer_id, name, quantity, item_price, currency}]` | null). `name` is the current name of the workspace product with that SKU, or null; the inbox resolves every cart on a page with one catalog query per workspace
+  - `reply` (`MessageReply`: `kind` (`MessageReplyKindEnum`: `button` for a reply button or a template quick-reply button, `list`, `nfm`), `id` (the reply id or button payload; the flow name for `nfm`), `title`, `description` ("" unless a list row has one) | null). Derived from the stored inbound payload; the dashboard never shows `upc:` ids
+  - `order_id` (uuid | null): from `source_ref` `order:<order_id>`, or from the first argument of a `chk`/`ord` reply id. When `start_checkout` creates an order with a `source_wamid`, orders sets that inbound message's `source_ref` to `order:<order_id>` (its `source` stays `inbound`), which links native carts and bot checkout taps. The inbox doesn't import orders, so the order number isn't included
 
 ### Sending interactive messages (`apps/inbox/sending.py`, `apps/inbox/interactive.py`)
 ```python
@@ -501,7 +503,7 @@ Tasks and beat entries:
 
 ## Allowed cross-app imports in wave 3
 - Everything allowed in wave 2.
-- `apps.catalog.services` and `apps.catalog.models` (read, FKs), used by shop and orders.
+- `apps.catalog.services` and `apps.catalog.models` (read, FKs), used by shop and orders; `apps.catalog.models` also by the inbox message serializer (cart product names).
 - `apps.orders.services` and `apps.orders.models` (read, FKs), used by shop, seller_alerts and payments (FK only).
 - `apps.payments.services` and `apps.payments.exceptions`, used by orders.
 - `apps.inbox.interactive`.

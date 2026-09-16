@@ -25,6 +25,7 @@ MESSAGE_TYPES = (
 MESSAGE_STATUSES = ("queued", "sending", "sent", "delivered", "read", "failed", "received")
 MESSAGE_SOURCES = ("inbound", "inbox", "campaign", "automation", "api", "commerce")
 SEND_MESSAGE_TYPES = ("text", "template", "media")
+MESSAGE_REPLY_KINDS = ("button", "list", "nfm")  # wave 3: Message.reply
 
 ENUM_NAME_OVERRIDES = {
     "ConversationStatusEnum": CONVERSATION_STATUSES,
@@ -33,4 +34,5 @@ ENUM_NAME_OVERRIDES = {
     "MessageStatusEnum": MESSAGE_STATUSES,
     "MessageSourceEnum": MESSAGE_SOURCES,
     "SendMessageTypeEnum": SEND_MESSAGE_TYPES,
+    "MessageReplyKindEnum": MESSAGE_REPLY_KINDS,
 }

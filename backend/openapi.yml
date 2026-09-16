@@ -6962,6 +6962,21 @@ components:
           readOnly: true
           nullable: true
           description: The cart of an inbound order message, else null.
+        reply:
+          allOf:
+          - $ref: '#/components/schemas/MessageReply'
+          readOnly: true
+          nullable: true
+          description: What an inbound button, list or address-form reply chose, else
+            null.
+        order_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+          description: 'The order this message belongs to: commerce messages about
+            an order, the inbound cart or checkout tap that started one, and order
+            button replies. Else null.'
       required:
       - conversation_id
       - created_at
@@ -6974,7 +6989,9 @@ components:
       - interactive
       - media
       - order
+      - order_id
       - read_at
+      - reply
       - reply_to_message_id
       - sent_at
       - sent_by
@@ -7035,6 +7052,12 @@ components:
           type: string
           readOnly: true
           description: The product SKU.
+        name:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Current name of the workspace product with this SKU; null when
+            none matches.
         quantity:
           type: integer
           readOnly: true
@@ -7050,6 +7073,7 @@ components:
       required:
       - currency
       - item_price
+      - name
       - product_retailer_id
       - quantity
     MessagePreview:
@@ -7080,6 +7104,41 @@ components:
       - status
       - text
       - type
+    MessageReply:
+      type: object
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/MessageReplyKindEnum'
+          readOnly: true
+        id:
+          type: string
+          readOnly: true
+          description: The reply id or button payload (for nfm, the flow name). Commerce
+            ids look like upc:<scope>:<action>; don't show them to people.
+        title:
+          type: string
+          readOnly: true
+          description: What the customer tapped or sent.
+        description:
+          type: string
+          readOnly: true
+          description: List row description, or "".
+      required:
+      - description
+      - id
+      - kind
+      - title
+    MessageReplyKindEnum:
+      enum:
+      - button
+      - list
+      - nfm
+      type: string
+      description: |-
+        * `button` - button
+        * `list` - list
+        * `nfm` - nfm
     MessageSourceEnum:
       enum:
       - inbound
@@ -7713,6 +7772,18 @@ components:
           format: uuid
           readOnly: true
           nullable: true
+        message_status:
+          description: Current delivery status of the event's message; null without
+            a message.
+          nullable: true
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/MessageStatusEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        message_error_code:
+          type: string
+          readOnly: true
+          description: Meta error code when that message failed, else "".
         created_at:
           type: string
           format: date-time
@@ -7723,7 +7794,9 @@ components:
       - detail
       - from_status
       - id
+      - message_error_code
       - message_id
+      - message_status
       - to_status
       - type
       - user
