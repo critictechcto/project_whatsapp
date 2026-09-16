@@ -2600,6 +2600,13 @@ export interface components {
             } | null;
             /** @description The cart of an inbound order message, else null. */
             readonly order: components["schemas"]["MessageOrder"] | null;
+            /** @description What an inbound button, list or address-form reply chose, else null. */
+            readonly reply: components["schemas"]["MessageReply"] | null;
+            /**
+             * Format: uuid
+             * @description The order this message belongs to: commerce messages about an order, the inbound cart or checkout tap that started one, and order button replies. Else null.
+             */
+            readonly order_id: string | null;
         };
         /**
          * @description * `inbound` - inbound
@@ -2621,6 +2628,8 @@ export interface components {
         MessageOrderItem: {
             /** @description The product SKU. */
             readonly product_retailer_id: string;
+            /** @description Current name of the workspace product with this SKU; null when none matches. */
+            readonly name: string | null;
             readonly quantity: number;
             /**
              * Format: double
@@ -2637,6 +2646,22 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        MessageReply: {
+            readonly kind: components["schemas"]["MessageReplyKindEnum"];
+            /** @description The reply id or button payload (for nfm, the flow name). Commerce ids look like upc:<scope>:<action>; don't show them to people. */
+            readonly id: string;
+            /** @description What the customer tapped or sent. */
+            readonly title: string;
+            /** @description List row description, or "". */
+            readonly description: string;
+        };
+        /**
+         * @description * `button` - button
+         *     * `list` - list
+         *     * `nfm` - nfm
+         * @enum {string}
+         */
+        MessageReplyKindEnum: "button" | "list" | "nfm";
         /**
          * @description * `inbound` - inbound
          *     * `inbox` - inbox
@@ -2884,6 +2909,10 @@ export interface components {
             readonly detail: string;
             /** Format: uuid */
             readonly message_id: string | null;
+            /** @description Current delivery status of the event's message; null without a message. */
+            readonly message_status: (components["schemas"]["MessageStatusEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description Meta error code when that message failed, else "". */
+            readonly message_error_code: string;
             /** Format: date-time */
             readonly created_at: string;
         };

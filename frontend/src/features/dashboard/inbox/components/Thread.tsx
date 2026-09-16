@@ -103,6 +103,19 @@ function MessageStream({
     return [...timeline, ...pending]
   }, [messages.items, messages.hasNextPage, notes.data, outbox, byId])
 
+  // One "View order" link per order (on its earliest loaded message), plus one on each failed
+  // message of an order so a failed buyer update leads straight to the order.
+  const orderLinkIds = useMemo(() => {
+    const seen = new Set<string>()
+    const linked = new Set<string>()
+    for (const message of [...messages.items].reverse()) {
+      if (!message.order_id) continue
+      if (!seen.has(message.order_id) || message.status === 'failed') linked.add(message.id)
+      seen.add(message.order_id)
+    }
+    return linked
+  }, [messages.items])
+
   // Drop optimistic entries once their server message is in the thread.
   useEffect(() => {
     if (!outbox.some((entry) => entry.serverId && byId.has(entry.serverId))) return
@@ -212,6 +225,11 @@ function MessageStream({
                         contactName={name}
                         timeZone={timeZone}
                         onRetry={canSend && item.message.type === 'text' && item.message.status === 'failed' ? retryFailed : undefined}
+                        orderHref={
+                          item.message.order_id && orderLinkIds.has(item.message.id)
+                            ? `/app/w/${workspaceId}/orders/${item.message.order_id}`
+                            : undefined
+                        }
                       />
                     ) : item.kind === 'note' ? (
                       <NoteCard note={item.note} timeZone={timeZone} />

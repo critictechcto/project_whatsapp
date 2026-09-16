@@ -72,6 +72,10 @@ export const inboxMockIds = {
   kabirCart: 'd7e8f9a0-1b2c-4d3e-9f4a-0000000c0a01',
   /** The bot's product card in Kabir's thread. */
   kabirProductCard: 'd7e8f9a0-1b2c-4d3e-9f4a-0000000c0a02',
+  /** The bot's order confirmation to Kabir; Meta rejected it with a payment method error. */
+  kabirConfirmation: 'd7e8f9a0-1b2c-4d3e-9f4a-0000000c0a03',
+  /** Kabir's order SS-1042 (seeded with the same id in the orders mock). */
+  kabirOrder: '7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01',
   /** Delivered outbound message in Ananya's thread. */
   ananyaDelivered: 'd7e8f9a0-1b2c-4d3e-9f4a-00000000a001',
 } as const
@@ -146,6 +150,10 @@ type MessageSpec = {
   interactive?: Record<string, unknown>
   /** Cart of an inbound native catalog `order` message. */
   order?: Message['order']
+  /** What an inbound button, list or form reply chose. */
+  reply?: Message['reply']
+  /** The order the message belongs to (the same id exists in the orders mock). */
+  orderId?: string
 }
 
 export function mediaUrl(messageId: string) {
@@ -240,6 +248,8 @@ function build(): InboxMockState {
       template: template ? { id: template.id, name: template.name, language: template.language } : null,
       interactive: spec.interactive ?? null,
       order: spec.order ?? null,
+      reply: inbound ? (spec.reply ?? null) : null,
+      order_id: spec.orderId ?? null,
       media: spec.media
         ? {
             mime_type: spec.media.mime_type,
@@ -405,13 +415,14 @@ function build(): InboxMockState {
   const shipped = templateBody(seedTemplates[0].id, ['Vivaan', '1 kg Kaju Katli', '14 Sep'])
   add(9, { contact: 12, assignee: ids.demoUser }, [
     { dir: 'out', ago: 7 * HOUR, template: seedTemplates[0].id, text: shipped?.text, source: 'automation' },
-    { dir: 'in', ago: 6.5 * HOUR, type: 'button', text: 'Talk to us' },
+    { dir: 'in', ago: 6.5 * HOUR, type: 'button', text: 'Talk to us', reply: { kind: 'button', id: 'Talk to us', title: 'Talk to us', description: '' } },
     { dir: 'in', ago: 6.4 * HOUR, type: 'contacts', text: 'Suresh Rao, +91 98765 43210' },
     { dir: 'out', ago: 6 * HOUR, text: 'Ji Vivaan, Suresh ji ko bhi call kar lenge.', status: 'delivered' },
   ])
 
   // J: Kabir, a shop bot flow from "hi" to a paid order (bot replies are commerce sends).
   const bot = { dir: 'out', source: 'commerce', status: 'read' } as const
+  const orderBot = { ...bot, orderId: inboxMockIds.kabirOrder }
   const shopEnd = 55 * MINUTE
   add(10, { contact: 6 }, [
     { dir: 'in', ago: shopEnd + 14 * MINUTE, text: 'hi' },
@@ -447,7 +458,13 @@ function build(): InboxMockState {
         },
       },
     },
-    { dir: 'in', ago: shopEnd + 13 * MINUTE, type: 'interactive', text: 'Mithai' },
+    {
+      dir: 'in',
+      ago: shopEnd + 13 * MINUTE,
+      type: 'interactive',
+      text: 'Mithai',
+      reply: { kind: 'list', id: 'upc:shop:col:5b8e2c1a-7d4f-4e9a-b3c6-1f2a3b4c5d01:0', title: 'Mithai', description: 'Kaju katli, laddoo, barfi' },
+    },
     {
       ...bot,
       id: inboxMockIds.kabirProductCard,
@@ -468,23 +485,31 @@ function build(): InboxMockState {
         },
       },
     },
-    { dir: 'in', ago: shopEnd + 12 * MINUTE, type: 'interactive', text: 'Add to cart' },
+    {
+      dir: 'in',
+      ago: shopEnd + 12 * MINUTE,
+      type: 'interactive',
+      text: 'Add to cart',
+      reply: { kind: 'button', id: 'upc:shop:add:6c9f3d2b-8e5a-4f0b-94d7-2a3b4c5d6e01:1', title: 'Add to cart', description: '' },
+    },
     {
       dir: 'in',
       id: inboxMockIds.kabirCart,
       ago: shopEnd + 9 * MINUTE,
       type: 'order',
       text: 'Cart: 3 items, ₹540.00',
+      orderId: inboxMockIds.kabirOrder,
       order: {
         catalog_id: '1234567890123456',
         items: [
-          { product_retailer_id: 'SS-KAJU-250', quantity: 2, item_price: 220, currency: 'INR' },
-          { product_retailer_id: 'SS-SOAN-250', quantity: 1, item_price: 100, currency: 'INR' },
+          { product_retailer_id: 'SS-KAJU-250', name: 'Kaju Katli 250 g', quantity: 2, item_price: 220, currency: 'INR' },
+          // No workspace product has this SKU any more, so the cart shows the SKU.
+          { product_retailer_id: 'SS-SOAN-250', name: null, quantity: 1, item_price: 100, currency: 'INR' },
         ],
       },
     },
     {
-      ...bot,
+      ...orderBot,
       ago: shopEnd + 8.9 * MINUTE,
       type: 'interactive',
       text: 'Where should we deliver order SS-1042? Tap below to share your address.',
@@ -494,9 +519,15 @@ function build(): InboxMockState {
         action: { name: 'address_message', parameters: { country: 'IN' } },
       },
     },
-    { dir: 'in', ago: shopEnd + 6 * MINUTE, type: 'interactive', text: 'Address shared' },
     {
-      ...bot,
+      dir: 'in',
+      ago: shopEnd + 6 * MINUTE,
+      type: 'interactive',
+      text: 'Address shared',
+      reply: { kind: 'nfm', id: 'address_message', title: 'Address shared', description: '' },
+    },
+    {
+      ...orderBot,
       ago: shopEnd + 5.9 * MINUTE,
       type: 'interactive',
       text: 'Delivering to C-12, Malviya Nagar, Jaipur 302017. How would you like to pay ₹540?',
@@ -511,9 +542,16 @@ function build(): InboxMockState {
         },
       },
     },
-    { dir: 'in', ago: shopEnd + 5 * MINUTE, type: 'interactive', text: 'Pay online' },
     {
-      ...bot,
+      dir: 'in',
+      ago: shopEnd + 5 * MINUTE,
+      type: 'interactive',
+      text: 'Pay online',
+      orderId: inboxMockIds.kabirOrder,
+      reply: { kind: 'button', id: 'upc:chk:pay:7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01:online', title: 'Pay online', description: '' },
+    },
+    {
+      ...orderBot,
       ago: shopEnd + 4.9 * MINUTE,
       type: 'interactive',
       text: 'Order SS-1042 · ₹540. Pay by UPI or card. This link expires in 30 minutes.',
@@ -525,8 +563,11 @@ function build(): InboxMockState {
       },
     },
     {
-      ...bot,
+      ...orderBot,
+      id: inboxMockIds.kabirConfirmation,
       ago: shopEnd,
+      status: 'failed',
+      error: ['131042', 'Business eligibility payment issue'],
       type: 'interactive',
       text: 'Payment received, thank you! Order SS-1042 is confirmed. We will message you when it ships.',
       interactive: {
