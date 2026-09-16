@@ -1,36 +1,44 @@
 import { Container } from '../../../components/ui/Container'
 import { Logo } from '../../../components/ui/Logo'
-import { site } from '../../../config/site'
+import { legalReady, sectionHref, site } from '../../../config/site'
 
-const columns = [
-  {
-    title: 'Product',
-    links: [
-      { label: 'Features', href: '#product' },
-      { label: 'How it works', href: '#how-it-works' },
-      { label: 'Pricing', href: '#pricing' },
-      { label: 'Use cases', href: '#use-cases' },
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      { label: 'Developers', href: '#developers' },
-      { label: 'WhatsApp rules', href: '#rules' },
-      { label: 'Setup requirements', href: '#requirements' },
-      { label: 'FAQ', href: '#faq' },
-    ],
-  },
-  {
-    title: 'Company',
-    links: [
-      { label: 'Contact sales', href: site.links.contactSales },
-      { label: 'Support', href: `mailto:${site.email.support}` },
-      { label: 'Privacy policy', href: '#' },
-      { label: 'Terms of service', href: '#' },
-    ],
-  },
-]
+type FooterLink = { label: string; href: string }
+
+function footerColumns(): { title: string; links: FooterLink[] }[] {
+  const company: FooterLink[] = [
+    { label: 'Contact sales', href: `${site.links.contact}#sales` },
+    { label: 'Support', href: `${site.links.contact}#support` },
+  ]
+  // The legal pages link only once their details are filled in (see `site.legal`).
+  if (legalReady) {
+    company.push(
+      { label: 'Privacy policy', href: site.links.privacy },
+      { label: 'Terms of service', href: site.links.terms },
+    )
+  }
+
+  return [
+    {
+      title: 'Product',
+      links: [
+        { label: 'Features', href: sectionHref('product') },
+        { label: 'How it works', href: sectionHref('how-it-works') },
+        { label: 'Pricing', href: sectionHref('pricing') },
+        { label: 'Use cases', href: sectionHref('use-cases') },
+      ],
+    },
+    {
+      title: 'Resources',
+      links: [
+        { label: 'Developers', href: sectionHref('developers') },
+        { label: 'WhatsApp rules', href: sectionHref('rules') },
+        { label: 'Setup requirements', href: sectionHref('requirements') },
+        { label: 'FAQ', href: sectionHref('faq') },
+      ],
+    },
+    { title: 'Company', links: company },
+  ]
+}
 
 export function Footer() {
   const year = new Date().getFullYear()
@@ -47,7 +55,7 @@ export function Footer() {
             </p>
           </div>
           <nav aria-label="Footer" className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:col-span-7">
-            {columns.map((column) => (
+            {footerColumns().map((column) => (
               <div key={column.title}>
                 <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{column.title}</h2>
                 <ul className="mt-4 space-y-2.5 text-[14.5px]">

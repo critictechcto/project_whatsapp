@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { LandingPage } from './features/landing/LandingPage'
+import { sitePageFor } from './features/site-pages/paths'
 
 /*
  * The landing page and the dashboard share one entry but not one bundle: the dashboard (router,
@@ -14,16 +15,28 @@ const DashboardApp = lazy(async () => {
   return import('./features/dashboard/DashboardApp')
 })
 
+// Privacy, terms and contact pages: their own chunk, so the landing bundle carries none of their text.
+const SitePage = lazy(() => import('./features/site-pages/SitePage'))
+
 function isDashboardPath(pathname: string) {
   const app = `${import.meta.env.BASE_URL}app`
   return pathname === app || pathname.startsWith(`${app}/`)
 }
 
 export default function App() {
-  if (isDashboardPath(window.location.pathname)) {
+  const { pathname } = window.location
+  if (isDashboardPath(pathname)) {
     return (
       <Suspense fallback={null}>
         <DashboardApp />
+      </Suspense>
+    )
+  }
+  const page = sitePageFor(pathname)
+  if (page) {
+    return (
+      <Suspense fallback={null}>
+        <SitePage page={page} />
       </Suspense>
     )
   }
