@@ -1,0 +1,140 @@
+name: Deploy config
+
+# Guards the DigitalOcean App Platform inputs: backend/requirements.txt must match uv.lock (the
+# Python buildpack installs requirements.txt, not uv.lock) and .do/app.yaml must stay a sane spec
+# with placeholder-only secrets.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/pyproject.toml'
+      - 'backend/uv.lock'
+      - 'backend/requirements.txt'
+      - 'backend/.python-version'
+      - '.do/**'
+      - '.github/workflows/deploy-config.yml'
+  pull_request:
+    paths:
+      - 'backend/pyproject.toml'
+      - 'backend/uv.lock'
+      - 'backend/requirements.txt'
+      - 'backend/.python-version'
+      - '.do/**'
+      - '.github/workflows/deploy-config.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-config-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: requirements.txt in sync, app spec valid
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: requirements.txt matches uv.lock
+        working-directory: backend
+        run: |
+          uv export --frozen --no-dev --no-hashes -o requirements.txt
+          if ! git diff --exit-code -- requirements.txt; then
+            echo "::error file=backend/requirements.txt::Stale. Run 'uv export --frozen --no-dev --no-hashes -o requirements.txt' in backend/ and commit it."
+            exit 1
+          fi
+
+      - name: .do/app.yaml is a valid spec with placeholder secrets
+        run: |
+          uv run --no-project --with pyyaml python - <<'PY'
+          import sys
+          import yaml
+
+          errors = []
+          with open(".do/app.yaml", encoding="utf-8") as fh:
+              spec = yaml.safe_load(fh)
+
+          def names(section):
+              return {c.get("name"): c for c in spec.get(section) or []}
+
+          if spec.get("region") != "blr":
+              errors.append("region must be blr")
+          services, workers = names("services"), names("workers")
+          jobs, sites, dbs = names("jobs"), names("static_sites"), names("databases")
+
+          api = services.get("api")
+          if not api:
+              errors.append("missing service 'api'")
+          else:
+              if api.get("source_dir") != "backend":
+                  errors.append("api.source_dir must be backend")
+              if "daphne" not in (api.get("run_command") or ""):
+                  errors.append("api must run daphne")
+              if (api.get("health_check") or {}).get("http_path") != "/healthz/":
+                  errors.append("api health check must be /healthz/")
+          if "worker" not in workers:
+              errors.append("missing worker 'worker'")
+          scheduler = workers.get("scheduler")
+          if not scheduler:
+              errors.append("missing worker 'scheduler'")
+          elif scheduler.get("instance_count", 1) != 1:
+              errors.append("scheduler (celery beat) must run exactly 1 instance")
+          migrate = jobs.get("migrate")
+          if not migrate or migrate.get("kind") != "PRE_DEPLOY":
+              errors.append("missing PRE_DEPLOY job 'migrate'")
+          site = sites.get("dashboard")
+          if not site:
+              errors.append("missing static site 'dashboard'")
+          else:
+              if site.get("catchall_document") != "index.html":
+                  errors.append("dashboard needs catchall_document index.html")
+              site_env = {e["key"]: e.get("value") for e in site.get("envs") or []}
+              if site_env.get("VITE_API_MODE") != "live":
+                  errors.append("dashboard must build with VITE_API_MODE=live")
+          engines = {d.get("engine") for d in dbs.values()}
+          if not {"PG", "VALKEY"} <= engines:
+              errors.append("databases must include PG and VALKEY")
+
+          component_names = {*services, *workers, *jobs, *sites}
+          prefixes = set()
+          for rule in (spec.get("ingress") or {}).get("rules") or []:
+              target = (rule.get("component") or {}).get("name")
+              prefix = ((rule.get("match") or {}).get("path") or {}).get("prefix")
+              prefixes.add(prefix)
+              if target not in component_names:
+                  errors.append(f"ingress rule {prefix} targets unknown component {target}")
+          for prefix in ("/api", "/webhooks", "/ws", "/admin", "/static", "/pay", "/healthz", "/readyz", "/"):
+              if prefix not in prefixes:
+                  errors.append(f"ingress has no rule for {prefix}")
+
+          required = {"DJANGO_SETTINGS_MODULE", "DJANGO_SECRET_KEY", "TOKEN_ENCRYPTION_KEYS",
+                      "DJANGO_ALLOWED_HOSTS", "DATABASE_URL", "REDIS_URL", "CELERY_BROKER_URL",
+                      "WS_ALLOWED_ORIGINS"}
+          app_envs = spec.get("envs") or []
+          missing = required - {e.get("key") for e in app_envs}
+          if missing:
+              errors.append(f"missing app envs: {sorted(missing)}")
+
+          # Secrets in the repo spec must be placeholders; real values live only in App Platform.
+          all_envs = list(app_envs)
+          for section in ("services", "workers", "jobs", "static_sites"):
+              for component in spec.get(section) or []:
+                  all_envs.extend(component.get("envs") or [])
+          for env in all_envs:
+              if env.get("scope") not in (None, "RUN_TIME", "BUILD_TIME", "RUN_AND_BUILD_TIME"):
+                  errors.append(f"{env.get('key')}: invalid scope {env.get('scope')}")
+              if env.get("type") == "SECRET" and env.get("value") not in ("", "CHANGE_ME"):
+                  errors.append(f"{env.get('key')}: SECRET values must be CHANGE_ME or empty")
+
+          for error in errors:
+              print(f"::error file=.do/app.yaml::{error}")
+          sys.exit(1 if errors else 0)
+          PY
