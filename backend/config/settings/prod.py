@@ -22,9 +22,20 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 STORAGES = {
-    **STORAGES,  # noqa: F405 - media storage stays env-driven (MEDIA_STORAGE_BACKEND)
+    **STORAGES,  # noqa: F405 - media storage stays env-driven (MEDIA_STORAGE)
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+
+if MEDIA_STORAGE == "s3":  # noqa: F405
+    _missing_storage = [
+        name
+        for name in ("AWS_STORAGE_BUCKET_NAME", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
+        if not globals()[name]
+    ]
+    if _missing_storage:
+        raise ImproperlyConfigured(
+            "MEDIA_STORAGE=s3 requires " + ", ".join(_missing_storage) + " to be set."
+        )
 
 if not WS_ALLOWED_ORIGINS:  # noqa: F405
     raise ImproperlyConfigured("WS_ALLOWED_ORIGINS must list the dashboard origin(s).")

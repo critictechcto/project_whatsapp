@@ -13,6 +13,7 @@ dependencies = [
     "django-cors-headers>=4.9.0",
     "django-environ>=0.14.0",
     "django-filter>=26.1",
+    "django-storages[s3]>=1.14.6",
     "djangorestframework>=3.18.1",
     "djangorestframework-simplejwt>=5.5.1",
     "drf-spectacular>=0.30.0",
@@ -59,6 +60,7 @@ known-first-party = ["apps", "common", "config"]
 [dependency-groups]
 dev = [
     "factory-boy>=3.3.3",
+    "moto[s3]>=5.2.3",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "pytest-django>=4.14.0",

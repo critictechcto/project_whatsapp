@@ -287,7 +287,8 @@ def _queue_catalog_sync(workspace) -> None:
 def public_image_url(product: Product) -> str | None:
     """Absolute public URL of the product image (Meta fetches it), or None without an image.
 
-    Uses ``PUBLIC_MEDIA_BASE_URL`` when set, else ``PUBLIC_API_BASE_URL`` + ``MEDIA_URL``.
+    Uses ``PUBLIC_MEDIA_BASE_URL`` when set, else an absolute URL from the image storage (the
+    public bucket or its CDN domain), else ``PUBLIC_API_BASE_URL`` + ``MEDIA_URL`` (local disk).
     """
     name = product.image.name if product.image else ""
     if not name:
@@ -296,6 +297,9 @@ def public_image_url(product: Product) -> str | None:
     media_base = settings.PUBLIC_MEDIA_BASE_URL
     if media_base:
         return f"{media_base.rstrip('/')}/{path}"
+    storage_url = product.image.storage.url(name)
+    if storage_url.startswith(("http://", "https://")):
+        return storage_url
     media_url = settings.MEDIA_URL or "media/"
     if media_url.startswith(("http://", "https://")):
         return f"{media_url.rstrip('/')}/{path}"

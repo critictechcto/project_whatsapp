@@ -8,6 +8,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 from common.enum_overrides import AppEnumNameOverrides
 
@@ -149,14 +150,43 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = env.path("MEDIA_ROOT", default=BASE_DIR / "media")
 
-# `default` stores uploads (contact imports, WhatsApp media assets): local disk unless a
-# deployment points MEDIA_STORAGE_BACKEND at another storage class (e.g. object storage).
+# Uploads (contact imports, inbox media, product images). MEDIA_STORAGE picks where they live:
+# - "local" (default): FileSystemStorage under MEDIA_ROOT. Development only: the API, worker and
+#   beat containers do not share a disk in production.
+# - "s3": one S3-compatible bucket (DigitalOcean Spaces) shared by every process. `default` is
+#   private with signed URLs valid for AWS_QUERYSTRING_EXPIRE seconds; `public_media` holds
+#   product images as public-read objects, linked from PUBLIC_MEDIA_BASE_URL when set, else
+#   https://AWS_S3_CUSTOM_DOMAIN when set, else the bucket URL. See common/storage.py.
+MEDIA_STORAGE = env("MEDIA_STORAGE", default="local").strip().lower()
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="")
+# e.g. https://blr1.digitaloceanspaces.com and blr1
+AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default="") or None
+AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="") or None
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
+# Optional CDN host without scheme (e.g. media.upchatz.com); used for public product images only.
+AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default="") or None
+AWS_QUERYSTRING_EXPIRE = env.int("AWS_QUERYSTRING_EXPIRE", default=3600)
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+AWS_S3_ADDRESSING_STYLE = "virtual"
+# Objects above this size spool to a temp file instead of memory while being read.
+AWS_S3_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+
+if MEDIA_STORAGE == "local":
+    _MEDIA_STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}}
+elif MEDIA_STORAGE == "s3":
+    _MEDIA_STORAGES = {
+        "default": {"BACKEND": "common.storage.PrivateMediaStorage"},
+        "public_media": {
+            "BACKEND": "common.storage.PublicMediaStorage",
+            "OPTIONS": {"custom_domain": AWS_S3_CUSTOM_DOMAIN},
+        },
+    }
+else:
+    raise ImproperlyConfigured(f"MEDIA_STORAGE must be 'local' or 's3', not {MEDIA_STORAGE!r}.")
+
 STORAGES = {
-    "default": {
-        "BACKEND": env(
-            "MEDIA_STORAGE_BACKEND", default="django.core.files.storage.FileSystemStorage"
-        ),
-    },
+    **_MEDIA_STORAGES,
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
