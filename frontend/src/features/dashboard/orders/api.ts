@@ -126,6 +126,18 @@ export function useOrderUpdates(workspaceId: string) {
   })
 }
 
+/**
+ * `message.status` frames for a buyer notification listed on this order's timeline: refetch the timeline so a
+ * delivery failure reported by Meta after sending shows up.
+ */
+export function useNotificationStatusUpdates(workspaceId: string, orderId: string, messageIds: ReadonlySet<string>) {
+  const queryClient = useQueryClient()
+  useRealtimeEvent('message.status', ({ message_id }) => {
+    if (!messageIds.has(message_id)) return
+    void queryClient.invalidateQueries({ queryKey: eventsKey(workspaceId, orderId) })
+  })
+}
+
 /** `order.created` frames: a toast and a refreshed list and summary. */
 export function useNewOrderAlerts(workspaceId: string) {
   const queryClient = useQueryClient()

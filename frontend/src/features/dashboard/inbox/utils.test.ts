@@ -44,8 +44,8 @@ describe('inbox text helpers', () => {
 
   it('previews native carts by item count', () => {
     const items = [
-      { product_retailer_id: 'SS-KAJU-250', quantity: 2, item_price: 220, currency: 'INR' },
-      { product_retailer_id: 'SS-SOAN-250', quantity: 1, item_price: 100, currency: 'INR' },
+      { product_retailer_id: 'SS-KAJU-250', name: 'Kaju Katli 250 g', quantity: 2, item_price: 220, currency: 'INR' },
+      { product_retailer_id: 'SS-SOAN-250', name: null, quantity: 1, item_price: 100, currency: 'INR' },
     ]
     expect(previewText('order', 'Cart: 3 items, ₹540.00', { items })).toBe('Cart · 3 items')
     expect(previewText('order', 'Cart: 1 items, ₹220.00')).toBe('Cart · 1 item')

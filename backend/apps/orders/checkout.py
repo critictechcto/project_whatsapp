@@ -275,6 +275,8 @@ def start_checkout(
             quoted_total_paise=quoted_total_paise,
             expires_at=_deadline(),
         )
+        if source_wamid:
+            _link_source_message(order)
         OrderItem.objects.bulk_create(
             [
                 OrderItem(
@@ -328,6 +330,16 @@ def _conversation_of_pk(pk) -> Conversation:
     return Conversation.objects.select_related("workspace", "contact", "phone_number__waba").get(
         pk=pk
     )
+
+
+def _link_source_message(order: Order) -> None:
+    """Link the inbound cart or checkout tap that started ``order`` to it (``Message.order_id``)."""
+    Message.objects.filter(
+        workspace_id=order.workspace_id,
+        wamid=order.source_wamid,
+        direction=Message.Direction.INBOUND,
+        source_ref="",
+    ).update(source_ref=buyer.source_ref(order))
 
 
 def _by_source_wamid(workspace, source_wamid: str) -> Order | None:

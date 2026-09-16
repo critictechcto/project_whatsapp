@@ -1,12 +1,14 @@
 import { memo, useState, type ReactNode } from 'react'
-import { Contact, Download, FileText, Image as ImageIcon, MapPin, Mic, Play, StickyNote, Video } from 'lucide-react'
+import { Contact, Download, FileText, Image as ImageIcon, MapPin, Mic, Play, ShoppingBag, StickyNote, Video } from 'lucide-react'
+import { Link } from 'react-router'
 import { Spinner } from '../../../../components/app/Spinner'
+import { describeDeliveryError } from '../../../../components/app/whatsapp/deliveryError'
 import { InteractiveMessagePreview } from '../../../../components/app/whatsapp/InteractiveMessagePreview'
-import { isInteractiveMessage, toOrderCart, type InteractiveMessage, type OrderCart } from '../../../../components/app/whatsapp/interactive'
+import { isInteractiveMessage, toOrderCart, type InteractiveMessage, type OrderCart, type ProductLookup } from '../../../../components/app/whatsapp/interactive'
 import { OrderCartPreview } from '../../../../components/app/whatsapp/OrderCartPreview'
 import { WhatsAppText, type DeliveryStatus } from '../../../../components/app/whatsapp/WhatsAppMessagePreview'
 import { cn } from '../../../../lib/cn'
-import { formatBytes, type ConversationNote, type Message, type MessageType } from '../api'
+import { formatBytes, type ConversationNote, type Message, type MessageReply, type MessageType } from '../api'
 import { downloadMessageMedia, useMediaObjectUrl } from '../hooks/misc'
 import type { OutboxEntry } from '../hooks/thread'
 import { formatBubbleTime, formatFullTime, previewText } from '../utils'
@@ -28,16 +30,19 @@ function BubbleShell({
   label,
   footer,
   failed,
+  after,
   children,
 }: {
   side: Side
   label?: ReactNode
   footer: ReactNode
   failed?: ReactNode
+  /** Shown under the bubble, e.g. the order link. */
+  after?: ReactNode
   children: ReactNode
 }) {
   return (
-    <div className={cn('flex', side === 'outbound' ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex flex-col gap-1', side === 'outbound' ? 'items-end' : 'items-start')}>
       <div
         className={cn(
           'max-w-[88%] overflow-hidden rounded-lg text-[13.5px] leading-snug text-ink shadow-[0_1px_0_rgba(16,39,31,0.1)] sm:max-w-[72%]',
@@ -50,6 +55,7 @@ function BubbleShell({
         <p className="flex items-center justify-end gap-1 px-2.5 pb-1.5 pt-0.5 text-[10.5px] text-muted">{footer}</p>
         {failed}
       </div>
+      {after}
     </div>
   )
 }
@@ -221,11 +227,15 @@ function MessageContent({ message }: { message: Message }) {
     case 'contacts':
       return <MediaCard icon={<Contact />} title={message.text || 'Contact card'} subtitle="Shared contact" />
     case 'interactive':
-      // The webhook parser summarises an inbound address form (`nfm_reply`) as "Address shared".
-      if (message.direction === 'inbound' && isAddressShared(message.text)) {
+      // An inbound address form (`nfm_reply`); older data only has the "Address shared" summary.
+      if (message.direction === 'inbound' && (message.reply?.kind === 'nfm' || (!message.reply && isAddressShared(message.text)))) {
         return <MediaCard icon={<MapPin className="text-accent-2" />} title="Address shared" subtitle="Delivery address from WhatsApp's address form" />
       }
+      if (message.direction === 'inbound' && message.reply) return <ReplyChip reply={message.reply} text={message.text} />
       return <BodyText text={message.text || 'Interactive message'} />
+    case 'button':
+      if (message.direction === 'inbound' && message.reply) return <ReplyChip reply={message.reply} text={message.text} />
+      return <BodyText text={message.text} />
     case 'order':
       return <BodyText text={message.text || 'Cart'} />
     case 'unsupported':
@@ -235,28 +245,61 @@ function MessageContent({ message }: { message: Message }) {
   }
 }
 
+const replyKindLabels: Record<MessageReply['kind'], string> = {
+  button: 'Tapped a button',
+  list: 'Chose from a list',
+  nfm: 'Sent a form',
+}
+
+/** Reply ids (`upc:shop:add:…`) are for the bot, never for people. */
+function isReplyId(value: string): boolean {
+  return /^upc:/i.test(value.trim())
+}
+
+/** What the customer tapped: the button or row title, never the reply id behind it. */
+function ReplyChip({ reply, text }: { reply: MessageReply; text: string }) {
+  const title = [reply.title, text].find((value) => value.trim() && !isReplyId(value)) ?? 'An option that is no longer shown'
+  const description = reply.description && !isReplyId(reply.description) ? reply.description : ''
+  return (
+    <div className="mx-1 mt-1 min-w-40 rounded-md border-l-[3px] border-accent bg-ink/[0.05] px-2 py-1">
+      <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{replyKindLabels[reply.kind]}</p>
+      <p className="break-words font-medium text-ink">{title}</p>
+      {description && <p className="break-words text-[12px] text-muted">{description}</p>}
+    </div>
+  )
+}
+
 function isAddressShared(text: string): boolean {
   return text.trim().toLowerCase() === 'address shared'
 }
 
-function typeLabel(type: MessageType, templateName?: string, message?: Pick<Message, 'direction' | 'text'>): ReactNode {
+function typeLabel(type: MessageType, templateName?: string, message?: Pick<Message, 'direction' | 'text' | 'reply'>): ReactNode {
   if (type === 'template') return `Template · ${templateName || 'unknown'}`
-  if (type === 'button') return 'Button reply'
+  if (type === 'button') return message?.reply ? undefined : 'Button reply'
   if (type === 'interactive') {
-    if (message?.direction === 'inbound') return isAddressShared(message.text) ? undefined : 'Menu reply'
+    if (message?.direction === 'inbound') return message.reply || isAddressShared(message.text) ? undefined : 'Menu reply'
     return 'Interactive'
   }
   return undefined
 }
 
-type CommercePayload = { interactive: InteractiveMessage; cart?: never } | { cart: OrderCart; interactive?: never }
+type CommercePayload = { interactive: InteractiveMessage; cart?: never } | { cart: OrderCart; products: ProductLookup; interactive?: never }
+
+/** Product names the API resolved from the workspace catalog, by SKU (lines without one show the SKU). */
+function cartProducts(order: Message['order']): ProductLookup {
+  const products: ProductLookup = {}
+  for (const item of order?.items ?? []) {
+    if (item.name) products[item.product_retailer_id] = { name: item.name, pricePaise: Math.round(item.item_price * 100) }
+  }
+  return products
+}
 
 /** What a commerce bubble can draw: a valid interactive object, or a native cart with items. */
 function commercePayload(message: Message): CommercePayload | null {
   if (isInteractiveMessage(message.interactive)) return { interactive: message.interactive }
   if (message.type !== 'order') return null
   const cart = toOrderCart(message.order)
-  return cart && cart.product_items.length > 0 ? { cart } : null
+  return cart && cart.product_items.length > 0 ? { cart, products: cartProducts(message.order) } : null
 }
 
 function deliveryStatus(status: Message['status']): DeliveryStatus | undefined {
@@ -268,7 +311,19 @@ function deliveryStatus(status: Message['status']): DeliveryStatus | undefined {
  * product cards, payment links, address requests) and inbound native carts (`order`, with the
  * prices WhatsApp displayed to the buyer).
  */
-function CommerceBubble({ message, payload, sender, timeZone }: { message: Message; payload: CommercePayload; sender: string; timeZone: string }) {
+function CommerceBubble({
+  message,
+  payload,
+  sender,
+  timeZone,
+  orderHref,
+}: {
+  message: Message
+  payload: CommercePayload
+  sender: string
+  timeZone: string
+  orderHref?: string
+}) {
   const side: Side = message.direction
   const time = formatBubbleTime(message.created_at, timeZone)
   const bubble = {
@@ -281,14 +336,44 @@ function CommerceBubble({ message, payload, sender, timeZone }: { message: Messa
 
   return (
     <div className={cn('flex flex-col gap-1', side === 'outbound' ? 'items-end' : 'items-start')} title={formatFullTime(message.created_at, timeZone)}>
-      {payload.cart ? <OrderCartPreview {...bubble} order={payload.cart} /> : <InteractiveMessagePreview {...bubble} message={payload.interactive} />}
-      {message.status === 'failed' && (
-        <p className="max-w-[88%] rounded-md bg-signal-soft/70 px-2.5 py-1.5 text-[12px] text-signal sm:max-w-[20rem]">
-          Not delivered{message.error_message ? `: ${message.error_message}` : '.'}
-          {message.error_code && <span className="font-mono"> ({message.error_code})</span>}
-        </p>
+      {payload.cart ? (
+        <OrderCartPreview {...bubble} order={payload.cart} products={payload.products} />
+      ) : (
+        <InteractiveMessagePreview {...bubble} message={payload.interactive} />
       )}
+      {message.status === 'failed' && (
+        <div className="max-w-[88%] rounded-md bg-signal-soft/70 px-2.5 py-1.5 text-[12px] text-signal sm:max-w-[20rem]">
+          <DeliveryFailure message={message} />
+        </div>
+      )}
+      {orderHref && <OrderLink href={orderHref} />}
     </div>
+  )
+}
+
+/** Why an outbound message failed, in plain language, with Meta's code for support. */
+function DeliveryFailure({ message }: { message: Message }) {
+  const error = describeDeliveryError(message.error_code, message.error_message)
+  return (
+    <>
+      <p title={error.known && message.error_message ? message.error_message : undefined}>
+        {error.summary}
+        {message.error_code && <span className="font-mono"> ({message.error_code})</span>}
+      </p>
+      {error.action && <p className="mt-0.5 text-ink-2">{error.action}</p>}
+    </>
+  )
+}
+
+function OrderLink({ href }: { href: string }) {
+  return (
+    <Link
+      to={href}
+      className="inline-flex items-center gap-1 rounded-full border border-line bg-card px-2 py-0.5 text-[11.5px] font-medium text-accent-2 shadow-[0_1px_0_rgba(16,39,31,0.06)] hover:border-accent hover:text-accent"
+    >
+      <ShoppingBag className="size-3" aria-hidden="true" />
+      View order
+    </Link>
   )
 }
 
@@ -314,9 +399,11 @@ type MessageBubbleProps = {
   timeZone: string
   /** Offered for failed text messages when the viewer can send. Sends a new message (new key). */
   onRetry?: (message: Message) => void
+  /** Link to the order the message belongs to (the thread shows it once per order). */
+  orderHref?: string
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, replyTo, contactName, timeZone, onRetry }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, replyTo, contactName, timeZone, onRetry, orderHref }: MessageBubbleProps) {
   const side: Side = message.direction
   const time = (
     <time dateTime={message.created_at} title={formatFullTime(message.created_at, timeZone)}>
@@ -340,12 +427,13 @@ export const MessageBubble = memo(function MessageBubble({ message, replyTo, con
   const sender = side === 'outbound' ? message.sent_by?.full_name.split(' ')[0] || sourceLabels[message.source] : ''
 
   const payload = commercePayload(message)
-  if (payload) return <CommerceBubble message={message} payload={payload} sender={sender} timeZone={timeZone} />
+  if (payload) return <CommerceBubble message={message} payload={payload} sender={sender} timeZone={timeZone} orderHref={orderHref} />
 
   return (
     <BubbleShell
       side={side}
       label={typeLabel(message.type, message.template?.name, message)}
+      after={orderHref ? <OrderLink href={orderHref} /> : undefined}
       footer={
         <>
           {sender && <span>{sender} ·</span>}
@@ -356,10 +444,7 @@ export const MessageBubble = memo(function MessageBubble({ message, replyTo, con
       failed={
         message.status === 'failed' ? (
           <div className="border-t border-signal/15 bg-signal-soft/70 px-2.5 py-1.5 text-[12px] text-signal">
-            <p>
-              Not delivered{message.error_message ? `: ${message.error_message}` : '.'}
-              {message.error_code && <span className="font-mono"> ({message.error_code})</span>}
-            </p>
+            <DeliveryFailure message={message} />
             {onRetry && (
               <button type="button" onClick={() => onRetry(message)} className="mt-0.5 font-medium underline-offset-2 hover:underline">
                 Retry as a new message

@@ -265,7 +265,10 @@ describe('commerce messages', () => {
     const cart = await findMessageRow(inboxMockIds.kabirCart)
     const items = within(cart).getByRole('list', { name: 'Cart items' })
     expect(within(items).getAllByRole('listitem')).toHaveLength(2)
-    expect(within(items).getByText('SS-KAJU-250')).toBeInTheDocument()
+    // Names come from the catalog; a SKU the catalog doesn't know falls back to the SKU.
+    expect(within(items).getByText('Kaju Katli 250 g')).toBeInTheDocument()
+    expect(within(items).queryByText('SS-KAJU-250')).not.toBeInTheDocument()
+    expect(within(items).getByText('SS-SOAN-250')).toBeInTheDocument()
     expect(within(items).getByText('2 × ₹220')).toBeInTheDocument()
     expect(within(items).getByText('₹440')).toBeInTheDocument()
     expect(within(cart).getByText('3 items')).toBeInTheDocument()
@@ -282,7 +285,38 @@ describe('commerce messages', () => {
     expect(within(region).getByText('Address shared')).toBeInTheDocument()
     expect(within(region).getByText('Pay ₹540')).toBeInTheDocument()
     expect(within(region).getByText(/Payment received, thank you!/)).toBeInTheDocument()
-    expect(within(region).getAllByText('Menu reply').length).toBeGreaterThan(0)
+    expect(within(region).queryByText('Menu reply')).not.toBeInTheDocument()
+  })
+
+  it('quotes what the buyer tapped without showing reply ids', async () => {
+    signIn()
+    renderDashboard(`${base}/${inboxMockIds.kabir}`)
+    const region = await messagesRegion()
+    await findMessageRow(inboxMockIds.kabirCart)
+
+    const list = within(region).getByText('Chose from a list').parentElement!
+    expect(list).toHaveTextContent('Mithai')
+    expect(list).toHaveTextContent('Kaju katli, laddoo, barfi')
+    const buttons = within(region).getAllByText('Tapped a button').map((label) => label.parentElement!.textContent)
+    expect(buttons).toEqual(expect.arrayContaining([expect.stringContaining('Add to cart'), expect.stringContaining('Pay online')]))
+    expect(within(region).queryByText(/upc:/)).not.toBeInTheDocument()
+  })
+
+  it('links order messages to the order and explains a failed payment method', async () => {
+    signIn()
+    renderDashboard(`${base}/${inboxMockIds.kabir}`)
+    await messagesRegion()
+
+    const cart = await findMessageRow(inboxMockIds.kabirCart)
+    expect(within(cart).getByRole('link', { name: 'View order' })).toHaveAttribute(
+      'href',
+      `/app/w/${ids.sharmaSweets}/orders/${inboxMockIds.kabirOrder}`,
+    )
+
+    const confirmation = await findMessageRow(inboxMockIds.kabirConfirmation)
+    expect(within(confirmation).getByText('Not delivered: add a payment method in WhatsApp Manager.')).toBeInTheDocument()
+    expect(within(confirmation).getByText(/Add or update it in WhatsApp Manager/)).toBeInTheDocument()
+    expect(within(confirmation).getByRole('link', { name: 'View order' })).toBeInTheDocument()
   })
 
   it('previews a native cart in the conversation list', async () => {

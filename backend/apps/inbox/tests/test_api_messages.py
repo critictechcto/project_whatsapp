@@ -198,12 +198,14 @@ def test_interactive_and_order_fields(auth_client, conversation):
         "items": [
             {
                 "product_retailer_id": "KAJU-500",
+                "name": None,
                 "quantity": 2,
                 "item_price": 650.0,
                 "currency": "INR",
             },
             {
                 "product_retailer_id": "BHUJIA",
+                "name": None,
                 "quantity": 1,
                 "item_price": 150.5,
                 "currency": "INR",

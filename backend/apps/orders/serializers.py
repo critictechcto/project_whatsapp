@@ -4,6 +4,7 @@ component ``Foo``."""
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.inbox.models import Message
 from apps.inbox.serializers import (
     ConversationContactSerializer,
     ConversationPhoneNumberSerializer,
@@ -131,7 +132,24 @@ class OrderEventSerializer(serializers.Serializer):
     user = UserSummarySerializer(read_only=True, allow_null=True)
     detail = serializers.CharField(read_only=True)
     message_id = serializers.UUIDField(read_only=True, allow_null=True)
+    message_status = serializers.SerializerMethodField(
+        help_text="Current delivery status of the event's message; null without a message."
+    )
+    message_error_code = serializers.SerializerMethodField(
+        help_text='Meta error code when that message failed, else "".'
+    )
     created_at = serializers.DateTimeField(read_only=True)
+
+    @extend_schema_field(serializers.ChoiceField(choices=Message.Status.values, allow_null=True))
+    def get_message_status(self, event) -> str | None:
+        return event.message.status if event.message_id and event.message else None
+
+    @extend_schema_field(serializers.CharField())
+    def get_message_error_code(self, event) -> str:
+        message = event.message if event.message_id else None
+        if message is None or message.status != Message.Status.FAILED:
+            return ""
+        return message.error_code or ""
 
 
 class OrderTransitionSerializer(serializers.Serializer):

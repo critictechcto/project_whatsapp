@@ -213,7 +213,7 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
     def events(self, request, pk=None):
         order = self.get_object()
         queryset = OrderEvent.objects.filter(workspace=self.workspace, order=order).select_related(
-            "user"
+            "user", "message"
         )
         page = self.paginate_queryset(queryset)
         return self.get_paginated_response(OrderEventSerializer(page, many=True).data)
