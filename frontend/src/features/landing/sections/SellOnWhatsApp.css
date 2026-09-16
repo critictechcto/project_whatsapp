@@ -1,0 +1,40 @@
+/* Step progress in the "Sell on WhatsApp" list — SellOnWhatsApp.tsx */
+.shop-progress {
+  display: block;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-line-2);
+}
+.shop-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+/* Fills over the step's duration; frozen wherever it is while autoplay waits or is paused. */
+.shop-progress[data-progress='playing'] > span,
+.shop-progress[data-progress='paused'] > span,
+.shop-progress[data-progress='waiting'] > span {
+  animation: shop-progress var(--step-ms, 3000ms) linear forwards;
+}
+.shop-progress[data-progress='paused'] > span,
+.shop-progress[data-progress='waiting'] > span {
+  animation-play-state: paused;
+}
+.shop-progress[data-progress='done'] > span {
+  transform: none;
+}
+
+@keyframes shop-progress {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-progress {
+    display: none;
+  }
+}

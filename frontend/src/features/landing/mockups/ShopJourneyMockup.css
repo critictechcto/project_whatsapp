@@ -1,0 +1,65 @@
+/*
+ * "Sell on WhatsApp" stage — ShopJourneyMockup.tsx.
+ * Phones (below sm) get a flat layout; sm and up get a CSS 3D stage with a resting pose, and devices
+ * that hover get pointer tilt (usePointerTilt writes --tilt-x/--tilt-y on .shop-stage).
+ */
+
+@media (width >= 40rem) {
+  .shop-stage {
+    perspective: 1800px;
+    perspective-origin: 50% 40%;
+  }
+  .shop-3d {
+    transform-style: preserve-3d;
+  }
+  .shop-scene {
+    transform: rotateX(calc(3deg + var(--tilt-x, 0deg))) rotateY(calc(-8deg + var(--tilt-y, 0deg)));
+  }
+  /* A flat plane at its own depth (the phones and the ticket stack). */
+  .shop-depth {
+    transform: translateZ(var(--z, 0px));
+  }
+}
+
+/*
+ * Layers inside a phone screen. The screen clips its content, so each layer carries its own
+ * perspective: lifting it forward enlarges it slightly and deepens its shadow, as if it rose off the
+ * glass. Works on the flat phone layout too.
+ */
+.shop-lift,
+.shop-lift .shop-badge {
+  transform: perspective(700px) translateZ(0);
+}
+.shop-lift[data-lifted][data-lift='card'] {
+  transform: perspective(700px) translateZ(28px);
+  filter: drop-shadow(0 12px 12px rgb(16 39 31 / 0.2));
+}
+.shop-lift .shop-badge {
+  display: inline-flex;
+}
+.shop-lift[data-lifted][data-lift='badge'] .shop-badge {
+  transform: perspective(500px) translateZ(48px);
+  filter: drop-shadow(0 8px 8px rgb(16 39 31 / 0.25));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .shop-scene {
+    transition: transform 1.1s var(--ease-soft);
+  }
+  .shop-stage[data-tilt='active'] .shop-scene {
+    transition-duration: 0.4s;
+    will-change: transform;
+  }
+  .shop-lift,
+  .shop-lift .shop-badge {
+    transition:
+      transform 0.5s var(--ease-soft),
+      filter 0.5s var(--ease-soft);
+  }
+  /* Rise once the message has popped in; settle back straight away when the step moves on. */
+  .shop-lift[data-lifted],
+  .shop-lift[data-lifted] .shop-badge {
+    transition-duration: 0.7s;
+    transition-delay: var(--lift-delay, 0ms);
+  }
+}
