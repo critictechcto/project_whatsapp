@@ -1,0 +1,19 @@
+/* Pointer-following CTA — components/ui/MagneticButton.tsx */
+.magnetic > a {
+  /* `transform`, not `translate`: the Button's `active:translate-y-*` press uses `translate`, so both compose. */
+  transform: translate3d(var(--magnetic-x, 0px), var(--magnetic-y, 0px), 0);
+  /* Springs back with a small overshoot once the pointer leaves. */
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    border-color 0.2s,
+    transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.magnetic[data-magnetic='active'] > a {
+  transition:
+    color 0.2s,
+    background-color 0.2s,
+    border-color 0.2s,
+    transform 0.18s var(--ease-soft);
+  will-change: transform;
+}

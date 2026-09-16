@@ -1,9 +1,13 @@
 import { useId, useState, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
-import { cn } from '../../lib/cn'
+import './Accordion.css'
 
 export type AccordionItem = { question: string; answer: ReactNode }
 
+/**
+ * Disclosure list with one open item at a time. Height animates with `grid-template-rows: 0fr → 1fr`,
+ * so answers of any length open smoothly without measuring; closed panels are `inert`.
+ */
 export function Accordion({ items }: { items: AccordionItem[] }) {
   const [open, setOpen] = useState<number | null>(0)
   const baseId = useId()
@@ -28,7 +32,8 @@ export function Accordion({ items }: { items: AccordionItem[] }) {
               >
                 <span>{item.question}</span>
                 <Plus
-                  className={cn('size-5 shrink-0 text-muted transition-transform duration-300', isOpen && 'rotate-45')}
+                  data-open={isOpen}
+                  className="accordion-icon size-5 shrink-0 text-muted"
                   aria-hidden="true"
                 />
               </button>
@@ -38,13 +43,13 @@ export function Accordion({ items }: { items: AccordionItem[] }) {
               role="region"
               aria-labelledby={buttonId}
               inert={!isOpen}
-              className={cn(
-                'grid transition-[grid-template-rows] duration-300 ease-out',
-                isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-              )}
+              data-open={isOpen}
+              className="accordion-panel"
             >
-              <div className="overflow-hidden">
-                <div className="max-w-2xl pb-6 pr-8 text-[15px] leading-relaxed text-muted">{item.answer}</div>
+              <div>
+                <div className="accordion-body max-w-2xl pb-6 pr-8 text-[15px] leading-relaxed text-muted">
+                  {item.answer}
+                </div>
               </div>
             </div>
           </div>

@@ -1,0 +1,88 @@
+/* Token vault illustration — sections/Security.tsx */
+.vault-stage {
+  position: relative;
+  height: 19rem;
+  perspective: 1400px;
+  perspective-origin: 50% 20%;
+}
+.vault-scene {
+  position: absolute;
+  inset: 0;
+  margin-inline: auto;
+  max-width: 24rem;
+  transform-style: preserve-3d;
+  transform: rotateX(14deg) rotateY(-14deg);
+}
+
+/* Stored secrets stacked behind the vault card */
+.vault-layer,
+.vault-card {
+  position: absolute;
+  inset: 6.5rem 0 0.5rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-card);
+}
+.vault-layer {
+  background: var(--color-paper-2);
+}
+.vault-layer[data-depth='2'] {
+  transform: translate3d(14px, -14px, -48px);
+}
+.vault-layer[data-depth='1'] {
+  transform: translate3d(7px, -7px, -24px);
+}
+.vault-card {
+  box-shadow: 0 30px 50px -34px rgb(16 39 31 / 0.5);
+}
+.vault-slot {
+  position: absolute;
+  inset: auto 1rem 1rem;
+  height: 3.5rem;
+  border: 1px dashed var(--color-line);
+  border-radius: 0.6rem;
+  transition: border-color 0.4s ease-out;
+}
+.vault-stage[data-phase='sealed'] .vault-slot {
+  border-color: transparent;
+}
+
+/* The token card: raised above the vault, then dropped into its slot once encrypted */
+.vault-token {
+  position: absolute;
+  inset: auto 1rem 1.5rem;
+  height: 3.5rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--color-ink);
+  background: var(--color-card);
+  transform: translate3d(0, -12.5rem, 70px);
+  transition:
+    transform 0.9s cubic-bezier(0.55, 0, 0.25, 1.25),
+    border-color 0.4s ease-out,
+    box-shadow 0.9s var(--ease-soft);
+  box-shadow: 0 26px 30px -22px rgb(16 39 31 / 0.45);
+  animation: vault-token-in 0.6s var(--ease-soft) both;
+}
+.vault-stage[data-phase='sealed'] .vault-token {
+  transform: translate3d(0, 0, 4px);
+  border-color: var(--color-accent);
+  box-shadow: 0 6px 10px -8px rgb(16 39 31 / 0.35);
+}
+@keyframes vault-token-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.vault-status {
+  transition: color 0.3s ease-out;
+}
+.vault-stage[data-phase='sealed'] .vault-status {
+  color: var(--color-accent-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vault-token {
+    transition: none;
+  }
+}

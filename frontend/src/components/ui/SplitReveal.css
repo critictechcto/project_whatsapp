@@ -1,0 +1,25 @@
+/* Word-by-word text rise — components/ui/SplitReveal.tsx */
+.split-reveal-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  /* Room for descenders inside the mask without changing the line box. */
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.split-reveal-word > span {
+  display: inline-block;
+  transform: translate3d(0, 108%, 0) rotate(2deg);
+  transform-origin: 0 100%;
+  transition: transform 0.85s var(--ease-soft);
+  transition-delay: calc(var(--word-index, 0) * 42ms + 60ms);
+}
+.split-reveal.is-visible .split-reveal-word > span {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-reveal-word > span {
+    transform: none;
+  }
+}
