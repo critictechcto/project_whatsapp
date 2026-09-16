@@ -1,0 +1,337 @@
+# DigitalOcean App Platform spec for UpChatz (API, workers, dashboard) on app.upchatz.com.
+# Reference: https://docs.digitalocean.com/products/app-platform/reference/app-spec/
+# Setup guide: docs/deployment/app-platform.md
+#
+# PLACEHOLDERS ONLY. Never commit a real secret here. Import this spec once, then fill every
+# CHANGE_ME in the control panel (Settings -> App-Level Environment Variables). App Platform does
+# not re-read this file on push; re-applying it with `doctl apps update --spec` would overwrite the
+# real secrets with CHANGE_ME, so update from `doctl apps spec get <app-id>` (encrypted EV[...]
+# values) instead. The marketing site stays on GitHub Pages at upchatz.com; this app serves only
+# app.upchatz.com.
+
+name: upchatz
+region: blr
+
+domains:
+  - domain: app.upchatz.com
+    type: PRIMARY
+    minimum_tls_version: "1.2"
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+# Path routing on one domain. Backend prefixes go to `api` with the prefix kept (Django routes
+# include it); everything else is the dashboard SPA.
+ingress:
+  rules:
+    - match: { path: { prefix: /api } }
+      component: { name: api, preserve_path_prefix: true }
+    - match: { path: { prefix: /webhooks } }
+      component: { name: api, preserve_path_prefix: true }
+    - match: { path: { prefix: /ws } }
+      component: { name: api, preserve_path_prefix: true }
+    - match: { path: { prefix: /admin } }
+      component: { name: api, preserve_path_prefix: true }
+    - match: { path: { prefix: /static } }
+      component: { name: api, preserve_path_prefix: true }
+    # Buyer return page after paying on Razorpay/Cashfree (apps.payments.return_urls).
+    - match: { path: { prefix: /pay } }
+      component: { name: api, preserve_path_prefix: true }
+    - match: { path: { prefix: /healthz } }
+      component: { name: api, preserve_path_prefix: true }
+    - match: { path: { prefix: /readyz } }
+      component: { name: api, preserve_path_prefix: true }
+    - match: { path: { prefix: / } }
+      component: { name: dashboard }
+
+services:
+  # Django ASGI: REST API, Meta/Razorpay webhooks, admin, static files (WhiteNoise), WebSockets.
+  - name: api
+    source_dir: backend
+    environment_slug: python
+    github:
+      repo: critictechcto/project_whatsapp_landing_page
+      branch: main
+      # Safer alternative: set false and deploy from CI after tests pass
+      # (`doctl apps create-deployment <app-id>`), see docs/deployment/app-platform.md.
+      deploy_on_push: true
+    # The Python buildpack installs requirements.txt and runs `manage.py collectstatic`.
+    run_command: daphne --proxy-headers -b 0.0.0.0 -p 8080 config.asgi:application
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    health_check:
+      http_path: /healthz/
+      initial_delay_seconds: 20
+      period_seconds: 10
+      timeout_seconds: 5
+      failure_threshold: 6
+
+workers:
+  # Sends messages, runs campaigns, downloads media, syncs templates.
+  - name: worker
+    source_dir: backend
+    environment_slug: python
+    github:
+      repo: critictechcto/project_whatsapp_landing_page
+      branch: main
+      deploy_on_push: true
+    run_command: celery -A config worker -l info --concurrency 2
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+
+  # Celery beat (django_celery_beat DatabaseScheduler). Must run EXACTLY ONE instance: each beat
+  # process fires every periodic task on its own, so a second instance would duplicate scheduled
+  # campaigns and periodic jobs. Never scale this component horizontally.
+  - name: scheduler
+    source_dir: backend
+    environment_slug: python
+    github:
+      repo: critictechcto/project_whatsapp_landing_page
+      branch: main
+      deploy_on_push: true
+    run_command: celery -A config beat -l info
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+
+jobs:
+  # Runs before every deployment; a failed migration stops the rollout and keeps the old version.
+  - name: migrate
+    kind: PRE_DEPLOY
+    source_dir: backend
+    environment_slug: python
+    github:
+      repo: critictechcto/project_whatsapp_landing_page
+      branch: main
+      deploy_on_push: true
+    run_command: python manage.py migrate --noinput
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+
+static_sites:
+  # Vite build: landing page at / and the dashboard at /app (SPA deep links via catchall).
+  - name: dashboard
+    source_dir: frontend
+    environment_slug: node-js
+    github:
+      repo: critictechcto/project_whatsapp_landing_page
+      branch: main
+      deploy_on_push: true
+    build_command: npm ci && npm run build
+    output_dir: dist
+    catchall_document: index.html
+    envs:
+      - key: VITE_BASE
+        value: /
+        scope: BUILD_TIME
+      - key: VITE_API_MODE
+        value: live
+        scope: BUILD_TIME
+      # Empty = same origin (https://app.upchatz.com); the WebSocket URL derives to wss://.
+      - key: VITE_API_URL
+        value: ""
+        scope: BUILD_TIME
+      - key: VITE_WS_URL
+        value: ""
+        scope: BUILD_TIME
+
+databases:
+  # Existing managed clusters in BLR1 (create them first; names must match).
+  - name: db
+    engine: PG
+    production: true
+    cluster_name: upchatz-pg
+    db_name: upchatz
+    db_user: upchatz
+  - name: valkey
+    engine: VALKEY
+    production: true
+    cluster_name: upchatz-valkey
+
+# App-level variables reach every component. Django settings are imported during the buildpack's
+# collectstatic, so anything config.settings.prod reads at import is RUN_AND_BUILD_TIME. Database
+# and Valkey bindings are RUN_TIME only (base.py has defaults and collectstatic needs neither).
+envs:
+  # --- Core ---------------------------------------------------------------------------------
+  - key: DJANGO_SETTINGS_MODULE
+    value: config.settings.prod
+    scope: RUN_AND_BUILD_TIME
+  - key: DJANGO_SECRET_KEY
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  # Comma-separated Fernet keys; the first encrypts, all decrypt. Never rotate by replacing.
+  - key: TOKEN_ENCRYPTION_KEYS
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: DJANGO_ALLOWED_HOSTS
+    value: app.upchatz.com
+    scope: RUN_AND_BUILD_TIME
+  - key: DJANGO_CSRF_TRUSTED_ORIGINS
+    value: https://app.upchatz.com
+    scope: RUN_AND_BUILD_TIME
+  - key: CORS_ALLOWED_ORIGINS
+    value: https://app.upchatz.com
+    scope: RUN_AND_BUILD_TIME
+  - key: WS_ALLOWED_ORIGINS
+    value: https://app.upchatz.com
+    scope: RUN_AND_BUILD_TIME
+  - key: FRONTEND_URL
+    value: https://app.upchatz.com
+    scope: RUN_AND_BUILD_TIME
+  - key: PUBLIC_API_BASE_URL
+    value: https://app.upchatz.com
+    scope: RUN_AND_BUILD_TIME
+
+  # --- PostgreSQL (through the connection pool `upchatz-pool`, transaction mode) ------------
+  - key: DATABASE_URL
+    value: ${db.upchatz-pool.DATABASE_URL}
+    scope: RUN_TIME
+  # 0 under ASGI + PgBouncer: no per-thread persistent connections.
+  - key: DATABASE_CONN_MAX_AGE
+    value: "0"
+    scope: RUN_AND_BUILD_TIME
+  # Required with PgBouncer transaction pooling.
+  - key: DATABASE_DISABLE_SERVER_SIDE_CURSORS
+    value: "true"
+    scope: RUN_AND_BUILD_TIME
+
+  # --- Valkey (rediss:// TLS) ---------------------------------------------------------------
+  - key: REDIS_URL
+    value: ${valkey.DATABASE_URL}
+    scope: RUN_TIME
+  - key: CELERY_BROKER_URL
+    value: ${valkey.DATABASE_URL}
+    scope: RUN_TIME
+
+  # --- Media on Spaces (S3-compatible) ------------------------------------------------------
+  - key: MEDIA_STORAGE
+    value: s3
+    scope: RUN_AND_BUILD_TIME
+  - key: AWS_STORAGE_BUCKET_NAME
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: AWS_S3_ENDPOINT_URL
+    value: https://blr1.digitaloceanspaces.com
+    scope: RUN_AND_BUILD_TIME
+  - key: AWS_S3_REGION_NAME
+    value: blr1
+    scope: RUN_AND_BUILD_TIME
+  - key: AWS_ACCESS_KEY_ID
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: AWS_SECRET_ACCESS_KEY
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  # Optional CDN host without scheme, e.g. <bucket>.blr1.cdn.digitaloceanspaces.com. Empty = none.
+  - key: AWS_S3_CUSTOM_DOMAIN
+    value: ""
+    scope: RUN_AND_BUILD_TIME
+  # Public HTTPS base for product images (Meta fetches them), e.g. the Spaces CDN URL.
+  - key: PUBLIC_MEDIA_BASE_URL
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+
+  # --- Meta / WhatsApp Cloud API ------------------------------------------------------------
+  - key: META_APP_ID
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: META_APP_SECRET
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: META_EMBEDDED_SIGNUP_CONFIG_ID
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: META_GRAPH_API_VERSION
+    value: v24.0
+    scope: RUN_AND_BUILD_TIME
+  - key: META_WEBHOOK_VERIFY_TOKEN
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: WHATSAPP_GRAPH_CLIENT
+    value: apps.whatsapp.client.graph.HttpGraphClient
+    scope: RUN_AND_BUILD_TIME
+
+  # --- UpChatz alerts number (seller alerts); empty disables seller alerts ------------------
+  - key: PLATFORM_WA_WABA_ID
+    value: ""
+    scope: RUN_AND_BUILD_TIME
+  - key: PLATFORM_WA_PHONE_NUMBER_ID
+    value: ""
+    scope: RUN_AND_BUILD_TIME
+  - key: PLATFORM_WA_DISPLAY_PHONE_NUMBER
+    value: ""
+    scope: RUN_AND_BUILD_TIME
+  - key: PLATFORM_WA_ACCESS_TOKEN
+    value: ""
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+
+  # --- Billing (Razorpay, UpChatz subscriptions) --------------------------------------------
+  - key: RAZORPAY_KEY_ID
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: RAZORPAY_KEY_SECRET
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: RAZORPAY_WEBHOOK_SECRET
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  # JSON: {"starter": {"monthly": "plan_...", "annual": "plan_..."}, "growth": {...}, "pro": {...}}
+  - key: RAZORPAY_PLAN_IDS
+    value: "{}"
+    scope: RUN_AND_BUILD_TIME
+  - key: BILLING_SELLER_LEGAL_NAME
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: BILLING_SELLER_GSTIN
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: BILLING_SELLER_STATE_CODE
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: BILLING_SELLER_ADDRESS
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+
+  # --- Email (SMTP, e.g. ZeptoMail or SES) ----------------------------------------------------
+  - key: EMAIL_HOST
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: EMAIL_PORT
+    value: "587"
+    scope: RUN_AND_BUILD_TIME
+  - key: EMAIL_HOST_USER
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: EMAIL_HOST_PASSWORD
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: EMAIL_USE_TLS
+    value: "true"
+    scope: RUN_AND_BUILD_TIME
+  - key: DEFAULT_FROM_EMAIL
+    value: UpChatz <no-reply@upchatz.com>
+    scope: RUN_AND_BUILD_TIME
+
+  # --- Observability --------------------------------------------------------------------------
+  # Empty disables Sentry; an invalid DSN stops the process at start.
+  - key: SENTRY_DSN
+    value: ""
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: SENTRY_ENVIRONMENT
+    value: production
+    scope: RUN_AND_BUILD_TIME
+  - key: LOG_LEVEL
+    value: INFO
+    scope: RUN_AND_BUILD_TIME
