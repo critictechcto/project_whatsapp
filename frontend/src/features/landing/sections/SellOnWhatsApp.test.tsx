@@ -109,12 +109,12 @@ describe('Sell on WhatsApp section', () => {
     expect(stage(container)).toHaveAttribute('data-shop-step', '0')
     expect(within(stage(container)).getByText('Kaju Katli 250 g')).toBeInTheDocument()
     expect(within(stage(container)).queryByText('Mark shipped')).not.toBeInTheDocument()
-    expect(screen.getByText('Browse the menu').closest('li')).toHaveAttribute('data-state', 'current')
+    expect(stepButton('Browse the menu').closest('li')).toHaveAttribute('data-state', 'current')
     expect(stepButton('Browse the menu')).toHaveAttribute('aria-current', 'step')
     expect(stage(container)).toHaveAttribute('data-shop-autoplay', 'playing')
     // The product card rises on its own layer while its step shows.
     expect(within(stage(container)).getByText('Kaju Katli 250 g').closest('[data-lifted]')).not.toBeNull()
-    expect(screen.getByText('Browse the menu').closest('li')!.querySelector('[data-progress]')).toHaveAttribute(
+    expect(stepButton('Browse the menu').closest('li')!.querySelector('[data-progress]')).toHaveAttribute(
       'data-progress',
       'playing',
     )
@@ -124,7 +124,7 @@ describe('Sell on WhatsApp section', () => {
       act(() => vi.advanceTimersByTime(3000))
       expect(stage(container)).toHaveAttribute('data-shop-step', String(next))
     }
-    expect(screen.getByText('Browse the menu').closest('li')).toHaveAttribute('data-state', 'done')
+    expect(stepButton('Browse the menu').closest('li')).toHaveAttribute('data-state', 'done')
     expect(stepButton('Browse the menu')).not.toHaveAttribute('aria-current')
     expect(within(stage(container)).getByText('Mark shipped')).toBeInTheDocument()
     expect(stage(container)).toHaveAttribute('data-shop-autoplay', 'done')
@@ -148,8 +148,14 @@ describe('Sell on WhatsApp section', () => {
     expect(within(stage(container)).queryByText('Mark shipped')).not.toBeInTheDocument()
     expect(stepButton('Pay by link or cash on delivery')).toHaveAttribute('aria-current', 'step')
     expect(screen.getAllByRole('button', { current: 'step' })).toHaveLength(1)
-    expect(screen.getByText('Build a cart').closest('li')).toHaveAttribute('data-state', 'done')
-    const progress = screen.getByText('Pay by link or cash on delivery').closest('li')!.querySelector('[data-progress]')
+    // Phones: the picked step's text shows under the chips, and only the buyer's phone is shown.
+    const detail = container.querySelector<HTMLElement>('[data-shop-step-detail]')!
+    expect(detail).toHaveTextContent(/^Step 4 of 6/)
+    expect(detail).toHaveTextContent(/Razorpay or Cashfree account/)
+    expect(detail.querySelector('[data-progress]')).toHaveAttribute('data-progress', 'paused')
+    expect(stage(container).querySelector('[data-phone-focus]')).toHaveAttribute('data-phone-focus', 'buyer')
+    expect(stepButton('Build a cart').closest('li')).toHaveAttribute('data-state', 'done')
+    const progress = stepButton('Pay by link or cash on delivery').closest('li')!.querySelector('[data-progress]')
     expect(progress).toHaveAttribute('data-progress', 'paused')
 
     // Autoplay stays paused.
@@ -233,10 +239,26 @@ describe('Sell on WhatsApp section', () => {
     expect(mockup.getByText('Pay ₹540')).toBeInTheDocument()
     expect(mockup.getByText(/has shipped with Delhivery/)).toBeInTheDocument()
     expect(container.querySelector('.chat-pop')).toBeNull()
-    expect(screen.getByText('Manage orders from your phone').closest('li')).toHaveAttribute('data-state', 'current')
-    expect(screen.getByText('Browse the menu').closest('li')).toHaveAttribute('data-state', 'done')
+    expect(stepButton('Manage orders from your phone').closest('li')).toHaveAttribute('data-state', 'current')
+    expect(stepButton('Browse the menu').closest('li')).toHaveAttribute('data-state', 'done')
     expect(container.querySelector('[data-lifted]')).toBeNull()
     expect(container.querySelector('.order-ticket-in')).toBeNull()
+    // Phones show the seller's phone for the last step.
+    expect(stage(container).querySelector('[data-phone-focus]')).toHaveAttribute('data-phone-focus', 'seller')
+    expect(container.querySelector('[data-shop-step-detail]')).toHaveTextContent(/^Step 6 of 6/)
+  })
+
+  it('offers the payment facts as a swipe row with previous and next buttons on phones', async () => {
+    mockReducedMotion(false)
+    const user = userEvent.setup()
+    render(<SellOnWhatsApp />)
+
+    const row = screen.getByRole('group', { name: 'How selling works' })
+    expect(within(row).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(row).getByRole('button', { name: 'Previous fact' })).toBeDisabled()
+    await user.click(within(row).getByRole('button', { name: 'Next fact' }))
+    expect(within(row).getByText('Showing fact 2 of 3')).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: 'Previous fact' })).toBeEnabled()
   })
 
   it('switches the shown step instantly with reduced motion', () => {

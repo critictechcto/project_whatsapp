@@ -38,3 +38,51 @@
     display: none;
   }
 }
+
+/*
+ * Phones (below md): the step list becomes one row of numbered chips. Each chip's button keeps its
+ * title for assistive technology (visually hidden) and stretches over the chip; the current step's
+ * text and progress show under the row instead of inside the list.
+ */
+@media (width < 48rem) {
+  .shop-steps {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.375rem;
+  }
+  .shop-step {
+    display: grid;
+    grid-template-columns: none;
+    place-items: center;
+    gap: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-card);
+  }
+  .shop-step[data-state='done'] {
+    border-color: var(--color-accent-soft);
+    background: var(--color-accent-soft);
+  }
+  .shop-step[data-state='current'] {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+  }
+  .shop-step-number {
+    padding: 0;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .shop-step[data-state='current'] .shop-step-number {
+    color: var(--color-card);
+  }
+  .shop-step-text {
+    position: absolute;
+    inset: 0;
+  }
+  .shop-step .shop-progress {
+    display: none;
+  }
+}

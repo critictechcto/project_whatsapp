@@ -4,6 +4,7 @@ import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { TiltCard } from '../../../components/ui/TiltCard'
 import { site } from '../../../config/site'
+import { SwipeRow } from './SwipeRow'
 
 const cards = [
   {
@@ -54,7 +55,7 @@ const limits: Array<[string, string, string]> = [
 
 export function GettingConnected() {
   return (
-    <section id="requirements" className="border-t border-line py-20 md:py-28">
+    <section id="requirements" className="border-t border-line py-16 md:py-28">
       <Container>
         <SectionHeader
           index="06"
@@ -63,12 +64,18 @@ export function GettingConnected() {
           description="Most businesses finish setup in one sitting. These are Meta’s requirements, laid out plainly so there are no surprises halfway through."
         />
 
-        <div className="mt-14 grid gap-5 md:grid-cols-2">
+        <SwipeRow
+          as="div"
+          label="What you need"
+          itemName="requirement"
+          wrapperClassName="mt-10 md:mt-14"
+          className="grid gap-5 md:grid-cols-2"
+        >
           {cards.map((card, i) => (
             <Reveal as="article" key={card.title} delay={(i % 2) * 100} className="flex">
-              <TiltCard max={3} className="w-full rounded-xl border border-line bg-card p-6 md:p-7">
+              <TiltCard max={3} className="w-full rounded-xl border border-line bg-card p-5 md:p-7">
                 <h3 className="text-[18px] font-semibold tracking-[-0.01em]">{card.title}</h3>
-                <ul className="mt-4 space-y-2.5 text-[15px] leading-relaxed text-muted">
+                <ul className="mt-4 space-y-2 text-[14.5px] leading-relaxed text-muted md:space-y-2.5 md:text-[15px]">
                   {card.points.map((point) => (
                     <li key={point} className="flex gap-2.5">
                       <Check className="mt-1 size-4 shrink-0 text-accent-2" aria-hidden="true" />
@@ -79,9 +86,9 @@ export function GettingConnected() {
               </TiltCard>
             </Reveal>
           ))}
-        </div>
+        </SwipeRow>
 
-        <Reveal className="mt-16 grid grid-cols-1 gap-10 lg:grid-cols-12">
+        <Reveal className="mt-12 grid grid-cols-1 gap-6 md:mt-16 md:gap-10 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <h3 className="font-display text-[1.6rem] font-semibold leading-[1.1] tracking-[-0.025em]">
               Do you need Meta business verification?
@@ -93,25 +100,33 @@ export function GettingConnected() {
             </p>
           </div>
           <div className="min-w-0 lg:col-span-8">
-            <dl className="divide-y divide-line border-y border-ink md:hidden">
-              {limits.map(([capability, unverified, verified]) => (
-                <div key={capability} className="py-4">
-                  <dt className="text-[15px] font-semibold">{capability}</dt>
-                  <dd className="mt-2 grid grid-cols-2 gap-4 text-[14px]">
-                    <span className="text-muted">
-                      <span className="block font-mono text-[10.5px] uppercase tracking-[0.1em]">Unverified</span>
-                      {unverified}
-                    </span>
-                    <span>
-                      <span className="block font-mono text-[10.5px] uppercase tracking-[0.1em] text-accent-2">
-                        Verified
+            {/* Phones: column labels once at the top; each value keeps its label for screen readers. */}
+            <div className="md:hidden">
+              <p
+                aria-hidden="true"
+                className="grid grid-cols-2 gap-4 border-b border-ink pb-2 font-mono text-[12px] uppercase tracking-[0.1em]"
+              >
+                <span className="text-muted">Unverified</span>
+                <span className="text-accent-2">Verified</span>
+              </p>
+              <dl className="divide-y divide-line border-b border-line">
+                {limits.map(([capability, unverified, verified]) => (
+                  <div key={capability} className="py-3">
+                    <dt className="text-[15px] font-semibold">{capability}</dt>
+                    <dd className="mt-1 grid grid-cols-2 gap-4 text-[14px] leading-snug">
+                      <span className="text-muted">
+                        <span className="sr-only">Unverified: </span>
+                        {unverified}
                       </span>
-                      {verified}
-                    </span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
+                      <span>
+                        <span className="sr-only">Verified: </span>
+                        {verified}
+                      </span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
 
             <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[560px] border-collapse text-left text-[14.5px]">

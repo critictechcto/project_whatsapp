@@ -11,7 +11,8 @@ import './ShopJourneyMockup.css'
 /*
  * The "Sell on WhatsApp" journey on two phones: the buyer shopping with the seller's bot, and the
  * seller's own WhatsApp receiving the order alert, with a stack of example order tickets between
- * them. Entirely decorative; the section describes each step in text.
+ * them. Below md only one phone shows (the seller's on the last step, otherwise the buyer's) and the
+ * tickets hide. Entirely decorative; the section describes each step in text.
  */
 
 /** Pause after a message starts popping in before its layer rises (chat-pop runs 0.45 s). */
@@ -325,28 +326,35 @@ export function ShopJourneyMockup({ step, animate, className }: ShopJourneyMocku
   const tiltRef = usePointerTilt<HTMLDivElement>({ max: 5 })
 
   return (
-    <div ref={tiltRef} aria-hidden="true" className={cn('shop-stage', className)}>
-      <div className="shop-scene shop-3d flex flex-col items-center gap-6 sm:flex-row sm:items-end sm:justify-center">
+    <div
+      ref={tiltRef}
+      aria-hidden="true"
+      className={cn('shop-stage', className)}
+      data-phone-focus={step >= SHOP_FINAL_STEP ? 'seller' : 'buyer'}
+    >
+      <div className="shop-scene shop-3d flex flex-col items-center gap-6 md:flex-row md:items-end md:justify-center">
         <Phone
           name="Sharma Sweets"
           subtitle="Business account"
           initials="SS"
           avatarClassName="bg-accent text-white"
-          className="shop-depth h-[520px] w-full max-w-[290px] sm:h-[560px] sm:w-[290px]"
+          className="shop-depth shop-buyer-phone h-[470px] w-full max-w-[290px] md:h-[560px] md:w-[290px]"
           style={{ '--z': '24px' } as CSSProperties}
         >
           <Beats beats={buyerBeats} step={step} animate={animate} />
         </Phone>
-        <div className="shop-3d flex w-full max-w-[290px] flex-col gap-3 sm:w-[236px]">
+        <div className="shop-3d shop-seller-side flex w-full max-w-[290px] flex-col gap-3 md:w-[236px]">
           <OrderTicketStack step={step} animate={animate} className="shop-depth" style={{ '--z': '64px' } as CSSProperties} />
           <div className="shop-depth flex flex-col gap-2" style={{ '--z': '-16px' } as CSSProperties}>
-            <p className="text-center font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted">Seller’s phone</p>
+            <p className="text-center font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted max-md:hidden">
+              Seller’s phone
+            </p>
             <Phone
               name={`${site.name} Alerts`}
               subtitle="Order alerts"
               initials="UA"
               avatarClassName="bg-ink text-paper"
-              className="h-[380px] w-full sm:h-[410px]"
+              className="h-[470px] w-full md:h-[410px]"
             >
               <div className={cn(step >= SHOP_FINAL_STEP && 'opacity-60')}>
                 <Card time="Yesterday">SS-1039 delivered. Collect ₹860 cash on delivery from the courier.</Card>

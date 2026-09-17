@@ -6,9 +6,10 @@ import { site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
 import { prefersReducedMotion } from '../../../lib/motion'
 import { useOnScreen } from '../lib/useOnScreen'
-import { SHOP_STEP_MS, useShopSequence } from '../lib/useShopSequence'
+import { SHOP_STEP_MS, useShopSequence, type ShopAutoplay } from '../lib/useShopSequence'
 import { ShopJourneyMockup } from '../mockups/ShopJourneyMockup'
 import './SellOnWhatsApp.css'
+import { SwipeRow } from './SwipeRow'
 
 const steps = [
   {
@@ -57,9 +58,11 @@ export function SellOnWhatsApp() {
   const onScreen = useOnScreen(stageRef)
   const { step, autoplay, runKey, jumpTo } = useShopSequence(onScreen)
   const animate = !prefersReducedMotion()
+  /** The step described under the phone-sized step chips (the first one before autoplay starts). */
+  const shown = Math.max(step, 0)
 
   return (
-    <section id="sell" className="border-t border-line bg-paper-2/50 py-20 md:py-28">
+    <section id="sell" className="border-t border-line bg-paper-2/50 py-16 md:py-28">
       <Container>
         <SectionHeader
           index="05"
@@ -68,12 +71,14 @@ export function SellOnWhatsApp() {
           description="Buyers browse, order and track deliveries on WhatsApp, and pay through a payment link or cash on delivery. You manage orders from the dashboard or straight from your phone."
         />
 
-        <div className="mt-14 grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-10">
+        <div className="mt-10 grid grid-cols-1 items-center gap-6 md:mt-14 md:gap-12 lg:grid-cols-12 lg:gap-10">
           <Reveal className="min-w-0 lg:col-span-5">
-            <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted">
-              Select a step to show it on the phones
+            <p className="mb-3 font-mono text-[12px] uppercase tracking-[0.12em] text-muted md:text-[11px]">
+              <span className="md:hidden">Select a step</span>
+              <span className="max-md:hidden">Select a step to show it on the phones</span>
             </p>
-            <ol>
+            {/* Phones: the steps are a row of numbered chips; the current step's text shows below them. */}
+            <ol className="shop-steps">
               {steps.map((item, i) => {
                 const state = i < step ? 'done' : i === step ? 'current' : 'upcoming'
                 return (
@@ -81,43 +86,51 @@ export function SellOnWhatsApp() {
                     key={item.title}
                     data-state={state}
                     className={cn(
-                      'group relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 rounded-r-md border-l-2 py-3 pl-4 pr-2 transition-colors duration-500',
+                      'shop-step group relative grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-3 rounded-r-md border-l-2 py-3 pl-4 pr-2 transition-colors duration-500',
                       'has-[button:focus-visible]:outline-2 has-[button:focus-visible]:outline-offset-2 has-[button:focus-visible]:outline-accent',
                       state === 'current' ? 'border-accent bg-card/70' : 'border-line hover:border-muted hover:bg-card/40',
                     )}
                   >
-                    <span className={cn('pt-0.5 font-mono text-[12px]', state === 'upcoming' ? 'text-muted' : 'text-accent-2')}>
+                    <span
+                      className={cn(
+                        'shop-step-number pt-0.5 font-mono text-[12px]',
+                        state === 'upcoming' ? 'text-muted' : 'text-accent-2',
+                      )}
+                    >
                       {String(i + 1).padStart(2, '0')}
                     </span>
-                    <div>
+                    <div className="shop-step-text">
                       <h3 className="text-[16px] font-semibold tracking-[-0.01em]">
-                        {/* The button's hit area stretches over the whole step. */}
+                        {/* The button's hit area stretches over the whole step (the whole chip on phones). */}
                         <button
                           type="button"
                           aria-current={state === 'current' ? 'step' : undefined}
                           onClick={() => jumpTo(i)}
                           className="cursor-pointer text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
                         >
-                          {item.title}
+                          <span className="max-md:sr-only">{item.title}</span>
                         </button>
                       </h3>
-                      <p className="mt-1 text-[14.5px] leading-relaxed text-muted">{item.body}</p>
+                      <p className="mt-1 text-[14.5px] leading-relaxed text-muted max-md:hidden">{item.body}</p>
                       {state === 'current' && (
-                        <span
-                          key={runKey}
-                          aria-hidden="true"
-                          className="shop-progress mt-3"
-                          data-progress={autoplay}
-                          style={{ '--step-ms': `${SHOP_STEP_MS}ms` } as CSSProperties}
-                        >
-                          <span />
-                        </span>
+                        <StepProgress key={runKey} autoplay={autoplay} className="mt-3 max-md:hidden" />
                       )}
                     </div>
                   </li>
                 )
               })}
             </ol>
+            <div className="mt-4 min-h-[10.5rem] md:hidden" data-shop-step-detail="">
+              <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-accent-2">
+                Step {shown + 1} of {steps.length}
+              </p>
+              {/* The step button already announces the title. */}
+              <p aria-hidden="true" className="mt-1 text-[17px] font-semibold tracking-[-0.01em]">
+                {steps[shown].title}
+              </p>
+              <p className="mt-1 text-[15px] leading-relaxed text-muted">{steps[shown].body}</p>
+              {step >= 0 && <StepProgress key={runKey} autoplay={autoplay} className="mt-3" />}
+            </div>
           </Reveal>
 
           <Reveal delay={120} className="min-w-0 lg:col-span-7">
@@ -132,13 +145,19 @@ export function SellOnWhatsApp() {
           </Reveal>
         </div>
 
-        <Reveal as="ul" className="mt-16 grid gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-3">
-          {facts.map((fact) => (
-            <li key={fact.title} className="bg-card p-6">
-              <h3 className="text-[17px] font-semibold tracking-[-0.01em]">{fact.title}</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted">{fact.body}</p>
-            </li>
-          ))}
+        <Reveal className="mt-10 md:mt-16">
+          <SwipeRow
+            label="How selling works"
+            itemName="fact"
+            className="grid gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-3"
+          >
+            {facts.map((fact) => (
+              <li key={fact.title} className="bg-card p-5 max-md:rounded-xl max-md:border max-md:border-line md:p-6">
+                <h3 className="text-[17px] font-semibold tracking-[-0.01em]">{fact.title}</h3>
+                <p className="mt-2 text-[14.5px] leading-relaxed text-muted">{fact.body}</p>
+              </li>
+            ))}
+          </SwipeRow>
         </Reveal>
 
         <p className="mt-6 max-w-3xl text-[13px] leading-relaxed text-muted">
@@ -148,5 +167,19 @@ export function SellOnWhatsApp() {
         </p>
       </Container>
     </section>
+  )
+}
+
+/** Fills over the current step's autoplay time; keyed by `runKey` so each fresh countdown restarts it. */
+function StepProgress({ autoplay, className }: { autoplay: ShopAutoplay; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('shop-progress', className)}
+      data-progress={autoplay}
+      style={{ '--step-ms': `${SHOP_STEP_MS}ms` } as CSSProperties}
+    >
+      <span />
+    </span>
   )
 }
