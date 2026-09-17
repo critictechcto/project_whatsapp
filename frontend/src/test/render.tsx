@@ -9,11 +9,13 @@ import { ToastProvider } from '../components/app/Toast'
 import { dashboardRoutes } from '../features/dashboard/router'
 import { tokenStore } from '../lib/auth/tokens'
 import { ids } from '../mocks/seed'
-import { issueTokens } from '../mocks/utils'
+import { startMockSession } from '../mocks/session'
+import { issueAccessToken } from '../mocks/utils'
 
-/** Signs a seeded user in (tokens accepted by the MSW handlers). */
+/** Signs a seeded user in: an access token plus the mock refresh session the MSW handlers accept. */
 export function signIn(userId: string = ids.demoUser) {
-  tokenStore.set(issueTokens(userId))
+  startMockSession(userId)
+  tokenStore.set(issueAccessToken(userId))
 }
 
 export function Providers({ queryClient, children }: { queryClient: QueryClient; children: ReactNode }) {

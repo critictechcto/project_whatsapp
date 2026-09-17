@@ -1,12 +1,14 @@
 import createClient from 'openapi-fetch'
 import { env } from '../config/env'
-import { configureRefresh, refreshAccessToken, RefreshRejectedError } from '../lib/auth/refresh'
+import { configureRefresh, ensureAccessToken, refreshAccessToken, RefreshRejectedError } from '../lib/auth/refresh'
 import { tokenStore } from '../lib/auth/tokens'
 import { ApiError } from './errors'
 import type { AppPaths, Schemas } from './types'
 
 export const WORKSPACE_HEADER = 'X-Workspace-ID'
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key'
+/** CSRF guard the API requires on the refresh-cookie endpoints (forces a CORS preflight). */
+export const AUTH_CSRF_HEADER = 'X-UpChatz-Auth'
 
 let activeWorkspaceId: string | null = null
 
@@ -29,41 +31,49 @@ export function idempotencyHeaders(key: string): Record<string, string> {
   return { [IDEMPOTENCY_HEADER]: key }
 }
 
-const PUBLIC_AUTH_PATHS = ['/api/v1/auth/token/', '/api/v1/auth/token/refresh/', '/api/v1/auth/register/']
+/** The refresh cookie is scoped to this path; requests under it send cookies cross-origin. */
+const AUTH_PATH_PREFIX = '/api/v1/auth/'
+const REFRESH_PATH = '/api/v1/auth/token/refresh/'
+const LOGOUT_PATH = '/api/v1/auth/logout/'
+/** Endpoints that never take a Bearer token and never trigger refresh-and-retry. */
+const PUBLIC_AUTH_PATHS = ['/api/v1/auth/token/', REFRESH_PATH, '/api/v1/auth/register/', LOGOUT_PATH]
+
+function pathOf(url: string) {
+  return new URL(url).pathname
+}
 
 function isPublicAuthRequest(url: string) {
-  const { pathname } = new URL(url)
-  return PUBLIC_AUTH_PATHS.includes(pathname)
+  return PUBLIC_AUTH_PATHS.includes(pathOf(url))
 }
 
 function withAuthHeaders(request: Request): Request {
+  const path = pathOf(request.url)
   const headers = new Headers(request.headers)
   const token = tokenStore.getAccess()
-  if (token && !isPublicAuthRequest(request.url)) headers.set('Authorization', `Bearer ${token}`)
+  if (token && !PUBLIC_AUTH_PATHS.includes(path)) headers.set('Authorization', `Bearer ${token}`)
   if (activeWorkspaceId && !headers.has(WORKSPACE_HEADER)) headers.set(WORKSPACE_HEADER, activeWorkspaceId)
-  return new Request(request, { headers })
+  if (path === REFRESH_PATH || path === LOGOUT_PATH) headers.set(AUTH_CSRF_HEADER, '1')
+  // Login/register must accept the Set-Cookie and refresh/logout must send it, also cross-origin.
+  const credentials: RequestCredentials = path.startsWith(AUTH_PATH_PREFIX) ? 'include' : request.credentials
+  return new Request(request, { headers, credentials })
 }
 
 /**
- * Fetch with auth: attaches the Bearer token and workspace header, refreshes before sending when
- * only a refresh token is available (after a reload), and on 401 refreshes once and retries once.
+ * Fetch with auth: attaches the Bearer token and workspace header, refreshes before sending when a
+ * session may exist but no access token is in memory (after a reload), and on 401 refreshes once
+ * and retries once.
  */
 export async function authFetch(request: Request): Promise<Response> {
   const isPublic = isPublicAuthRequest(request.url)
 
-  if (!isPublic && !tokenStore.getAccess() && tokenStore.getRefresh()) {
-    try {
-      await refreshAccessToken(null)
-    } catch {
-      // Fall through: the request goes out unauthenticated and the API answers 401.
-    }
-  }
+  // Falls through without a token: the request goes out unauthenticated and the API answers 401.
+  if (!isPublic) await ensureAccessToken()
 
   const retry = request.clone()
   const sentWith = tokenStore.getAccess()
   const response = await globalThis.fetch(withAuthHeaders(request))
 
-  if (response.status !== 401 || isPublic || !tokenStore.getRefresh()) return response
+  if (response.status !== 401 || isPublic || !tokenStore.mayRefresh()) return response
 
   try {
     await refreshAccessToken(sentWith)
@@ -73,19 +83,23 @@ export async function authFetch(request: Request): Promise<Response> {
   return globalThis.fetch(withAuthHeaders(retry))
 }
 
-async function refreshTokens(refresh: string): Promise<{ access: string; refresh: string }> {
-  const response = await globalThis.fetch(`${env.apiUrl}/api/v1/auth/token/refresh/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh }),
-  })
-  if (response.status === 400 || response.status === 401) throw new RefreshRejectedError()
+async function refreshWithCookie(): Promise<{ access: string }> {
+  const response = await globalThis.fetch(
+    withAuthHeaders(new Request(`${env.apiUrl}${REFRESH_PATH}`, { method: 'POST' })),
+  )
+  // 401: no or rejected cookie. 403: the CSRF checks refused the request; retrying can't help.
+  if (response.status === 401 || response.status === 403) throw new RefreshRejectedError()
   if (!response.ok) throw await ApiError.fromResponse(response)
-  const data = (await response.json()) as Schemas['TokenRefresh']
-  return { access: data.access, refresh: data.refresh }
+  const data = (await response.json()) as Schemas['AccessToken']
+  return { access: data.access }
 }
 
-configureRefresh({ refresh: refreshTokens })
+configureRefresh({ refresh: refreshWithCookie })
+
+/** Ends the server session: blacklists the refresh cookie's token and clears the cookie. */
+export async function logoutRequest(): Promise<void> {
+  await globalThis.fetch(withAuthHeaders(new Request(`${env.apiUrl}${LOGOUT_PATH}`, { method: 'POST' })))
+}
 
 /**
  * Typed API client generated from `backend/openapi.yml`.

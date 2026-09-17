@@ -244,6 +244,11 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+# The refresh token travels only in an HttpOnly cookie (apps.accounts.cookies). Secure is off by
+# default because local dev is http; prod turns it on. Domain None = host-only cookie.
+AUTH_REFRESH_COOKIE_SECURE = env.bool("AUTH_REFRESH_COOKIE_SECURE", default=False)
+AUTH_REFRESH_COOKIE_DOMAIN = env("AUTH_REFRESH_COOKIE_DOMAIN", default="") or None
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "UpChatz API",
     "DESCRIPTION": "Multi-tenant WhatsApp Business Platform (Cloud API) for Indian businesses.",
@@ -267,8 +272,11 @@ CORS_ALLOW_HEADERS = (
     "content-type",
     "idempotency-key",
     "x-requested-with",
+    "x-upchatz-auth",
     "x-workspace-id",
 )
+# The dashboard sends the refresh cookie to /api/v1/auth/ with `credentials: 'include'`.
+CORS_ALLOW_CREDENTIALS = True
 # The dashboard names CSV downloads (analytics export) from this header on cross-origin setups.
 CORS_EXPOSE_HEADERS = ("content-disposition",)
 

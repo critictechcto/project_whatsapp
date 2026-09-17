@@ -47,8 +47,8 @@ export function LoginPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const tokens = await unwrap(api.POST('/api/v1/auth/token/', { body: values }))
-      await startSession(queryClient, tokens)
+      const { access } = await unwrap(api.POST('/api/v1/auth/token/', { body: values }))
+      await startSession(queryClient, access)
       navigate(next ?? '/app', { replace: true })
     } catch (error) {
       applyApiErrorToForm(error, setError, { fields: ['email', 'password'] })

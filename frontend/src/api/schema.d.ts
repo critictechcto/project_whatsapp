@@ -153,7 +153,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Blacklist a refresh token. */
+        /** @description Blacklists the refresh cookie's token (if any) and clears the cookie. */
         post: operations["auth_logout_create"];
         delete?: never;
         options?: never;
@@ -202,6 +202,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Sets the refresh token in the `upchatz_refresh` cookie (HttpOnly, SameSite=Strict, Path=/api/v1/auth/). The body carries the access token only. */
         post: operations["auth_register_create"];
         delete?: never;
         options?: never;
@@ -218,7 +219,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Exchange email + password for an access/refresh token pair. */
+        /** @description Sets the refresh token in the `upchatz_refresh` cookie (HttpOnly, SameSite=Strict, Path=/api/v1/auth/). The body carries the access token only. */
         post: operations["auth_token_create"];
         delete?: never;
         options?: never;
@@ -235,7 +236,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Rotate a refresh token. The old refresh token is blacklisted. */
+        /** @description Rotates the refresh token from the cookie: the old token is blacklisted and a new cookie is set. Any failure clears the cookie. */
         post: operations["auth_token_refresh_create"];
         delete?: never;
         options?: never;
@@ -1938,6 +1939,10 @@ export interface components {
         AcceptedInvitation: {
             workspace: components["schemas"]["WorkspaceSummary"];
             role: components["schemas"]["RoleEnum"];
+        };
+        /** @description Auth responses carry the access token only; the refresh token is an HttpOnly cookie. */
+        AccessToken: {
+            access: string;
         };
         /**
          * @description * `new_order` - new_order
@@ -4201,7 +4206,7 @@ export interface components {
         };
         RegisterResponse: {
             user: components["schemas"]["User"];
-            tokens: components["schemas"]["TokenPair"];
+            access: string;
         };
         ReorderRequest: {
             /** @description The full ordering; positions are rewritten 0..n. */
@@ -4356,27 +4361,9 @@ export interface components {
          * @enum {string}
          */
         TemplateQualityScoreEnum: "GREEN" | "YELLOW" | "RED" | "UNKNOWN";
-        TokenBlacklistRequest: {
-            refresh: string;
-        };
-        TokenObtainPair: {
-            readonly access: string;
-            readonly refresh: string;
-        };
         TokenObtainPairRequest: {
             email: string;
             password: string;
-        };
-        TokenPair: {
-            access: string;
-            refresh: string;
-        };
-        TokenRefresh: {
-            readonly access: string;
-            refresh: string;
-        };
-        TokenRefreshRequest: {
-            refresh: string;
         };
         Usage: {
             readonly metrics: components["schemas"]["UsageMetric"][];
@@ -4831,20 +4818,27 @@ export interface operations {
     auth_logout_create: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description CSRF guard for the cookie endpoints: must be `1` (forces a CORS preflight). */
+                "X-UpChatz-Auth": "1";
+            };
             path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TokenBlacklistRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["TokenBlacklistRequest"];
-                "multipart/form-data": components["schemas"]["TokenBlacklistRequest"];
+            cookie?: {
+                /** @description HttpOnly refresh token cookie set by login or register (sent by the browser). */
+                upchatz_refresh?: string;
             };
         };
+        requestBody?: never;
         responses: {
             /** @description No response body */
-            200: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing `X-UpChatz-Auth` header or a disallowed `Origin`. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4965,7 +4959,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenObtainPair"];
+                    "application/json": components["schemas"]["AccessToken"];
                 };
             };
         };
@@ -4973,25 +4967,39 @@ export interface operations {
     auth_token_refresh_create: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description CSRF guard for the cookie endpoints: must be `1` (forces a CORS preflight). */
+                "X-UpChatz-Auth": "1";
+            };
             path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TokenRefreshRequest"];
-                "application/x-www-form-urlencoded": components["schemas"]["TokenRefreshRequest"];
-                "multipart/form-data": components["schemas"]["TokenRefreshRequest"];
+            cookie?: {
+                /** @description HttpOnly refresh token cookie set by login or register (sent by the browser). */
+                upchatz_refresh?: string;
             };
         };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TokenRefresh"];
+                    "application/json": components["schemas"]["AccessToken"];
                 };
+            };
+            /** @description No refresh cookie, or it is invalid or reused. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing `X-UpChatz-Auth` header or a disallowed `Origin`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

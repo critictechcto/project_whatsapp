@@ -162,7 +162,7 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
 
 ### 3.1 Accounts and login (Live)
 - **What:** register with email and password, log in, refresh the session, log out, change password, view profile.
-- **How:** JWT access tokens are kept in memory in the browser, with a refresh token that survives reloads. Logging out blacklists the refresh token. Several browser tabs share one refresh, so they don't log each other out.
+- **How:** JWT access tokens are kept in memory in the browser. The refresh token lives in an HttpOnly cookie that page scripts can't read, so a script-injection bug can't steal a session; it survives reloads and rotates on every refresh. Logging out blacklists it, clears the cookie and signs out every tab. Tabs take turns refreshing and share the new access token, so they don't log each other out.
 - **Why:** every change in the product is tied to a person, for security and so the inbox can show "sent by".
 - **Connects with:** workspaces (a user can belong to several), inbox (`sent_by`), orders (who changed a status).
 

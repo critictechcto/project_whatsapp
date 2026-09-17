@@ -476,7 +476,7 @@ type Snapshot = { token: unknown; records: OrderRecord[]; counter: number; keys:
 let snapshot: Snapshot | null = null
 
 function state(): Snapshot {
-  if (!snapshot || snapshot.token !== db.refreshTokens) {
+  if (!snapshot || snapshot.token !== db.generation) {
     const now = Date.now()
     const keys = new Map<string, string>()
     const records = seeds.map((seed, index) => {
@@ -486,12 +486,12 @@ function state(): Snapshot {
     })
     // New orders are numbered after the highest seeded number (fixed numbers included).
     const highest = Math.max(...records.map((record) => Number(record.order.number.split('-')[1]) - 1000))
-    snapshot = { token: db.refreshTokens, records, counter: Math.max(seeds.length, highest), keys }
+    snapshot = { token: db.generation, records, counter: Math.max(seeds.length, highest), keys }
   }
   return snapshot
 }
 
-/** All order records. `db.refreshTokens` is replaced by `resetMockDb()`, which triggers a rebuild. */
+/** All order records. `db.generation` is replaced by `resetMockDb()`, which triggers a rebuild. */
 export function orderRecords(): OrderRecord[] {
   return state().records
 }

@@ -161,7 +161,7 @@ function build() {
 let snapshot: { token: unknown; state: ReturnType<typeof build> } | null = null
 
 export function automationState() {
-  if (!snapshot || snapshot.token !== db.refreshTokens) snapshot = { token: db.refreshTokens, state: build() }
+  if (!snapshot || snapshot.token !== db.generation) snapshot = { token: db.generation, state: build() }
   return snapshot.state
 }
 

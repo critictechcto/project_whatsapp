@@ -38,6 +38,7 @@ _MANAGED = (
     "REDIS_SSL_CA_CERTS",
     "REDIS_SSL_CERT_REQS",
     "SENTRY_DSN",
+    "AUTH_REFRESH_COOKIE_SECURE",
 )
 
 _PROBE = r"""
@@ -61,6 +62,8 @@ print(json.dumps({
     "debug": settings.DEBUG,
     "allowed_hosts": settings.ALLOWED_HOSTS,
     "ws_allowed_origins": settings.WS_ALLOWED_ORIGINS,
+    "auth_refresh_cookie_secure": settings.AUTH_REFRESH_COOKIE_SECURE,
+    "cors_allow_credentials": settings.CORS_ALLOW_CREDENTIALS,
     "secure_proxy_ssl_header": list(settings.SECURE_PROXY_SSL_HEADER),
     "ssl_redirect": settings.SECURE_SSL_REDIRECT,
     "middleware_first": settings.MIDDLEWARE[0],
@@ -127,6 +130,8 @@ def test_prod_settings_load_with_tls_redis_and_pgbouncer_options():
     assert info["debug"] is False
     assert info["allowed_hosts"] == ["api.upchatz.test"]
     assert info["ws_allowed_origins"] == ["https://app.upchatz.test"]
+    assert info["auth_refresh_cookie_secure"] is True
+    assert info["cors_allow_credentials"] is True
     assert info["secure_proxy_ssl_header"] == ["HTTP_X_FORWARDED_PROTO", "https"]
     assert info["ssl_redirect"] is True
     assert info["middleware_first"] == "common.health.HealthCheckMiddleware"
@@ -145,6 +150,11 @@ def test_prod_settings_load_with_tls_redis_and_pgbouncer_options():
     # CELERY_BROKER_URL defaults to REDIS_URL and gets verified TLS without URL query params.
     assert info["broker_transport"] == "rediss"
     assert info["broker_cert_reqs"] == required
+
+
+def test_refresh_cookie_secure_turns_off_only_explicitly():
+    assert _probe(AUTH_REFRESH_COOKIE_SECURE="false")["auth_refresh_cookie_secure"] is False
+    assert _probe(AUTH_REFRESH_COOKIE_SECURE="true")["auth_refresh_cookie_secure"] is True
 
 
 def test_separate_broker_url_and_custom_ca_bundle():

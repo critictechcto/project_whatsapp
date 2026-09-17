@@ -40,6 +40,10 @@ SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
 SECURE_REDIRECT_EXEMPT = [r"^healthz/$", r"^readyz/$"]
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+# The refresh token cookie (apps.accounts.cookies) is HTTPS-only in production.
+# Only an explicit false value turns it off; unset or empty stays Secure.
+_refresh_cookie_secure = env.str("AUTH_REFRESH_COOKIE_SECURE", default="").strip().lower()
+AUTH_REFRESH_COOKIE_SECURE = _refresh_cookie_secure not in {"0", "false", "no", "off"}
 SECURE_HSTS_SECONDS = env.int("DJANGO_SECURE_HSTS_SECONDS", default=60 * 60 * 24 * 30)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_CONTENT_TYPE_NOSNIFF = True

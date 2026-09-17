@@ -158,8 +158,8 @@ function build(): Map<string, WorkspaceStore> {
 let snapshot: { token: unknown; stores: Map<string, WorkspaceStore>; platform: Mutable<Schemas['PlatformAlertsInfo']> } | null = null
 
 function state() {
-  if (!snapshot || snapshot.token !== db.refreshTokens) {
-    snapshot = { token: db.refreshTokens, stores: build(), platform: { available: true, display_phone_number: PLATFORM_DISPLAY_NUMBER } }
+  if (!snapshot || snapshot.token !== db.generation) {
+    snapshot = { token: db.generation, stores: build(), platform: { available: true, display_phone_number: PLATFORM_DISPLAY_NUMBER } }
   }
   return snapshot
 }

@@ -618,10 +618,10 @@ const states = new WeakMap<object, InboxMockState>()
 
 /** The inbox mock state for the current mock db (rebuilt after `resetMockDb()`). */
 export function inboxState(): InboxMockState {
-  let state = states.get(db.refreshTokens)
+  let state = states.get(db.generation)
   if (!state) {
     state = build()
-    states.set(db.refreshTokens, state)
+    states.set(db.generation, state)
   }
   return state
 }

@@ -5,7 +5,7 @@ import { setActiveWorkspaceId } from '../../api/client'
 import { createQueryClient } from '../../api/queryClient'
 import { ToastProvider } from '../../components/app/Toast'
 import '../../components/app/app.css'
-import { syncLogoutAcrossTabs, tokenStore } from '../../lib/auth/tokens'
+import { syncSessionAcrossTabs, tokenStore } from '../../lib/auth/tokens'
 import { endSessionLocally } from './auth/session'
 import { dashboardRoutes, routerBasename } from './router'
 import { DemoBanner } from './shell/DemoBanner'
@@ -13,7 +13,7 @@ import { DemoBanner } from './shell/DemoBanner'
 function useSessionLifecycle(queryClient: QueryClient) {
   useEffect(() => {
     // Another tab logged out: drop everything here too (guards then redirect to login).
-    const stopSync = syncLogoutAcrossTabs(() => endSessionLocally(queryClient))
+    const stopSync = syncSessionAcrossTabs(() => endSessionLocally(queryClient))
     // This tab lost its session (logout, rejected refresh): never keep tenant data around.
     const stopTokens = tokenStore.subscribe(() => {
       if (!tokenStore.hasSession()) {
