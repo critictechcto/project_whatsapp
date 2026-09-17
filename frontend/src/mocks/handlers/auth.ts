@@ -1,7 +1,8 @@
 import { HttpResponse } from 'msw'
 import type { Schemas } from '../../api/types'
 import { db, type MockUser } from '../db'
-import { authenticate, errorResponse, http, issueTokens, mockDelay, nowIso, uuid, validationError } from '../utils'
+import { endMockSession, rotateMockSession, startMockSession } from '../session'
+import { authenticate, errorResponse, http, issueAccessToken, mockDelay, nowIso, uuid, validationError } from '../utils'
 
 function publicUser(user: MockUser): Schemas['User'] {
   return {
@@ -36,19 +37,17 @@ export function meFor(user: MockUser): Schemas['Me'] {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const MOCK_REFRESH_RE = /^mock-refresh\.([0-9a-f-]{36})\.[0-9a-f-]{36}$/
-
-/**
- * The browser demo rebuilds the mock database on every page load, which forgets issued refresh
- * tokens. A well-formed token for a seeded user that was never rotated or logged out in this page
- * load keeps the demo session alive across reloads and deep links.
- */
-function restoredSessionUser(refresh: string): string | undefined {
-  const userId = MOCK_REFRESH_RE.exec(refresh)?.[1]
-  if (!userId || db.revokedRefreshTokens.has(refresh)) return undefined
-  return db.users.some((user) => user.id === userId) ? userId : undefined
+/** The real API requires `X-UpChatz-Auth: 1` on the refresh-cookie endpoints. */
+function csrfRejected(request: Request) {
+  if (request.headers.get('X-UpChatz-Auth') === '1') return null
+  return errorResponse(403, 'auth_header_required', 'The X-UpChatz-Auth header is required.')
 }
 
+/*
+ * Login and register "set the refresh cookie" (a mock-only session in `mocks/session.ts`) and
+ * return only the access token, like the real API. Refresh reads and rotates that session, so a
+ * demo session survives page reloads; logout ends it.
+ */
 export const authHandlers = [
   http.post('/api/v1/auth/token/', async ({ request, response }) => {
     await mockDelay()
@@ -59,18 +58,19 @@ export const authHandlers = [
         errorResponse(401, 'no_active_account', 'No active account found with the given credentials'),
       )
     }
-    return response(200).json(issueTokens(user.id))
+    startMockSession(user.id)
+    return response(200).json({ access: issueAccessToken(user.id) })
   }),
 
-  http.post('/api/v1/auth/token/refresh/', async ({ request, response }) => {
-    const body = (await request.json()) as Partial<Schemas['TokenRefreshRequest']>
-    const userId = body.refresh ? (db.refreshTokens.get(body.refresh) ?? restoredSessionUser(body.refresh)) : undefined
-    if (!body.refresh || !userId) {
-      return response.untyped(errorResponse(401, 'token_not_valid', 'Token is invalid or expired'))
+  http.post('/api/v1/auth/token/refresh/', ({ request, response }) => {
+    const rejected = csrfRejected(request)
+    if (rejected) {
+      endMockSession()
+      return response.untyped(rejected)
     }
-    db.refreshTokens.delete(body.refresh)
-    db.revokedRefreshTokens.add(body.refresh)
-    return response(200).json(issueTokens(userId))
+    const session = rotateMockSession()
+    if (!session) return response.untyped(errorResponse(401, 'not_authenticated', 'No refresh session.'))
+    return response(200).json({ access: issueAccessToken(session.userId) })
   }),
 
   http.post('/api/v1/auth/register/', async ({ request, response }) => {
@@ -96,16 +96,15 @@ export const authHandlers = [
       password: String(body.password),
     }
     db.users.push(user)
-    return response(201).json({ user: publicUser(user), tokens: issueTokens(user.id) })
+    startMockSession(user.id)
+    return response(201).json({ user: publicUser(user), access: issueAccessToken(user.id) })
   }),
 
-  http.post('/api/v1/auth/logout/', async ({ request, response }) => {
-    const body = (await request.json()) as Partial<Schemas['TokenBlacklistRequest']>
-    if (body.refresh) {
-      db.refreshTokens.delete(body.refresh)
-      db.revokedRefreshTokens.add(body.refresh)
-    }
-    return response(200).empty()
+  http.post('/api/v1/auth/logout/', ({ request, response }) => {
+    const rejected = csrfRejected(request)
+    if (rejected) return response.untyped(rejected)
+    endMockSession()
+    return response.untyped(new HttpResponse(null, { status: 204 }))
   }),
 
   http.get('/api/v1/auth/me/', ({ request, response }) => {

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
-import { api, setActiveWorkspaceId, unwrap } from '../../../api/client'
+import { api, logoutRequest, setActiveWorkspaceId, unwrap } from '../../../api/client'
 import { queryKeys } from '../../../api/queryKeys'
 import type { Me } from '../../../api/types'
 import { resetRefreshState } from '../../../lib/auth/refresh'
@@ -24,7 +24,10 @@ export function writeLastWorkspace(workspaceId: string) {
   }
 }
 
-/** True while this tab holds an access or refresh token. Re-renders on login/logout in any tab. */
+/**
+ * True while this tab holds an access token or the session marker says a session may exist (the
+ * first API call then refreshes from the HttpOnly cookie). Re-renders on login/logout in any tab.
+ */
 export function useHasSession(): boolean {
   return useSyncExternalStore(tokenStore.subscribe, tokenStore.hasSession, () => false)
 }
@@ -43,10 +46,10 @@ export function useMe() {
   return useQuery({ ...meQueryOptions(), enabled: hasSession })
 }
 
-/** Stores tokens from login/register and primes the `me` query. */
-export async function startSession(queryClient: QueryClient, tokens: { access: string; refresh: string }): Promise<Me> {
+/** Stores the access token from login/register (the API set the refresh cookie) and primes the `me` query. */
+export async function startSession(queryClient: QueryClient, access: string): Promise<Me> {
   queryClient.clear()
-  tokenStore.set(tokens)
+  tokenStore.set(access)
   return queryClient.fetchQuery(meQueryOptions())
 }
 
@@ -61,11 +64,9 @@ export function endSessionLocally(queryClient: QueryClient) {
 export function useLogout() {
   const queryClient = useQueryClient()
   return async () => {
-    const refresh = tokenStore.getRefresh()
-    if (refresh) {
-      // Best effort: blacklist the refresh token. Log out locally even if this fails.
-      await api.POST('/api/v1/auth/logout/', { body: { refresh } }).catch(() => undefined)
-    }
+    // Best effort: blacklist the cookie's refresh token and clear the cookie. Log out locally
+    // (and in every other tab) even if this fails.
+    await logoutRequest().catch(() => undefined)
     endSessionLocally(queryClient)
   }
 }

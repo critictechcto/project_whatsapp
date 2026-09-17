@@ -4,7 +4,7 @@ Every wave-2 agent (backend and frontend) builds against this document. Backend 
 
 ## Conventions (unchanged from waves 0–1)
 
-- Base path `/api/v1/`. JWT `Authorization: Bearer <access>`. Tenant endpoints require `X-Workspace-ID`; non-members get 404, too-low roles get 403 `insufficient_role`.
+- Base path `/api/v1/`. JWT `Authorization: Bearer <access>`. Login (`auth/token/`) and register return only `access`; the refresh token is an HttpOnly cookie `upchatz_refresh` (`SameSite=Strict`, `Path=/api/v1/auth/`, `Secure` in production). `auth/token/refresh/` (rotates the cookie, returns `access`) and `auth/logout/` (blacklists, clears the cookie, 204) take no body, need `X-UpChatz-Auth: 1` and answer 403 for an `Origin` outside the CORS origins / `FRONTEND_URL`; a missing or invalid cookie is 401 and clears it. Browsers send auth calls with `credentials: 'include'`. Tenant endpoints require `X-Workspace-ID`; non-members get 404, too-low roles get 403 `insufficient_role`.
 - Roles: owner > admin > agent > viewer. "viewer" below means any member.
 - Errors: `{"error": {"code": str, "message": str, "details": object|null}}`. Validation errors use code `invalid` with field errors in `details`.
 - Lists use cursor pagination: `{"next": url|null, "previous": url|null, "results": [...]}`, `page_size` ≤ 200.

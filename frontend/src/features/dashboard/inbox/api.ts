@@ -3,7 +3,7 @@ import { ApiError, errorMessage } from '../../../api/errors'
 import { workspaceKeys } from '../../../api/queryKeys'
 import type { Schemas } from '../../../api/types'
 import { env } from '../../../config/env'
-import { refreshAccessToken } from '../../../lib/auth/refresh'
+import { ensureAccessToken, refreshAccessToken } from '../../../lib/auth/refresh'
 import { tokenStore } from '../../../lib/auth/tokens'
 
 export type Conversation = Schemas['Conversation']
@@ -170,12 +170,10 @@ export async function uploadMedia(
   file: File,
   { onProgress, signal }: { onProgress: (fraction: number) => void; signal?: AbortSignal },
 ): Promise<MediaAsset> {
-  if (!tokenStore.getAccess() && tokenStore.getRefresh()) {
-    await refreshAccessToken(null).catch(() => undefined)
-  }
+  await ensureAccessToken()
   const sentWith = tokenStore.getAccess()
   let result = await xhrUpload(file, sentWith, onProgress, signal)
-  if (result.status === 401 && tokenStore.getRefresh()) {
+  if (result.status === 401 && tokenStore.mayRefresh()) {
     const refreshed = await refreshAccessToken(sentWith).then(
       () => true,
       () => false,

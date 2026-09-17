@@ -37,8 +37,8 @@ export function RegisterPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const { tokens } = await unwrap(api.POST('/api/v1/auth/register/', { body: values }))
-      await startSession(queryClient, tokens)
+      const { access } = await unwrap(api.POST('/api/v1/auth/register/', { body: values }))
+      await startSession(queryClient, access)
       navigate(next ?? '/app/workspaces/new', { replace: true })
     } catch (error) {
       applyApiErrorToForm(error, setError, { fields: ['full_name', 'email', 'password'] })

@@ -66,14 +66,15 @@ class RegisterSerializer(serializers.Serializer):
         )
 
 
-class TokenPairSerializer(serializers.Serializer):
+class AccessTokenSerializer(serializers.Serializer):
+    """Auth responses carry the access token only; the refresh token is an HttpOnly cookie."""
+
     access = serializers.CharField()
-    refresh = serializers.CharField()
 
 
 class RegisterResponseSerializer(serializers.Serializer):
     user = UserSerializer()
-    tokens = TokenPairSerializer()
+    access = serializers.CharField()
 
 
 class PasswordChangeSerializer(serializers.Serializer):

@@ -138,6 +138,9 @@ def test_invitation_flow(auth_client, workspace, django_capture_on_commit_callba
 
     assert accepted.status_code == 200, accepted.content
     assert accepted.json()["workspace"]["id"] == str(workspace.pk)
+    # Accepting needs a signed-in user and issues no tokens: nothing in the body or cookies.
+    assert not {"access", "refresh", "tokens"} & accepted.json().keys()
+    assert "upchatz_refresh" not in accepted.cookies
     assert membership_of(invitee, workspace).role == Role.AGENT
     reused = make_api_client(invitee).post(ACCEPT, {"token": token})
     assert reused.status_code == 400

@@ -356,9 +356,9 @@ function build(): CampaignRecord[] {
 
 let snapshot: { token: unknown; records: CampaignRecord[] } | null = null
 
-/** All campaign records. `db.refreshTokens` is replaced by `resetMockDb()`, which triggers a rebuild. */
+/** All campaign records. `db.generation` is replaced by `resetMockDb()`, which triggers a rebuild. */
 export function campaignRecords(): CampaignRecord[] {
-  if (!snapshot || snapshot.token !== db.refreshTokens) snapshot = { token: db.refreshTokens, records: build() }
+  if (!snapshot || snapshot.token !== db.generation) snapshot = { token: db.generation, records: build() }
   return snapshot.records
 }
 

@@ -1,6 +1,6 @@
 /**
  * In-memory data for the contacts mock handlers (mock mode and tests). Rebuilt whenever the shared
- * mock database is reset (`resetMockDb` swaps `db.refreshTokens` for a new Map), so every test
+ * mock database is reset (`resetMockDb` swaps `db.generation` for a new object), so every test
  * starts from the same seed.
  */
 import type { Schemas } from '../../../api/types'
@@ -222,9 +222,9 @@ let builtFor: unknown = null
 
 /** The contacts mock state for the current mock database. */
 export function contactsMock(): ContactsMockState {
-  if (!current || builtFor !== db.refreshTokens) {
+  if (!current || builtFor !== db.generation) {
     current = build()
-    builtFor = db.refreshTokens
+    builtFor = db.generation
   }
   return current
 }

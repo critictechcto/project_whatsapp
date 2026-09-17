@@ -314,24 +314,32 @@ paths:
   /api/v1/auth/logout/:
     post:
       operationId: auth_logout_create
-      description: Blacklist a refresh token.
+      description: Blacklists the refresh cookie's token (if any) and clears the cookie.
+      parameters:
+      - in: header
+        name: X-UpChatz-Auth
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: 'CSRF guard for the cookie endpoints: must be `1` (forces a CORS
+          preflight).'
+        required: true
+      - in: cookie
+        name: upchatz_refresh
+        schema:
+          type: string
+        description: HttpOnly refresh token cookie set by login or register (sent
+          by the browser).
       tags:
       - auth
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TokenBlacklistRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/TokenBlacklistRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/TokenBlacklistRequest'
-        required: true
+      security:
+      - {}
       responses:
-        '200':
+        '204':
           description: No response body
+        '403':
+          description: Missing `X-UpChatz-Auth` header or a disallowed `Origin`.
   /api/v1/auth/me/:
     get:
       operationId: auth_me_retrieve
@@ -395,6 +403,8 @@ paths:
   /api/v1/auth/register/:
     post:
       operationId: auth_register_create
+      description: Sets the refresh token in the `upchatz_refresh` cookie (HttpOnly,
+        SameSite=Strict, Path=/api/v1/auth/). The body carries the access token only.
       tags:
       - auth
       requestBody:
@@ -421,7 +431,8 @@ paths:
   /api/v1/auth/token/:
     post:
       operationId: auth_token_create
-      description: Exchange email + password for an access/refresh token pair.
+      description: Sets the refresh token in the `upchatz_refresh` cookie (HttpOnly,
+        SameSite=Strict, Path=/api/v1/auth/). The body carries the access token only.
       tags:
       - auth
       requestBody:
@@ -441,33 +452,42 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenObtainPair'
+                $ref: '#/components/schemas/AccessToken'
           description: ''
   /api/v1/auth/token/refresh/:
     post:
       operationId: auth_token_refresh_create
-      description: Rotate a refresh token. The old refresh token is blacklisted.
+      description: 'Rotates the refresh token from the cookie: the old token is blacklisted
+        and a new cookie is set. Any failure clears the cookie.'
+      parameters:
+      - in: header
+        name: X-UpChatz-Auth
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: 'CSRF guard for the cookie endpoints: must be `1` (forces a CORS
+          preflight).'
+        required: true
+      - in: cookie
+        name: upchatz_refresh
+        schema:
+          type: string
+        description: HttpOnly refresh token cookie set by login or register (sent
+          by the browser).
       tags:
       - auth
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TokenRefreshRequest'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/TokenRefreshRequest'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/TokenRefreshRequest'
-        required: true
       responses:
         '200':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenRefresh'
+                $ref: '#/components/schemas/AccessToken'
           description: ''
+        '401':
+          description: No refresh cookie, or it is invalid or reused.
+        '403':
+          description: Missing `X-UpChatz-Auth` header or a disallowed `Origin`.
   /api/v1/automations/business-hours/:
     get:
       operationId: automations_business_hours_retrieve
@@ -5337,6 +5357,15 @@ components:
       required:
       - role
       - workspace
+    AccessToken:
+      type: object
+      description: Auth responses carry the access token only; the refresh token is
+        an HttpOnly cookie.
+      properties:
+        access:
+          type: string
+      required:
+      - access
     AlertEventEnum:
       enum:
       - new_order
@@ -10513,10 +10542,10 @@ components:
       properties:
         user:
           $ref: '#/components/schemas/User'
-        tokens:
-          $ref: '#/components/schemas/TokenPair'
+        access:
+          type: string
       required:
-      - tokens
+      - access
       - user
     ReorderRequest:
       type: object
@@ -10874,27 +10903,6 @@ components:
         * `YELLOW` - Yellow
         * `RED` - Red
         * `UNKNOWN` - Not yet rated
-    TokenBlacklistRequest:
-      type: object
-      properties:
-        refresh:
-          type: string
-          writeOnly: true
-          minLength: 1
-      required:
-      - refresh
-    TokenObtainPair:
-      type: object
-      properties:
-        access:
-          type: string
-          readOnly: true
-        refresh:
-          type: string
-          readOnly: true
-      required:
-      - access
-      - refresh
     TokenObtainPairRequest:
       type: object
       properties:
@@ -10909,35 +10917,6 @@ components:
       required:
       - email
       - password
-    TokenPair:
-      type: object
-      properties:
-        access:
-          type: string
-        refresh:
-          type: string
-      required:
-      - access
-      - refresh
-    TokenRefresh:
-      type: object
-      properties:
-        access:
-          type: string
-          readOnly: true
-        refresh:
-          type: string
-      required:
-      - access
-      - refresh
-    TokenRefreshRequest:
-      type: object
-      properties:
-        refresh:
-          type: string
-          minLength: 1
-      required:
-      - refresh
     Usage:
       type: object
       properties:

@@ -1,9 +1,12 @@
 import { tokenStore } from './tokens'
 
-/** Exchanges a refresh token for a new pair. Must throw `RefreshRejectedError` when the token is invalid. */
-export type RefreshFn = (refreshToken: string) => Promise<{ access: string; refresh: string }>
+/**
+ * Asks the API for a new access token using the HttpOnly refresh cookie (which the API rotates).
+ * Must throw `RefreshRejectedError` when the session is over (no cookie, expired, revoked).
+ */
+export type RefreshFn = () => Promise<{ access: string }>
 
-/** The refresh token was rejected (expired, blacklisted). The session is over. */
+/** The refresh cookie was rejected (missing, expired, blacklisted). The session is over. */
 export class RefreshRejectedError extends Error {
   constructor(message = 'Session expired') {
     super(message)
@@ -11,7 +14,7 @@ export class RefreshRejectedError extends Error {
   }
 }
 
-const LOCK_NAME = 'upchatz-token-refresh'
+export const REFRESH_LOCK_NAME = 'upchatz-refresh'
 
 let refreshFn: RefreshFn | null = null
 let inFlight: Promise<string> | null = null
@@ -35,26 +38,20 @@ function lockManager(): LockManagerLike | null {
 async function performRefresh(staleAccess: string | null): Promise<string> {
   if (!refreshFn) throw new Error('configureRefresh() was not called')
 
-  // Another caller (or another tab, while we waited for the lock) may already have refreshed.
+  // Another caller, or another tab while we waited for the lock (its token arrives over the
+  // BroadcastChannel), already refreshed: reuse that token instead of rotating the cookie again.
   const current = tokenStore.getAccess()
   if (current && current !== staleAccess) return current
 
-  // Read the refresh token inside the lock: another tab may have rotated it.
-  const refresh = tokenStore.getRefresh()
-  if (!refresh) {
-    tokenStore.clear()
-    onSessionEnded?.()
-    throw new RefreshRejectedError('No refresh token')
-  }
-
   try {
-    const tokens = await refreshFn(refresh)
-    tokenStore.set(tokens)
-    return tokens.access
+    const { access } = await refreshFn()
+    tokenStore.set(access, { broadcast: true })
+    return access
   } catch (error) {
     if (error instanceof RefreshRejectedError) {
-      // Only end the session if nobody rotated the token while our request was out.
-      if (tokenStore.getRefresh() === refresh) {
+      // Without the lock another tab may have refreshed meanwhile; keep its session.
+      const after = tokenStore.getAccess()
+      if (!after || after === staleAccess) {
         tokenStore.clear()
         onSessionEnded?.()
       }
@@ -64,10 +61,10 @@ async function performRefresh(staleAccess: string | null): Promise<string> {
 }
 
 /**
- * Returns a fresh access token. Concurrent callers in this tab share one request, and
- * `navigator.locks` (when available) serialises refreshes across tabs, because the backend
- * rotates and blacklists refresh tokens: two parallel refreshes with the same token would
- * log the user out.
+ * Returns a fresh access token. Concurrent callers in this tab share one request, and the Web
+ * Locks API (when available) serialises refreshes across tabs: every refresh rotates the cookie
+ * and blacklists the old token, so a tab waits for another tab's refresh and reuses its token.
+ * Without Web Locks this falls back to the in-tab single flight.
  *
  * @param staleAccess the access token that just failed; if the store already holds a different
  *   one, it is returned without a network call.
@@ -76,12 +73,28 @@ export function refreshAccessToken(staleAccess: string | null = tokenStore.getAc
   if (inFlight) return inFlight
 
   const locks = lockManager()
-  const run = locks ? locks.request(LOCK_NAME, () => performRefresh(staleAccess)) : performRefresh(staleAccess)
+  const run = locks ? locks.request(REFRESH_LOCK_NAME, () => performRefresh(staleAccess)) : performRefresh(staleAccess)
 
   inFlight = run.finally(() => {
     inFlight = null
   })
   return inFlight
+}
+
+/**
+ * Session bootstrap for requests: when there is no access token in memory but the session marker
+ * says a session may exist (after a reload), refreshes once. Signed-out visitors (no marker)
+ * never call the API. Resolves to the access token, or null when there is no session.
+ */
+export async function ensureAccessToken(): Promise<string | null> {
+  const current = tokenStore.getAccess()
+  if (current) return current
+  if (!tokenStore.mayRefresh()) return null
+  try {
+    return await refreshAccessToken(null)
+  } catch {
+    return null
+  }
 }
 
 /** Test helper. */

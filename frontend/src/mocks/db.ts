@@ -23,10 +23,11 @@ export type MockDb = {
   workspaces: MockWorkspace[]
   memberships: MockMembership[]
   invitations: MockInvitation[]
-  /** Valid refresh tokens → user id. Rotated on refresh, removed on logout. */
-  refreshTokens: Map<string, string>
-  /** Refresh tokens that were rotated or logged out, so they can't be restored after a reload. */
-  revokedRefreshTokens: Set<string>
+  /**
+   * A new object on every `resetMockDb()`. Area mock state caches key on its identity to rebuild
+   * after a reset. (The mock refresh session lives in `mocks/session.ts`, outside the database.)
+   */
+  generation: object
 }
 
 function daysFromNow(days: number): string {
@@ -71,8 +72,7 @@ function build(): MockDb {
         created_at: daysAgo(1),
       },
     ],
-    refreshTokens: new Map(),
-    revokedRefreshTokens: new Set(),
+    generation: {},
   }
 }
 

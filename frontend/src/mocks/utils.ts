@@ -73,12 +73,9 @@ export function paginate<T>(request: Request, items: readonly T[], defaultPageSi
 
 const ACCESS_TTL_MS = 15 * 60 * 1000
 
-/** Mock JWTs are opaque strings: `mock-access.<userId>.<expiresAtMs>`. */
-export function issueTokens(userId: string) {
-  const access = `mock-access.${userId}.${Date.now() + ACCESS_TTL_MS}`
-  const refresh = `mock-refresh.${userId}.${uuid()}`
-  db.refreshTokens.set(refresh, userId)
-  return { access, refresh }
+/** Mock access JWTs are opaque strings: `mock-access.<userId>.<expiresAtMs>`. The refresh side is `mocks/session.ts`. */
+export function issueAccessToken(userId: string): string {
+  return `mock-access.${userId}.${Date.now() + ACCESS_TTL_MS}`
 }
 
 function notAuthenticated() {
