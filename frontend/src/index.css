@@ -47,6 +47,27 @@
   }
 }
 
+/*
+ * Rendering cost: the browser skips style, layout and paint for landing sections far from the
+ * viewport. The first two (hero and the industries strip) are on the first screen. Never on #story:
+ * its pinned stage is sticky and follows the scroll through the whole track. `auto` remembers each
+ * section's real height once it has rendered; the fallback size only estimates unrendered ones.
+ * Paint containment clips at the section box, so section content must not paint outside it.
+ * Estimated heights would send #anchor jumps to the wrong place, so the inline script in index.html
+ * marks the landing page (data-landing) and sets data-full-layout before any in-page navigation.
+ */
+html[data-landing]:not([data-full-layout]) #main > section:nth-child(n + 3):not(#story),
+html[data-landing]:not([data-full-layout]) #root > footer {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 1600px;
+}
+@media (width >= 64rem) {
+  html[data-landing]:not([data-full-layout]) #main > section:nth-child(n + 3):not(#story),
+  html[data-landing]:not([data-full-layout]) #root > footer {
+    contain-intrinsic-block-size: auto 1100px;
+  }
+}
+
 /* Faint drafting grid behind the hero */
 .bg-grid {
   background-image:

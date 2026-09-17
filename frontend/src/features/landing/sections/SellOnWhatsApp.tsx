@@ -4,7 +4,7 @@ import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
-import { prefersReducedMotion } from '../../../lib/motion'
+import { usePrefersReducedMotion } from '../../../lib/motion'
 import { useOnScreen } from '../lib/useOnScreen'
 import { SHOP_STEP_MS, useShopSequence } from '../lib/useShopSequence'
 import { ShopJourneyMockup } from '../mockups/ShopJourneyMockup'
@@ -56,7 +56,7 @@ export function SellOnWhatsApp() {
   const stageRef = useRef<HTMLDivElement>(null)
   const onScreen = useOnScreen(stageRef)
   const { step, autoplay, runKey, jumpTo } = useShopSequence(onScreen)
-  const animate = !prefersReducedMotion()
+  const animate = !usePrefersReducedMotion()
 
   return (
     <section id="sell" className="border-t border-line bg-paper-2/50 py-20 md:py-28">

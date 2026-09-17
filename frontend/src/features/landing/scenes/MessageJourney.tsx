@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Check, CheckCheck, Clock3, MessageSquareText } from 'lucide-react'
 import { site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
-import { prefersReducedMotion } from '../../../lib/motion'
+import { usePrefersReducedMotion } from '../../../lib/motion'
 import { useOnScreen } from '../lib/useOnScreen'
 
 /*
@@ -73,19 +73,16 @@ const stations = [
 const checks = ['Opted in', 'Template approved', 'Inside messaging limit']
 
 function useJourneyStep(active: boolean) {
-  const [step, setStep] = useState(() => (prefersReducedMotion() ? FINAL_STEP : 0))
+  const reduced = usePrefersReducedMotion()
+  const [step, setStep] = useState(0)
 
   useEffect(() => {
-    if (prefersReducedMotion()) {
-      setStep(FINAL_STEP)
-      return
-    }
-    if (!active) return
+    if (reduced || !active) return
     const timer = window.setInterval(() => setStep((current) => (current + 1) % LOOP_STEPS), STEP_MS)
     return () => window.clearInterval(timer)
-  }, [active])
+  }, [active, reduced])
 
-  return step
+  return reduced ? FINAL_STEP : step
 }
 
 function hopState(hop: Hop, step: number) {

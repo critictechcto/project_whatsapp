@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -9,18 +9,61 @@ function resolveBase(raw: string | undefined) {
   return `/${value.replace(/^\/+|\/+$/g, '')}/`
 }
 
-export default defineConfig(({ mode }) => {
+/*
+ * Critical fonts for the first screen: Schibsted Grotesk (headings) and IBM Plex Sans (body), latin
+ * subset only. They are referenced from Fontsource CSS, so the browser would otherwise find them only
+ * after downloading and applying the stylesheet. Hashed names come from the build bundle.
+ */
+const PRELOAD_FONTS = [
+  /schibsted-grotesk-latin-wght-normal(-[\w-]+)?\.woff2$/,
+  /ibm-plex-sans-latin-wght-normal(-[\w-]+)?\.woff2$/,
+]
+
+function preloadFonts(): Plugin {
+  let base = '/'
+  return {
+    name: 'upchatz:preload-fonts',
+    apply: 'build',
+    configResolved(config) {
+      base = config.base
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, { bundle }) {
+        if (!bundle) return
+        const files = Object.values(bundle)
+          .filter((item) => item.type === 'asset')
+          .map((item) => item.fileName)
+        return PRELOAD_FONTS.flatMap((pattern) => {
+          const fileName = files.find((file) => pattern.test(file))
+          if (!fileName) throw new Error(`preload-fonts: no bundled font matches ${pattern}`)
+          return [
+            {
+              tag: 'link',
+              attrs: { rel: 'preload', href: `${base}${fileName}`, as: 'font', type: 'font/woff2', crossorigin: '' },
+              injectTo: 'head' as const,
+            },
+          ]
+        })
+      },
+    },
+  }
+}
+
+export default defineConfig(({ mode, isSsrBuild }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
 
   return {
     // Absolute base so deep links like /app/w/<id>/inbox resolve assets correctly.
     // GitHub Pages (project site) builds with VITE_BASE=/<repo>/; a custom domain uses '/'.
     base: resolveBase(env.VITE_BASE ?? process.env.VITE_BASE),
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), preloadFonts()],
     // No manualChunks: grouping recharts/msw pulled shared deps (React) into those groups and made
     // the landing entry import them. Dynamic imports alone keep the dashboard, charts
     // (components/app/charts/LazyTrendChart) and MSW (App.tsx, mock mode only) out of the landing bundle.
     build: {
+      // The SSR build (scripts/prerender.mjs) only needs entry-server.js, not a second copy of public/.
+      copyPublicDir: !isSsrBuild,
       // three.js alone is ~520 kB minified and cannot be split further; it lives only in the lazy
       // scroll-story chunk (StoryCanvas, ~140 kB gzip), which desktops fetch near that section.
       chunkSizeWarningLimit: 600,

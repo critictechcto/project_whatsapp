@@ -73,7 +73,8 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-line pt-6 text-[13px] text-muted md:flex-row md:justify-between">
-          <p>
+          {/* The prerender bakes in the build year; a year change before the next deploy must not fail hydration. */}
+          <p suppressHydrationWarning>
             © {year} {site.name}. All rights reserved.
           </p>
           <p className="max-w-xl md:text-right">

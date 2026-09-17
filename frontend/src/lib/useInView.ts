@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { prefersReducedMotion } from './motion'
+import { usePrefersReducedMotion } from './motion'
 
 /**
  * Becomes true the first time the element scrolls into view, then stays true.
- * With reduced motion it starts true, so in-view animations show their final state immediately.
+ * With reduced motion it is true, so in-view animations show their final state immediately.
  */
 export function useInView<T extends Element>({ rootMargin = '0px 0px -8% 0px', threshold = 0.1 } = {}) {
   const ref = useRef<T | null>(null)
-  const [inView, setInView] = useState(prefersReducedMotion)
+  const reduced = usePrefersReducedMotion()
+  const [seen, setInView] = useState(false)
+  // Derived, not initial state, so the prerendered markup matches the first client render.
+  const inView = seen || reduced
 
   useEffect(() => {
     const element = ref.current

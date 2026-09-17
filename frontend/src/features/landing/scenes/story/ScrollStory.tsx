@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type R
 import { Container } from '../../../../components/ui/Container'
 import { SectionHeader } from '../../../../components/ui/SectionHeader'
 import { cn } from '../../../../lib/cn'
-import { prefersReducedMotion } from '../../../../lib/motion'
+import { usePrefersReducedMotion } from '../../../../lib/motion'
 import { useScrollProgress } from '../../lib/useScrollProgress'
 import { STORY_CHAPTER_COUNT, storyChapters } from './storyChapters'
 
@@ -18,11 +18,16 @@ const StoryStill = lazy(() => import('./StoryFallback').then((module) => ({ defa
 
 /** True once the element is within about a viewport of the screen (straight away without IntersectionObserver). */
 function useNear(ref: RefObject<HTMLElement | null>) {
-  const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined')
+  // Starts false on the server and in the hydration render too, so the stage never prerenders.
+  const [near, setNear] = useState(false)
 
   useEffect(() => {
     const element = ref.current
     if (!element || near) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setNear(true)
+      return
+    }
     const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && setNear(true), {
       rootMargin: '100% 0px',
     })
@@ -159,7 +164,7 @@ function StaticStory() {
 }
 
 export function ScrollStory() {
-  const [reduced] = useState(prefersReducedMotion)
+  const reduced = usePrefersReducedMotion()
 
   return (
     <section id="story" data-story-mode={reduced ? 'static' : 'pinned'} className="border-b border-line py-20 md:py-28">

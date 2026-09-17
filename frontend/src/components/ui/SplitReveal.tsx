@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { cn } from '../../lib/cn'
-import { prefersReducedMotion } from '../../lib/motion'
+import { usePrefersReducedMotion } from '../../lib/motion'
 import { useInView } from '../../lib/useInView'
 import './SplitReveal.css'
 
@@ -19,10 +19,11 @@ type SplitRevealProps = {
  */
 export function SplitReveal({ as = 'h2', className, children }: SplitRevealProps) {
   const { ref, inView } = useInView<HTMLHeadingElement>({ threshold: 0.2 })
+  const reduced = usePrefersReducedMotion()
   // Every allowed tag accepts the same props; narrowing to one keeps the ref type simple.
   const Component = as as 'h2'
 
-  if (typeof children !== 'string' || prefersReducedMotion()) {
+  if (typeof children !== 'string' || reduced) {
     return <Component className={className}>{children}</Component>
   }
 
