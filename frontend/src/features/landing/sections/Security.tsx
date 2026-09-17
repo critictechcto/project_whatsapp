@@ -3,6 +3,8 @@ import { Check, FileText, KeyRound, Lock, ShieldCheck, UserCog, Users } from 'lu
 import { Container } from '../../../components/ui/Container'
 import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
+import { SnapPager } from '../../../components/ui/SnapPager'
+import { useSnapRow } from '../../../components/ui/useSnapRow'
 import { site } from '../../../config/site'
 import { prefersReducedMotion } from '../../../lib/motion'
 import { useOnScreen } from '../lib/useOnScreen'
@@ -143,10 +145,12 @@ function TokenVault() {
 }
 
 export function Security() {
+  const { ref: cardsRef, index: shownCard, goTo: showCard } = useSnapRow<HTMLUListElement>()
+
   return (
-    <section id="security" className="py-20 md:py-28">
+    <section id="security" className="py-16 md:py-28">
       <Container>
-        <div className="grid items-end gap-10 lg:grid-cols-12">
+        <div className="grid items-end gap-10 max-sm:gap-6 lg:grid-cols-12">
           <SectionHeader
             index="11"
             eyebrow="Security & data"
@@ -158,20 +162,33 @@ export function Security() {
             <TokenVault />
           </Reveal>
         </div>
-        <Reveal
-          as="ul"
-          className="mt-14 grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {items.map(({ icon: Icon, title, body }) => (
-            <li key={title} className="group/item bg-card p-6 transition-colors duration-300 hover:bg-white md:p-7">
-              <Icon
-                className="size-5 text-accent-2 transition-transform duration-300 ease-soft group-hover/item:-translate-y-0.5"
-                aria-hidden="true"
-              />
-              <h3 className="mt-5 text-[16.5px] font-semibold tracking-[-0.01em]">{title}</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted">{body}</p>
-            </li>
-          ))}
+        <Reveal className="mt-14 max-sm:mt-8">
+          {/* On phones this is a swipe row (Security.css). */}
+          <ul
+            ref={cardsRef}
+            className="security-cards grid gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {items.map(({ icon: Icon, title, body }) => (
+              <li
+                key={title}
+                className="group/item bg-card p-6 transition-colors duration-300 hover:bg-white max-sm:p-5 md:p-7"
+              >
+                <Icon
+                  className="size-5 text-accent-2 transition-transform duration-300 ease-soft group-hover/item:-translate-y-0.5"
+                  aria-hidden="true"
+                />
+                <h3 className="mt-5 text-[16.5px] font-semibold tracking-[-0.01em] max-sm:mt-3">{title}</h3>
+                <p className="mt-2 text-[14.5px] leading-relaxed text-muted">{body}</p>
+              </li>
+            ))}
+          </ul>
+          <SnapPager
+            label="Show security point"
+            labels={items.map((item) => item.title)}
+            index={shownCard}
+            onSelect={showCard}
+            className="mt-2 sm:hidden"
+          />
         </Reveal>
       </Container>
     </section>

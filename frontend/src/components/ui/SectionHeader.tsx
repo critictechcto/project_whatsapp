@@ -17,7 +17,7 @@ export function SectionHeader({ index, eyebrow, title, description, inverse, cla
     <Reveal className={cn('max-w-3xl', className)}>
       <p
         className={cn(
-          'flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em]',
+          'flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.16em] max-md:text-[12px] max-md:tracking-[0.14em]',
           inverse ? 'text-paper/65' : 'text-muted',
         )}
       >

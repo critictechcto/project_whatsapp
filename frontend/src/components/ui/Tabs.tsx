@@ -63,6 +63,24 @@ export function Tabs({ items, label, autoAdvanceMs }: TabsProps) {
     }
   }, [running, active, count])
 
+  // Where the tab strip scrolls sideways (phones), keep the active tab in view as it changes,
+  // including when it auto-advances. Only the strip scrolls, never the page.
+  const tablistRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const list = tablistRef.current
+    const tab = tabRefs.current[active]
+    if (!list || !tab || list.scrollWidth <= list.clientWidth) return
+    const listRect = list.getBoundingClientRect()
+    const tabRect = tab.getBoundingClientRect()
+    const inset = 20
+    let delta = 0
+    if (tabRect.left < listRect.left + inset) delta = tabRect.left - listRect.left - inset
+    else if (tabRect.right > listRect.right - inset) delta = tabRect.right - listRect.right + inset
+    if (delta !== 0) {
+      list.scrollTo({ left: list.scrollLeft + delta, behavior: reducedMotion ? 'auto' : 'smooth' })
+    }
+  }, [active, reducedMotion])
+
   function select(next: Direction | null, index: number) {
     setUserPicked(true)
     if (index === active) return
@@ -104,6 +122,7 @@ export function Tabs({ items, label, autoAdvanceMs }: TabsProps) {
       onBlur={onBlur}
     >
       <div
+        ref={tablistRef}
         role="tablist"
         aria-label={label}
         onKeyDown={onKeyDown}
@@ -125,7 +144,7 @@ export function Tabs({ items, label, autoAdvanceMs }: TabsProps) {
               tabIndex={selected ? 0 : -1}
               onClick={() => select(null, i)}
               className={cn(
-                'relative shrink-0 whitespace-nowrap px-4 py-3 text-[14px] font-medium transition-colors',
+                'relative shrink-0 whitespace-nowrap px-4 py-3 text-[14px] font-medium transition-colors max-md:min-h-11',
                 'after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:transition-colors',
                 selected && autoAdvance && 'after:opacity-15',
                 selected ? 'text-ink after:bg-ink' : 'text-muted after:bg-transparent hover:text-ink',
@@ -155,7 +174,7 @@ export function Tabs({ items, label, autoAdvanceMs }: TabsProps) {
             hidden={i !== active}
             tabIndex={0}
             data-direction={direction}
-            className="tabs-panel pt-10 focus-visible:outline-none"
+            className="tabs-panel pt-10 focus-visible:outline-none max-md:pt-8"
           >
             {item.content}
           </div>

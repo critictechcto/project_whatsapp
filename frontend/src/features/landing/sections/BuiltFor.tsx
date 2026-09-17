@@ -14,7 +14,7 @@ export function BuiltFor() {
   return (
     <section aria-label="Industries we serve" className="border-y border-line bg-paper-2/60">
       <Container className="flex flex-col gap-4 py-7 md:flex-row md:items-center md:gap-10">
-        <p className="shrink-0 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">Built for</p>
+        <p className="shrink-0 font-mono text-[11px] uppercase tracking-[0.16em] text-muted max-md:text-[12px] max-md:tracking-[0.14em]">Built for</p>
         <ul className="flex flex-wrap gap-x-4 gap-y-2 text-[14.5px] sm:gap-x-5 sm:text-[15px]">
           {industries.map((industry) => (
             <li

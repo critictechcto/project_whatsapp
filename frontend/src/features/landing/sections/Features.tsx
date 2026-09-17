@@ -157,7 +157,7 @@ export function Features() {
   }))
 
   return (
-    <section id="product" className="py-20 md:py-28">
+    <section id="product" className="py-16 md:py-28">
       <Container>
         <SectionHeader
           index="04"
@@ -165,7 +165,7 @@ export function Features() {
           title="Everything you need to run WhatsApp as a real channel."
           description="Campaigns, reminders, conversations and reporting in one workspace — built around how WhatsApp’s official platform actually works."
         />
-        <div className="mt-12">
+        <div className="mt-12 max-md:mt-8">
           <Tabs items={tabs} label="Product features" autoAdvanceMs={7000} />
         </div>
       </Container>
