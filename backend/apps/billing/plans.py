@@ -9,9 +9,17 @@ TRIAL_PLAN_SLUG = "growth"
 TRIAL_DAYS = 14
 ANNUAL_MONTHS_CHARGED = 10
 
-# Every plan includes the WhatsApp store (migration 0003 adds it to existing rows).
+# Every plan includes the WhatsApp store (migration 0003 adds it to existing rows). Analytics is
+# on Growth and Pro only (migration 0004 adds it to existing rows).
 COMMERCE_FEATURE = "commerce"
-_ALL_FEATURES = ["scheduled_campaigns", "keyword_automations", "api_access", COMMERCE_FEATURE]
+ANALYTICS_FEATURE = "analytics"
+_ALL_FEATURES = [
+    "scheduled_campaigns",
+    "keyword_automations",
+    "api_access",
+    COMMERCE_FEATURE,
+    ANALYTICS_FEATURE,
+]
 
 DEFAULT_PLANS: tuple[dict, ...] = (
     {
