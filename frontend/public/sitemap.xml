@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Add /privacy/ and /terms/ once site.legal is filled in (legalReady) and they drop noindex. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://upchatz.com/</loc>
+  </url>
+  <url>
+    <loc>https://upchatz.com/contact/</loc>
+  </url>
+</urlset>

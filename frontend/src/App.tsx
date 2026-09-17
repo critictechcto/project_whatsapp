@@ -24,7 +24,8 @@ function isDashboardPath(pathname: string) {
 }
 
 export default function App() {
-  const { pathname } = window.location
+  // The build-time prerender has no window and renders the landing page.
+  const pathname = typeof window === 'undefined' ? import.meta.env.BASE_URL : window.location.pathname
   if (isDashboardPath(pathname)) {
     return (
       <Suspense fallback={null}>

@@ -20,6 +20,46 @@
     <!-- Replace with a 1200x630 PNG before launch -->
     <meta property="og:image" content="/og-image.svg" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!--
+      index.html carries the prerendered landing page. Hosts that serve it as the SPA fallback (for
+      /app/* deep links) must not flash that markup: hide it off the landing path; main.tsx clears it.
+    -->
+    <style>
+      html[data-shell] #root {
+        display: none;
+      }
+    </style>
+    <script>
+      ;(function (base, path, html) {
+        if (path !== base && path !== base.replace(/\/$/, '') && path !== base + 'index.html') {
+          html.setAttribute('data-shell', '')
+          return
+        }
+        html.setAttribute('data-landing', '')
+        /*
+         * Landing sections use content-visibility: auto (index.css), so unrendered sections only have
+         * estimated heights and a jump to #section would land in the wrong place. Lay out the whole
+         * page for good before any in-page navigation: a deep link, a # link click or a hash change.
+         */
+        function layoutAll() {
+          html.setAttribute('data-full-layout', '')
+        }
+        if (location.hash) layoutAll()
+        addEventListener('hashchange', layoutAll)
+        document.addEventListener(
+          'click',
+          function (event) {
+            var link = event.target instanceof Element && event.target.closest('a[href*="#"]')
+            if (link && link.hash && link.pathname === location.pathname) {
+              layoutAll()
+              void document.body.offsetHeight
+            }
+          },
+          true,
+        )
+      })('%BASE_URL%', location.pathname, document.documentElement)
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -41,19 +41,24 @@ jobs:
 
       - run: npm ci
 
-      # eslint, vitest, then tsc --noEmit && vite build
+      # eslint, vitest, then tsc --noEmit, vite build and the landing page prerender
       - run: npm run lint && npm test && npm run build
 
+      # dist/index.html holds the prerendered landing page; every other path gets dist/shell.html,
+      # the same document with an empty root.
       # Pages has no SPA fallback: serve the app shell for deep links such as /app/login.
-      - run: cp dist/index.html dist/404.html
+      - run: cp dist/shell.html dist/404.html
 
       # The 404.html fallback answers with HTTP 404, which Meta or Razorpay reviewers may reject for a
       # privacy policy URL. Real files for the static pages make /privacy/, /terms/ and /contact/ return 200.
       - run: |
           for page in privacy terms contact; do
             mkdir -p "dist/$page"
-            cp dist/index.html "dist/$page/index.html"
+            cp dist/shell.html "dist/$page/index.html"
           done
+
+      # robots.txt and sitemap.xml come from public/; fail rather than let them fall back to the app.
+      - run: test -f dist/robots.txt && test -f dist/sitemap.xml
 
       - uses: actions/configure-pages@v6
 

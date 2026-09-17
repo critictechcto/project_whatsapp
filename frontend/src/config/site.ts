@@ -69,13 +69,18 @@ export const legalReady = [
   legal.jurisdictionCity,
 ].every((value) => value.trim().length > 0)
 
+/** The current path; the build-time prerender (no `window`) renders the landing page. */
+function currentPathname() {
+  return typeof window === 'undefined' ? BASE_URL : window.location.pathname
+}
+
 /** True when `pathname` is the landing page (the deploy base root). */
-export function isLandingPath(pathname: string = window.location.pathname) {
+export function isLandingPath(pathname: string = currentPathname()) {
   return pathname === BASE_URL || pathname === BASE_URL.replace(/\/$/, '') || pathname === `${BASE_URL}index.html`
 }
 
 /** Link to a landing page section that works both on the landing page and on the other pages. */
-export function sectionHref(id: string, pathname: string = window.location.pathname) {
+export function sectionHref(id: string, pathname: string = currentPathname()) {
   return isLandingPath(pathname) ? `#${id}` : `${BASE_URL}#${id}`
 }
 

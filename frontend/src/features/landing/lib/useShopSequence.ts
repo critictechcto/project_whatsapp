@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { prefersReducedMotion } from '../../../lib/motion'
+import { usePrefersReducedMotion } from '../../../lib/motion'
 
 /** Browse, cart, address, pay, order updates, seller alert. */
 export const SHOP_STEP_COUNT = 6
@@ -28,14 +28,22 @@ export type ShopAutoplay = 'playing' | 'paused' | 'waiting' | 'done'
  * Reduced motion starts on the final step and never autoplays; `jumpTo` still switches steps.
  */
 export function useShopSequence(active: boolean) {
-  const reduced = prefersReducedMotion()
+  // The prerender and hydration render with motion; the real preference arrives on the next render.
+  const reduced = usePrefersReducedMotion()
   const [step, setStep] = useState(() => (reduced ? SHOP_FINAL_STEP : -1))
+  const [wasReduced, setWasReduced] = useState(reduced)
   const [paused, setPaused] = useState(false)
   const [wasActive, setWasActive] = useState(active)
   /** Bumped by every jump, so picking the showing step again restarts its countdown. */
   const [jumps, setJumps] = useState(0)
   /** Time left on a step's countdown, carried across offscreen pauses. */
   const remaining = useRef<{ step: number; jumps: number; ms: number } | null>(null)
+
+  // Reduced motion turning on (including right after hydration) shows the finished journey.
+  if (reduced !== wasReduced) {
+    setWasReduced(reduced)
+    if (reduced) setStep(SHOP_FINAL_STEP)
+  }
 
   // Leaving the screen ends a visitor's pause (state adjusted during render rather than in an effect).
   if (active !== wasActive) {

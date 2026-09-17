@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { prefersReducedMotion } from '../../../lib/motion'
+import { usePrefersReducedMotion } from '../../../lib/motion'
 
 // The demo chat plays out once: template → customer question → agent typing → reply.
 const STEP_DELAYS_MS = [500, 1400, 2300, 3700]
@@ -12,16 +12,14 @@ export const CHAT_FINAL_STEP = STEP_DELAYS_MS.length
  * stay in step. Reduced motion jumps straight to the finished conversation.
  */
 export function useChatSequence() {
-  const [step, setStep] = useState(() => (prefersReducedMotion() ? CHAT_FINAL_STEP : 0))
+  const reduced = usePrefersReducedMotion()
+  const [step, setStep] = useState(0)
 
   useEffect(() => {
-    if (prefersReducedMotion()) {
-      setStep(CHAT_FINAL_STEP)
-      return
-    }
+    if (reduced) return
     const timers = STEP_DELAYS_MS.map((delay, i) => window.setTimeout(() => setStep(i + 1), delay))
     return () => timers.forEach((timer) => window.clearTimeout(timer))
-  }, [])
+  }, [reduced])
 
-  return step
+  return reduced ? CHAT_FINAL_STEP : step
 }

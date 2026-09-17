@@ -6,7 +6,7 @@ import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { SnapPager } from '../../../components/ui/SnapPager'
 import { useSnapRow } from '../../../components/ui/useSnapRow'
 import { site } from '../../../config/site'
-import { prefersReducedMotion } from '../../../lib/motion'
+import { usePrefersReducedMotion } from '../../../lib/motion'
 import { useOnScreen } from '../lib/useOnScreen'
 import './Security.css'
 
@@ -76,9 +76,11 @@ function scramble(progress: number) {
 function TokenVault() {
   const stageRef = useRef<HTMLDivElement | null>(null)
   const onScreen = useOnScreen(stageRef)
-  const [reducedMotion] = useState(prefersReducedMotion)
-  const [phase, setPhase] = useState<Phase>(reducedMotion ? 'sealed' : 'plain')
-  const [text, setText] = useState(reducedMotion ? CIPHER_TOKEN : PLAIN_TOKEN)
+  const reducedMotion = usePrefersReducedMotion()
+  const [loopPhase, setPhase] = useState<Phase>('plain')
+  const [loopText, setText] = useState(PLAIN_TOKEN)
+  const phase = reducedMotion ? 'sealed' : loopPhase
+  const text = reducedMotion ? CIPHER_TOKEN : loopText
   // Remounts the token card each loop so it fades in at the top instead of flying back up.
   const [cycle, setCycle] = useState(0)
 

@@ -4,7 +4,7 @@ import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
-import { prefersReducedMotion } from '../../../lib/motion'
+import { usePrefersReducedMotion } from '../../../lib/motion'
 import { useOnScreen } from '../lib/useOnScreen'
 import { SHOP_STEP_MS, useShopSequence, type ShopAutoplay } from '../lib/useShopSequence'
 import { ShopJourneyMockup } from '../mockups/ShopJourneyMockup'
@@ -57,7 +57,7 @@ export function SellOnWhatsApp() {
   const stageRef = useRef<HTMLDivElement>(null)
   const onScreen = useOnScreen(stageRef)
   const { step, autoplay, runKey, jumpTo } = useShopSequence(onScreen)
-  const animate = !prefersReducedMotion()
+  const animate = !usePrefersReducedMotion()
   /** The step described under the phone-sized step chips (the first one before autoplay starts). */
   const shown = Math.max(step, 0)
 

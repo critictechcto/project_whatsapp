@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npm run prerender",
+    "prerender": "vite build --ssr src/entry-server.tsx --outDir node_modules/.prerender --emptyOutDir && node scripts/prerender.mjs",
     "preview": "vite preview",
     "api:types": "openapi-typescript ../backend/openapi.yml -o src/api/schema.d.ts",
     "lint": "eslint .",

@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { useOnScreen } from '../../features/landing/lib/useOnScreen'
 import { cn } from '../../lib/cn'
-import { prefersReducedMotion } from '../../lib/motion'
+import { usePrefersReducedMotion } from '../../lib/motion'
 import './Tabs.css'
 
 export type TabItem = { id: string; label: string; content: ReactNode }
@@ -34,7 +34,7 @@ export function Tabs({ items, label, autoAdvanceMs }: TabsProps) {
   const [userPicked, setUserPicked] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [reducedMotion] = useState(prefersReducedMotion)
+  const reducedMotion = usePrefersReducedMotion()
   const rootRef = useRef<HTMLDivElement | null>(null)
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const baseId = useId()
