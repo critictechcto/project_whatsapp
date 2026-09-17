@@ -1,10 +1,12 @@
+import hashlib
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import (
@@ -29,6 +31,30 @@ class AuthThrottleMixin:
     throttle_scope = "auth"
 
 
+class LoginEmailThrottle(SimpleRateThrottle):
+    """Limit login attempts per email address, whatever the client's IP.
+
+    The ``auth`` scope throttles per client IP, which a password-guessing client can rotate: DRF
+    takes the IP from ``X-Forwarded-For`` (client-controlled unless ``NUM_PROXIES`` is set).
+    Keying on the submitted email caps guesses against one account regardless. The rate is
+    ``DEFAULT_THROTTLE_RATES["login_email"]`` when set, else :attr:`default_rate`.
+    """
+
+    scope = "login_email"
+    default_rate = "30/hour"
+
+    def get_rate(self):
+        return self.THROTTLE_RATES.get(self.scope, self.default_rate)
+
+    def get_cache_key(self, request, view):
+        data = request.data
+        email = data.get("email") if hasattr(data, "get") else None
+        if not isinstance(email, str) or not email.strip():
+            return None
+        ident = hashlib.sha256(email.strip().lower().encode()).hexdigest()
+        return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
 class RegisterView(AuthThrottleMixin, generics.GenericAPIView):
     serializer_class = RegisterSerializer
     permission_classes = (AllowAny,)
@@ -49,6 +75,8 @@ class RegisterView(AuthThrottleMixin, generics.GenericAPIView):
 
 class LoginView(AuthThrottleMixin, TokenObtainPairView):
     """Exchange email + password for an access/refresh token pair."""
+
+    throttle_classes = (ScopedRateThrottle, LoginEmailThrottle)
 
 
 class RefreshView(AuthThrottleMixin, TokenRefreshView):
