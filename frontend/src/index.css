@@ -161,6 +161,19 @@ html[data-landing]:not([data-full-layout]) #root > footer {
 .rise {
   animation: rise 0.7s var(--ease-soft) both;
 }
+/* Hero heading and intro: slide without fading from transparent. They are the largest text on
+   phones, and browsers only count the largest paint once the text is visible. */
+@keyframes rise-visible {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: none;
+  }
+}
+.rise-visible {
+  animation-name: rise-visible;
+}
 .rise-1 {
   animation-delay: 0.06s;
 }

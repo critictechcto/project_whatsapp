@@ -21,11 +21,11 @@ export function Hero() {
             Built on the official WhatsApp Business Platform
           </p>
 
-          <h1 className="rise rise-1 font-display sm:mt-5 md:mt-6 text-[2.3rem] font-semibold leading-[1.04] tracking-[-0.035em] text-balance sm:text-[3.3rem] lg:text-[3.6rem]">
+          <h1 className="rise rise-1 rise-visible font-display sm:mt-5 md:mt-6 text-[2.3rem] font-semibold leading-[1.04] tracking-[-0.035em] text-balance sm:text-[3.3rem] lg:text-[3.6rem]">
             WhatsApp messaging for Indian businesses, <span className="text-accent-2">done properly.</span>
           </h1>
 
-          <p className="rise rise-2 mt-4 max-w-xl text-[16px] md:mt-6 md:text-[17.5px] leading-relaxed text-muted">
+          <p className="rise rise-2 rise-visible mt-4 max-w-xl text-[16px] md:mt-6 md:text-[17.5px] leading-relaxed text-muted">
             Connect your business number through Meta’s own signup flow, then send campaigns and reminders, sell
             through a WhatsApp menu with payment links or cash on delivery — and answer every reply from one shared
             team inbox. No QR-code workarounds. No banned numbers.

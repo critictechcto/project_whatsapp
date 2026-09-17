@@ -14,7 +14,7 @@ The spec is [`.do/app.yaml`](../../.do/app.yaml). It describes one app in region
 
 Requests on `app.upchatz.com` are routed by path:
 - `/api`, `/webhooks`, `/ws`, `/admin`, `/static`, `/pay`, `/healthz` and `/readyz` go to `api`.
-- Everything else goes to `dashboard`, which serves `index.html` for deep links like `/app/login`.
+- Everything else goes to `dashboard`, which serves `shell.html` (the page without the prerendered landing markup) for deep links like `/app/login`.
 
 The dashboard calls the API on its own origin, so there are no CORS or cross-site cookie problems.
 

@@ -122,7 +122,9 @@ static_sites:
       deploy_on_push: true
     build_command: npm ci && npm run build
     output_dir: dist
-    catchall_document: index.html
+    # shell.html is index.html with an empty root (scripts/prerender.mjs), so deep links such as
+    # /app/login never download the prerendered landing markup.
+    catchall_document: shell.html
     envs:
       - key: VITE_BASE
         value: /

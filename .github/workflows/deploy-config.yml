@@ -97,8 +97,8 @@ jobs:
           if not site:
               errors.append("missing static site 'dashboard'")
           else:
-              if site.get("catchall_document") != "index.html":
-                  errors.append("dashboard needs catchall_document index.html")
+              if site.get("catchall_document") != "shell.html":
+                  errors.append("dashboard needs catchall_document shell.html")
               site_env = {e["key"]: e.get("value") for e in site.get("envs") or []}
               if site_env.get("VITE_API_MODE") != "live":
                   errors.append("dashboard must build with VITE_API_MODE=live")

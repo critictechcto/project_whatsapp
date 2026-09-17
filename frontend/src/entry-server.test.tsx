@@ -1,5 +1,5 @@
 import { act, StrictMode } from 'react'
-import { hydrateRoot } from 'react-dom/client'
+import { hydrateRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { render } from './entry-server'
@@ -25,8 +25,12 @@ function mockReducedMotion(reduce: boolean) {
 
 describe('landing page prerender', () => {
   let container: HTMLDivElement | null = null
+  let root: Root | null = null
 
   afterEach(() => {
+    // Unmount so the page's timers stop before the worker tears down.
+    act(() => root?.unmount())
+    root = null
     container?.remove()
     container = null
   })
@@ -46,7 +50,7 @@ describe('landing page prerender', () => {
     const errors: unknown[] = []
     const consoleError = vi.spyOn(console, 'error').mockImplementation((...args) => errors.push(args))
     await act(async () => {
-      hydrateRoot(
+      root = hydrateRoot(
         container!,
         <StrictMode>
           <App />
