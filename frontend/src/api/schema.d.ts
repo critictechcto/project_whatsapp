@@ -4,6 +4,146 @@
  */
 
 export interface paths {
+    "/api/v1/analytics/campaigns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Campaigns started in the range
+         * @description Dates are inclusive and read in the workspace time zone. Readable by every member; needs the plan's `analytics` feature.
+         */
+        get: operations["analytics_campaigns_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/commerce/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Orders and revenue (needs the commerce feature)
+         * @description Dates are inclusive and read in the workspace time zone. Readable by every member; needs the plan's `analytics` feature. Also needs the `commerce` feature.
+         */
+        get: operations["analytics_commerce_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/export/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a report as CSV
+         * @description The rows of the matching report (the daily series for `messages` and `commerce`), with money in rupees. Same range and plan checks as that report.
+         */
+        get: operations["analytics_export_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daily message series and breakdowns
+         * @description Dates are inclusive and read in the workspace time zone. Readable by every member; needs the plan's `analytics` feature.
+         */
+        get: operations["analytics_messages_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/overview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Totals for the range and the previous period
+         * @description Dates are inclusive and read in the workspace time zone. Readable by every member; needs the plan's `analytics` feature.
+         */
+        get: operations["analytics_overview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/team/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Per-member activity
+         * @description Dates are inclusive and read in the workspace time zone. Readable by every member; needs the plan's `analytics` feature.
+         */
+        get: operations["analytics_team_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Template performance
+         * @description Dates are inclusive and read in the workspace time zone. Readable by every member; needs the plan's `analytics` feature.
+         */
+        get: operations["analytics_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout/": {
         parameters: {
             query?: never;
@@ -1836,6 +1976,211 @@ export interface components {
          * @enum {string}
          */
         AlertRecipientStatusEnum: "pending" | "verified" | "opted_out";
+        AnalyticsCampaignRow: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            status: components["schemas"]["CampaignStatusEnum"];
+            /** Format: date-time */
+            started_at: string;
+            total_count: number;
+            sent_count: number;
+            delivered_count: number;
+            read_count: number;
+            failed_count: number;
+            replied_count: number;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            delivery_rate: string | null;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            read_rate: string | null;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            reply_rate: string | null;
+        };
+        AnalyticsCampaigns: {
+            range: components["schemas"]["AnalyticsRange"];
+            results: components["schemas"]["AnalyticsCampaignRow"][];
+        };
+        AnalyticsCategoryRow: {
+            category: string;
+            sent: number;
+            delivered: number;
+            read: number;
+            failed: number;
+        };
+        AnalyticsCommerce: {
+            range: components["schemas"]["AnalyticsRange"];
+            series: components["schemas"]["AnalyticsCommercePoint"][];
+            orders: number;
+            paid_orders: number;
+            revenue_paise: number;
+            average_order_paise: number | null;
+            by_status: components["schemas"]["AnalyticsOrderStatusRow"][];
+            by_payment_method: components["schemas"]["AnalyticsPaymentMethodRow"][];
+            top_products: components["schemas"]["AnalyticsProductRow"][];
+        };
+        AnalyticsCommercePoint: {
+            /** Format: date */
+            date: string;
+            orders: number;
+            revenue_paise: number;
+        };
+        AnalyticsFailureRow: {
+            error_code: string;
+            count: number;
+        };
+        AnalyticsMessagePoint: {
+            /** Format: date */
+            date: string;
+            sent: number;
+            delivered: number;
+            read: number;
+            failed: number;
+            received: number;
+        };
+        /**
+         * @description * `inbox` - Inbox
+         *     * `campaign` - Campaign
+         *     * `automation` - Automation
+         *     * `api` - API
+         *     * `commerce` - Commerce
+         * @enum {string}
+         */
+        AnalyticsMessageSourceEnum: "inbox" | "campaign" | "automation" | "api" | "commerce";
+        AnalyticsMessages: {
+            range: components["schemas"]["AnalyticsRange"];
+            series: components["schemas"]["AnalyticsMessagePoint"][];
+            by_source: components["schemas"]["AnalyticsSourceRow"][];
+            by_category: components["schemas"]["AnalyticsCategoryRow"][];
+            failure_reasons: components["schemas"]["AnalyticsFailureRow"][];
+        };
+        AnalyticsOrderStatusRow: {
+            status: components["schemas"]["OrderStatusEnum"];
+            count: number;
+        };
+        AnalyticsOverview: {
+            range: components["schemas"]["AnalyticsRange"];
+            current: components["schemas"]["AnalyticsTotals"];
+            previous: components["schemas"]["AnalyticsTotals"];
+        };
+        /**
+         * @description * `online` - Online payment
+         *     * `cod` - Cash on delivery (COD)
+         * @enum {string}
+         */
+        AnalyticsPaymentMethodEnum: "online" | "cod";
+        AnalyticsPaymentMethodRow: {
+            payment_method: components["schemas"]["AnalyticsPaymentMethodEnum"] | components["schemas"]["BlankEnum"];
+            orders: number;
+            revenue_paise: number;
+        };
+        AnalyticsProductRow: {
+            /** Format: uuid */
+            product_id: string | null;
+            name: string;
+            quantity: number;
+            revenue_paise: number;
+        };
+        AnalyticsRange: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            time_zone: string;
+            /** Format: date */
+            previous_from: string;
+            /** Format: date */
+            previous_to: string;
+        };
+        AnalyticsSourceRow: {
+            source: components["schemas"]["AnalyticsMessageSourceEnum"];
+            sent: number;
+            delivered: number;
+            read: number;
+            failed: number;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            delivery_rate: string | null;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            read_rate: string | null;
+        };
+        AnalyticsTeam: {
+            range: components["schemas"]["AnalyticsRange"];
+            results: components["schemas"]["AnalyticsTeamRow"][];
+        };
+        AnalyticsTeamRow: {
+            /** Format: uuid */
+            user_id: string;
+            name: string;
+            email: string;
+            role: string;
+            messages_sent: number;
+            conversations_assigned: number;
+            conversations_closed: number;
+        };
+        AnalyticsTemplateRow: {
+            /** Format: uuid */
+            template_id: string | null;
+            name: string;
+            language: string;
+            category: string;
+            sent: number;
+            delivered: number;
+            read: number;
+            failed: number;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            delivery_rate: string | null;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            read_rate: string | null;
+        };
+        AnalyticsTemplates: {
+            range: components["schemas"]["AnalyticsRange"];
+            results: components["schemas"]["AnalyticsTemplateRow"][];
+        };
+        AnalyticsTotals: {
+            messages_sent: number;
+            messages_delivered: number;
+            messages_read: number;
+            messages_failed: number;
+            messages_received: number;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            delivery_rate: string | null;
+            /**
+             * Format: decimal
+             * @description 0-1, or null
+             */
+            read_rate: string | null;
+            conversations_started: number;
+            contacts_added: number;
+            contacts_opted_in: number;
+            contacts_opted_out: number;
+            campaigns_sent: number;
+            automation_runs: number;
+            orders: number | null;
+            revenue_paise: number | null;
+        };
         AssignConversationRequest: {
             /**
              * Format: uuid
@@ -2009,6 +2354,8 @@ export interface components {
             /** @description 6-digit PIN code. */
             postal_code: string;
         };
+        /** @enum {unknown} */
+        BlankEnum: "";
         BulkTagRequest: {
             contact_ids: string[];
             add_tag_ids?: string[];
@@ -4192,6 +4539,295 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    analytics_campaigns_retrieve: {
+        parameters: {
+            query?: {
+                /** @description First day (inclusive, workspace time zone). Defaults to `to` minus 29 days. */
+                from?: string;
+                /** @description Last day (inclusive, workspace time zone). Defaults to today. */
+                to?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsCampaigns"];
+                };
+            };
+            /** @description `invalid`: bad range or report */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `feature_not_available`: the plan lacks the feature */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analytics_commerce_retrieve: {
+        parameters: {
+            query?: {
+                /** @description First day (inclusive, workspace time zone). Defaults to `to` minus 29 days. */
+                from?: string;
+                /** @description Last day (inclusive, workspace time zone). Defaults to today. */
+                to?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsCommerce"];
+                };
+            };
+            /** @description `invalid`: bad range or report */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `feature_not_available`: the plan lacks the feature */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analytics_export_retrieve: {
+        parameters: {
+            query: {
+                /** @description First day (inclusive, workspace time zone). Defaults to `to` minus 29 days. */
+                from?: string;
+                report: "campaigns" | "commerce" | "messages" | "team" | "templates";
+                /** @description Last day (inclusive, workspace time zone). Defaults to today. */
+                to?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description `invalid`: bad range or report */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `feature_not_available`: the plan lacks the feature */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analytics_messages_retrieve: {
+        parameters: {
+            query?: {
+                /** @description First day (inclusive, workspace time zone). Defaults to `to` minus 29 days. */
+                from?: string;
+                /** @description Last day (inclusive, workspace time zone). Defaults to today. */
+                to?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsMessages"];
+                };
+            };
+            /** @description `invalid`: bad range or report */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `feature_not_available`: the plan lacks the feature */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analytics_overview_retrieve: {
+        parameters: {
+            query?: {
+                /** @description First day (inclusive, workspace time zone). Defaults to `to` minus 29 days. */
+                from?: string;
+                /** @description Last day (inclusive, workspace time zone). Defaults to today. */
+                to?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsOverview"];
+                };
+            };
+            /** @description `invalid`: bad range or report */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `feature_not_available`: the plan lacks the feature */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analytics_team_retrieve: {
+        parameters: {
+            query?: {
+                /** @description First day (inclusive, workspace time zone). Defaults to `to` minus 29 days. */
+                from?: string;
+                /** @description Last day (inclusive, workspace time zone). Defaults to today. */
+                to?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsTeam"];
+                };
+            };
+            /** @description `invalid`: bad range or report */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `feature_not_available`: the plan lacks the feature */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    analytics_templates_retrieve: {
+        parameters: {
+            query?: {
+                /** @description First day (inclusive, workspace time zone). Defaults to `to` minus 29 days. */
+                from?: string;
+                /** @description Last day (inclusive, workspace time zone). Defaults to today. */
+                to?: string;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsTemplates"];
+                };
+            };
+            /** @description `invalid`: bad range or report */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `feature_not_available`: the plan lacks the feature */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     auth_logout_create: {
         parameters: {
             query?: never;
