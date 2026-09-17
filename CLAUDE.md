@@ -45,7 +45,7 @@ After API changes, regenerate and commit `backend/openapi.yml` with the spectacu
 
 Copy `.env.example` to `.env` (repo root) for secrets (Meta app, Postgres, Redis, Fernet keys, Razorpay).
 
-Deployment (backend + dashboard): DigitalOcean App Platform from `.do/app.yaml` (buildpacks, no Dockerfile) on `app.upchatz.com` — service `api` (daphne), workers `worker` and `scheduler` (Celery beat, exactly one instance), PRE_DEPLOY job `migrate`, static site `dashboard`; owner steps in `docs/deployment/app-platform.md`. The buildpack installs `backend/requirements.txt`, which is generated: after any `uv.lock` change run `uv export --frozen --no-dev --no-hashes -o requirements.txt` in `backend/` and commit it (`deploy-config.yml` fails if stale and validates the spec). The spec holds placeholders only (`CHANGE_ME`).
+Deployment (backend + dashboard): DigitalOcean App Platform from `.do/app.yaml` (buildpacks, no Dockerfile) on `app.upchatz.com` — service `api` (daphne), workers `worker` and `scheduler` (Celery beat, exactly one instance), PRE_DEPLOY job `migrate`, static site `dashboard`; owner steps in `docs/deployment/app-platform.md`. The Python buildpack installs from `backend/uv.lock` (`uv sync --locked`, no dev group; Python from `.python-version`); never add a `requirements.txt`, because the buildpack refuses to build with two package manager files (`deploy-config.yml` checks this, runs `uv lock --check` and validates the spec). The spec holds placeholders only (`CHANGE_ME`).
 
 ## Architecture
 

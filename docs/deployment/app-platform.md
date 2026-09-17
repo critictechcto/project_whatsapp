@@ -18,14 +18,7 @@ Requests on `app.upchatz.com` are routed by path:
 
 The dashboard calls the API on its own origin, so there are no CORS or cross-site cookie problems.
 
-The backend is built by the Python buildpack from `backend/requirements.txt`. The buildpack uses `requirements.txt` rather than `uv.lock`, so regenerate it whenever dependencies change. CI (`deploy-config.yml`) fails if it is stale:
-
-```bash
-cd backend
-uv export --frozen --no-dev --no-hashes -o requirements.txt
-```
-
-It is exported without hashes: in hash-checking mode pip refuses any package without a hash, which is brittle when the buildpack installs its own tools. Versions are still pinned exactly by the lock file.
+The backend is built by the Python buildpack from `backend/uv.lock` (`uv sync --locked`, without the `dev` group), using the Python version in `backend/.python-version`. Keep `uv.lock` committed and in sync (`uv lock`); CI (`deploy-config.yml`) runs `uv lock --check`. Never add a `requirements.txt`: the buildpack refuses to build when it finds more than one package manager file.
 
 ---
 
@@ -50,7 +43,7 @@ If you use other names, change `cluster_name`, `db_name`, `db_user` and the pool
 ## 2. Create the app from the spec
 
 Use either option:
-- **Control panel:** Apps → Create App → pick the GitHub repo `critictechcto/project_whatsapp_landing_page`, branch `main`. Then *Edit App Spec* and paste `.do/app.yaml`.
+- **Control panel:** Apps → Create App → pick the GitHub repo `critictechcto/project_whatsapp`, branch `main`. Then *Edit App Spec* and paste `.do/app.yaml`.
 - **CLI:**
   ```bash
   doctl auth init

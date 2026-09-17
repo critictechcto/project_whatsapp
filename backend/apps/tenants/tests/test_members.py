@@ -131,6 +131,7 @@ def test_invitation_flow(auth_client, workspace, django_capture_on_commit_callba
     assert response.json()["status"] == "pending"
     assert "token" not in response.json()
     assert len(mail.outbox) == 1
+    assert "http://testserver-frontend/app/invitations/accept?token=" in mail.outbox[0].body
     token = mail.outbox[0].body.split("token=")[1].split()[0]
 
     invitee = UserFactory(email="neha@example.com")

@@ -51,12 +51,12 @@ services:
     source_dir: backend
     environment_slug: python
     github:
-      repo: critictechcto/project_whatsapp_landing_page
+      repo: critictechcto/project_whatsapp
       branch: main
       # Safer alternative: set false and deploy from CI after tests pass
       # (`doctl apps create-deployment <app-id>`), see docs/deployment/app-platform.md.
       deploy_on_push: true
-    # The Python buildpack installs requirements.txt. Only the api serves static files, so it
+    # The Python buildpack installs from uv.lock. Only the api serves static files, so it
     # collects them here with the placeholder build settings (see DISABLE_COLLECTSTATIC below).
     build_command: DJANGO_SETTINGS_MODULE=config.settings.build python manage.py collectstatic --noinput
     run_command: daphne --proxy-headers -b 0.0.0.0 -p 8080 config.asgi:application
@@ -76,7 +76,7 @@ workers:
     source_dir: backend
     environment_slug: python
     github:
-      repo: critictechcto/project_whatsapp_landing_page
+      repo: critictechcto/project_whatsapp
       branch: main
       deploy_on_push: true
     run_command: celery -A config worker -l info --concurrency 2
@@ -90,7 +90,7 @@ workers:
     source_dir: backend
     environment_slug: python
     github:
-      repo: critictechcto/project_whatsapp_landing_page
+      repo: critictechcto/project_whatsapp
       branch: main
       deploy_on_push: true
     run_command: celery -A config beat -l info
@@ -104,7 +104,7 @@ jobs:
     source_dir: backend
     environment_slug: python
     github:
-      repo: critictechcto/project_whatsapp_landing_page
+      repo: critictechcto/project_whatsapp
       branch: main
       deploy_on_push: true
     run_command: python manage.py migrate --noinput
@@ -117,7 +117,7 @@ static_sites:
     source_dir: frontend
     environment_slug: node-js
     github:
-      repo: critictechcto/project_whatsapp_landing_page
+      repo: critictechcto/project_whatsapp
       branch: main
       deploy_on_push: true
     build_command: npm ci && npm run build
@@ -142,9 +142,9 @@ static_sites:
       # Content-Security-Policy (frontend/scripts/csp.mjs): static sites cannot set response
       # headers on App Platform, so the build writes the policy as a <meta> tag. Origins product
       # images load from (PUBLIC_MEDIA_BASE_URL / the Spaces bucket), space-separated; narrow this
-      # to the exact CDN origin once it is known.
+      # to the CDN origin if the Spaces CDN is turned on.
       - key: VITE_MEDIA_ORIGINS
-        value: https://*.digitaloceanspaces.com
+        value: https://upchatz-storage-spaces.sgp1.digitaloceanspaces.com
         scope: BUILD_TIME
 
 databases:
@@ -225,13 +225,13 @@ envs:
     value: s3
     scope: RUN_AND_BUILD_TIME
   - key: AWS_STORAGE_BUCKET_NAME
-    value: CHANGE_ME
+    value: upchatz-storage-spaces
     scope: RUN_AND_BUILD_TIME
   - key: AWS_S3_ENDPOINT_URL
-    value: https://blr1.digitaloceanspaces.com
+    value: https://sgp1.digitaloceanspaces.com
     scope: RUN_AND_BUILD_TIME
   - key: AWS_S3_REGION_NAME
-    value: blr1
+    value: sgp1
     scope: RUN_AND_BUILD_TIME
   - key: AWS_ACCESS_KEY_ID
     value: CHANGE_ME
@@ -247,7 +247,7 @@ envs:
     scope: RUN_AND_BUILD_TIME
   # Public HTTPS base for product images (Meta fetches them), e.g. the Spaces CDN URL.
   - key: PUBLIC_MEDIA_BASE_URL
-    value: CHANGE_ME
+    value: https://upchatz-storage-spaces.sgp1.digitaloceanspaces.com
     scope: RUN_AND_BUILD_TIME
 
   # --- Meta / WhatsApp Cloud API ------------------------------------------------------------

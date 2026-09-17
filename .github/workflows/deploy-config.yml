@@ -1,8 +1,8 @@
 name: Deploy config
 
-# Guards the DigitalOcean App Platform inputs: backend/requirements.txt must match uv.lock (the
-# Python buildpack installs requirements.txt, not uv.lock) and .do/app.yaml must stay a sane spec
-# with placeholder-only secrets.
+# Guards the DigitalOcean App Platform inputs: backend/uv.lock must match pyproject.toml (the Python
+# buildpack installs from uv.lock and fails if another package manager file such as requirements.txt
+# exists) and .do/app.yaml must stay a sane spec with placeholder-only secrets.
 
 on:
   push:
@@ -10,7 +10,6 @@ on:
     paths:
       - 'backend/pyproject.toml'
       - 'backend/uv.lock'
-      - 'backend/requirements.txt'
       - 'backend/.python-version'
       - '.do/**'
       - '.github/workflows/deploy-config.yml'
@@ -18,7 +17,6 @@ on:
     paths:
       - 'backend/pyproject.toml'
       - 'backend/uv.lock'
-      - 'backend/requirements.txt'
       - 'backend/.python-version'
       - '.do/**'
       - '.github/workflows/deploy-config.yml'
@@ -33,7 +31,7 @@ permissions:
 
 jobs:
   check:
-    name: requirements.txt in sync, app spec valid
+    name: uv.lock in sync, app spec valid
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -43,14 +41,16 @@ jobs:
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
-      - name: requirements.txt matches uv.lock
+      - name: uv.lock matches pyproject.toml, no other package manager files
         working-directory: backend
         run: |
-          uv export --frozen --no-dev --no-hashes -o requirements.txt
-          if ! git diff --exit-code -- requirements.txt; then
-            echo "::error file=backend/requirements.txt::Stale. Run 'uv export --frozen --no-dev --no-hashes -o requirements.txt' in backend/ and commit it."
-            exit 1
-          fi
+          uv lock --check
+          for f in requirements.txt Pipfile Pipfile.lock poetry.lock; do
+            if [ -e "$f" ]; then
+              echo "::error file=backend/$f::Remove it. The buildpack installs from uv.lock and refuses to build with more than one package manager file."
+              exit 1
+            fi
+          done
 
       - name: .do/app.yaml is a valid spec with placeholder secrets
         run: |

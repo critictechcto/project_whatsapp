@@ -169,7 +169,7 @@ def create_invitation(
 
 def send_invitation_email(invitation: Invitation, raw_token: str) -> None:
     inviter = invitation.invited_by.get_full_name() if invitation.invited_by else "A teammate"
-    link = f"{settings.FRONTEND_URL.rstrip('/')}/invitations/accept?token={raw_token}"
+    link = f"{settings.FRONTEND_URL.rstrip('/')}/app/invitations/accept?token={raw_token}"
     send_mail(
         subject=f"You're invited to {invitation.workspace.name} on UpChatz",
         message=(

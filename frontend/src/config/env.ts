@@ -2,7 +2,7 @@
 
 declare global {
   interface ImportMetaEnv {
-    /** Absolute base path the app is served from, e.g. `/` or `/project_whatsapp_landing_page/`. */
+    /** Absolute base path the app is served from, e.g. `/` or `/project_whatsapp/`. */
     readonly VITE_BASE?: string
     /** API origin, e.g. `http://localhost:8000`. Empty means the page's own origin. */
     readonly VITE_API_URL?: string

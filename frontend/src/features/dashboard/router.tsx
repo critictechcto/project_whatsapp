@@ -47,5 +47,5 @@ export const dashboardRoutes: RouteObject[] = [
   { path: '*', element: <Navigate to="/app" replace /> },
 ]
 
-/** Router basename from Vite's base: `/` or `/project_whatsapp_landing_page`. */
+/** Router basename from Vite's base: `/` or `/project_whatsapp`. */
 export const routerBasename = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/'
