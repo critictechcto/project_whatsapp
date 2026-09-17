@@ -269,6 +269,8 @@ CORS_ALLOW_HEADERS = (
     "x-requested-with",
     "x-workspace-id",
 )
+# The dashboard names CSV downloads (analytics export) from this header on cross-origin setups.
+CORS_EXPOSE_HEADERS = ("content-disposition",)
 
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
