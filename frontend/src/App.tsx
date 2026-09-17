@@ -7,6 +7,8 @@ import { sitePageFor } from './features/site-pages/paths'
  * react-query, UI kit, MSW in mock mode) is a separate chunk requested only for `/app` paths.
  */
 const DashboardApp = lazy(async () => {
+  // Before any module that may parse with zod, mock handlers included (see zodConfig.ts).
+  await import('./features/dashboard/zodConfig')
   // Inline env check (not `env.isMock`) so live builds drop the MSW chunk entirely.
   if (import.meta.env.VITE_API_MODE === 'mock') {
     const { startMockWorker } = await import('./mocks/browser')

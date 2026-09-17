@@ -55,6 +55,7 @@ jobs:
       - name: .do/app.yaml is a valid spec with placeholder secrets
         run: |
           uv run --no-project --with pyyaml python - <<'PY'
+          import re
           import sys
           import yaml
 
@@ -102,6 +103,13 @@ jobs:
               site_env = {e["key"]: e.get("value") for e in site.get("envs") or []}
               if site_env.get("VITE_API_MODE") != "live":
                   errors.append("dashboard must build with VITE_API_MODE=live")
+              # The CSP meta tag (frontend/scripts/csp.mjs) must allow the product image host.
+              media = (site_env.get("VITE_MEDIA_ORIGINS") or "").split()
+              if not media:
+                  errors.append("dashboard needs VITE_MEDIA_ORIGINS (product image origins for the CSP)")
+              for origin in media:
+                  if not re.fullmatch(r"https://(\*\.)?[a-z0-9.-]+(:\d+)?", origin):
+                      errors.append(f"VITE_MEDIA_ORIGINS: {origin!r} is not an https origin")
           engines = {d.get("engine") for d in dbs.values()}
           if not {"PG", "VALKEY"} <= engines:
               errors.append("databases must include PG and VALKEY")
