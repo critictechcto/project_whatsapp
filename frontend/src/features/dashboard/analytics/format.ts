@@ -1,5 +1,10 @@
 import { formatNumber } from '../../../lib/format'
-import type { AnalyticsPaymentMethod, AnalyticsSource, DecimalRate } from './types'
+import type { Schemas } from '../../../api/types'
+
+/** Decimal 0-1 as a string (`"0.9612"`), or null when the denominator is 0. */
+type DecimalRate = string | null
+type AnalyticsSource = Schemas['AnalyticsMessageSourceEnum']
+type AnalyticsPaymentMethod = Schemas['AnalyticsPaymentMethodRow']['payment_method']
 
 const percent = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 

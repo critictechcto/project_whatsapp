@@ -3,8 +3,8 @@ import { useId, useState, type ReactNode } from 'react'
 import { errorMessage } from '../../../../api/errors'
 import { Button, Skeleton, useToast } from '../../../../components/app'
 import { cn } from '../../../../lib/cn'
-import { downloadReportCsv } from '../api'
-import type { AnalyticsReport, DateRange } from '../types'
+import { downloadReportCsv, type AnalyticsReport } from '../api'
+import type { DateRange } from '../range'
 
 /** Error box with a retry button, announced to screen readers. */
 export function ReportError({ title, error, onRetry }: { title: string; error: unknown; onRetry: () => void }) {

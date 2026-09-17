@@ -6,25 +6,24 @@
  */
 import { db } from '../../../mocks/db'
 import { ids, seedTemplates } from '../../../mocks/seed'
-import { addDays, daysInRange, eachDate, previousRange } from './range'
-import type {
-  AnalyticsCampaignRow,
-  AnalyticsCampaigns,
-  AnalyticsCategoryRow,
-  AnalyticsCommerce,
-  AnalyticsFailureRow,
-  AnalyticsMessages,
-  AnalyticsOverview,
-  AnalyticsPaymentMethod,
-  AnalyticsRange,
-  AnalyticsSource,
-  AnalyticsTeam,
-  AnalyticsTemplateRow,
-  AnalyticsTemplates,
-  AnalyticsTotals,
-  DateRange,
-  DecimalRate,
-} from './types'
+import type { Schemas } from '../../../api/types'
+import { addDays, daysInRange, eachDate, previousRange, type DateRange } from './range'
+
+type AnalyticsCampaignRow = Schemas['AnalyticsCampaignRow']
+type AnalyticsCampaigns = Schemas['AnalyticsCampaigns']
+type AnalyticsCategoryRow = Schemas['AnalyticsCategoryRow']
+type AnalyticsCommerce = Schemas['AnalyticsCommerce']
+type AnalyticsFailureRow = Schemas['AnalyticsFailureRow']
+type AnalyticsMessages = Schemas['AnalyticsMessages']
+type AnalyticsOverview = Schemas['AnalyticsOverview']
+type AnalyticsPaymentMethod = Schemas['AnalyticsPaymentMethodRow']['payment_method']
+type AnalyticsRange = Schemas['AnalyticsRange']
+type AnalyticsSource = Schemas['AnalyticsMessageSourceEnum']
+type AnalyticsTeam = Schemas['AnalyticsTeam']
+type AnalyticsTemplateRow = Schemas['AnalyticsTemplateRow']
+type AnalyticsTemplates = Schemas['AnalyticsTemplates']
+type AnalyticsTotals = Schemas['AnalyticsTotals']
+type DecimalRate = string | null
 
 /** Days of seeded history, ending today. */
 export const SEEDED_DAYS = 90
@@ -458,7 +457,8 @@ export function teamReport(workspaceId: string, range: DateRange, today: string,
       const pick = (field: 'inboxBySender' | 'assigned' | 'closed') => (slot < 0 ? 0 : sumBy(list, (day) => day[field][slot]))
       return {
         user_id: membership.user_id,
-        name: user?.full_name ?? '',
+        // Like the API: the name falls back to the email.
+        name: user?.full_name || user?.email || '',
         email: user?.email ?? '',
         role: membership.role,
         messages_sent: pick('inboxBySender'),

@@ -1,6 +1,8 @@
 import { TZDate } from '@date-fns/tz'
 import { format } from 'date-fns'
-import type { DateRange } from './types'
+
+/** The `from`/`to` query of every analytics endpoint (inclusive dates, `YYYY-MM-DD`). */
+export type DateRange = { from: string; to: string }
 
 /** Longest range the API accepts, in days (inclusive). */
 export const MAX_RANGE_DAYS = 92

@@ -6,7 +6,11 @@ import { formatPaise } from '../../../../lib/money'
 import type { useCommerceReport } from '../api'
 import { formatNumber, orderStatusLabel, paymentMethodLabels } from '../format'
 import { formatDayLabel, formatRangeLabel } from '../range'
-import type { AnalyticsPaymentMethodRow, AnalyticsProductRow, DateRange } from '../types'
+import type { Schemas } from '../../../../api/types'
+import type { DateRange } from '../range'
+
+type AnalyticsPaymentMethodRow = Schemas['AnalyticsPaymentMethodRow']
+type AnalyticsProductRow = Schemas['AnalyticsProductRow']
 import { Panel, ReportError, ReportHeader, ReportSkeleton, ShareBar } from './ReportStates'
 
 type Metric = 'revenue_paise' | 'orders'

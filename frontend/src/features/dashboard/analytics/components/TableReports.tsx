@@ -6,7 +6,13 @@ import { formatDateTime } from '../../../../lib/datetime'
 import { useWorkspace } from '../../../../lib/workspace'
 import { useCampaignsReport, useTeamReport, useTemplatesReport } from '../api'
 import { categoryLabel, formatNumber, formatRate, roleLabel } from '../format'
-import type { AnalyticsCampaignRow, AnalyticsReport, AnalyticsTeamRow, AnalyticsTemplateRow, DateRange } from '../types'
+import type { Schemas } from '../../../../api/types'
+import type { AnalyticsReport } from '../api'
+import type { DateRange } from '../range'
+
+type AnalyticsCampaignRow = Schemas['AnalyticsCampaignRow']
+type AnalyticsTeamRow = Schemas['AnalyticsTeamRow']
+type AnalyticsTemplateRow = Schemas['AnalyticsTemplateRow']
 import { ReportError, ReportHeader, ReportSkeleton } from './ReportStates'
 
 const num = (value: number) => <span className="tabular-nums">{formatNumber(value)}</span>

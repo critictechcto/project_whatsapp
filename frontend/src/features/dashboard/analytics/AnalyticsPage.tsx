@@ -11,7 +11,7 @@ import { ReportError } from './components/ReportStates'
 import { CampaignsReport, TeamReport, TemplatesReport } from './components/TableReports'
 import { UpgradePanel } from './components/UpgradePanel'
 import { formatRangeLabel, previousRange, rangeFromSearch, todayIn } from './range'
-import type { DateRange } from './types'
+import type { DateRange } from './range'
 
 type ReportTab = 'messages' | 'templates' | 'campaigns' | 'team' | 'commerce'
 

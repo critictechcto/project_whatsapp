@@ -8,7 +8,7 @@ import {
   validateRange,
   type RangePreset,
 } from '../range'
-import type { DateRange } from '../types'
+import type { DateRange } from '../range'
 
 type RangeControlProps = {
   range: DateRange

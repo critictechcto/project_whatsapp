@@ -2,7 +2,9 @@ import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { Skeleton } from '../../../../components/app'
 import { cn } from '../../../../lib/cn'
 import { buildKpis, type Kpi } from '../kpis'
-import type { AnalyticsOverview } from '../types'
+import type { Schemas } from '../../../../api/types'
+
+type AnalyticsOverview = Schemas['AnalyticsOverview']
 
 function DeltaLine({ kpi }: { kpi: Kpi }) {
   const { direction, text } = kpi.delta

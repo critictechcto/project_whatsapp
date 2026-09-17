@@ -5,7 +5,12 @@ import { cn } from '../../../../lib/cn'
 import { useMessagesReport } from '../api'
 import { categoryLabel, failureCodeLabels, failureLabel, formatNumber, formatRate, sourceLabel } from '../format'
 import { formatDayLabel, formatRangeLabel } from '../range'
-import type { AnalyticsCategoryRow, AnalyticsMessagePoint, AnalyticsSourceRow, DateRange } from '../types'
+import type { Schemas } from '../../../../api/types'
+import type { DateRange } from '../range'
+
+type AnalyticsCategoryRow = Schemas['AnalyticsCategoryRow']
+type AnalyticsMessagePoint = Schemas['AnalyticsMessagePoint']
+type AnalyticsSourceRow = Schemas['AnalyticsSourceRow']
 import { Panel, ReportError, ReportHeader, ReportSkeleton, ShareBar } from './ReportStates'
 
 type Metric = Exclude<keyof AnalyticsMessagePoint, 'date'>

@@ -1,6 +1,8 @@
 import { formatPaise } from '../../../lib/money'
 import { countDelta, formatNumber, formatRate, rateDelta, type Delta } from './format'
-import type { AnalyticsOverview } from './types'
+import type { Schemas } from '../../../api/types'
+
+type AnalyticsOverview = Schemas['AnalyticsOverview']
 
 export type Kpi = {
   id: string

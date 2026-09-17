@@ -1,46 +1,44 @@
 /**
- * Every analytics API call lives here. `backend/openapi.yml` has no analytics paths yet, so the reports
- * go through the untyped `apiFetch` (same auth, refresh and `X-Workspace-ID` handling as `api`) with
- * the hand-written types in `./types`. Once the schema is regenerated, swap `apiFetch<T>(path)` for
- * `unwrap(api.GET('/api/v1/analytics/<report>/', { params: { query: range }, signal }))` and the types
- * for `Schemas[...]`; nothing outside this file needs to change.
+ * Every analytics API call lives here, on the typed client (`backend/openapi.yml`); response types are
+ * `Schemas['Analytics…']`.
  */
 import { useQuery } from '@tanstack/react-query'
-import { apiFetch, authFetch } from '../../../api/client'
+import { api, unwrap } from '../../../api/client'
 import { ApiError, isApiError } from '../../../api/errors'
 import { workspaceKeys } from '../../../api/queryKeys'
-import { env } from '../../../config/env'
+import type { paths } from '../../../api/schema'
+import type { Schemas } from '../../../api/types'
 import { useWorkspace } from '../../../lib/workspace'
-import type {
-  AnalyticsCampaigns,
-  AnalyticsCommerce,
-  AnalyticsMessages,
-  AnalyticsOverview,
-  AnalyticsReport,
-  AnalyticsTeam,
-  AnalyticsTemplates,
-  DateRange,
-} from './types'
+import type { DateRange } from './range'
 
 export const analyticsKeys = workspaceKeys('analytics')
 
-export const ANALYTICS_BASE = '/api/v1/analytics/'
-
-function rangeQuery(range: DateRange, extra: Record<string, string> = {}): string {
-  return new URLSearchParams({ ...extra, from: range.from, to: range.to }).toString()
-}
+/** `report` values of `GET /api/v1/analytics/export/`. */
+export type AnalyticsReport = NonNullable<paths['/api/v1/analytics/export/']['get']['parameters']['query']>['report']
 
 type ReportResponses = {
-  overview: AnalyticsOverview
-  messages: AnalyticsMessages
-  templates: AnalyticsTemplates
-  campaigns: AnalyticsCampaigns
-  team: AnalyticsTeam
-  commerce: AnalyticsCommerce
+  overview: Schemas['AnalyticsOverview']
+  messages: Schemas['AnalyticsMessages']
+  templates: Schemas['AnalyticsTemplates']
+  campaigns: Schemas['AnalyticsCampaigns']
+  team: Schemas['AnalyticsTeam']
+  commerce: Schemas['AnalyticsCommerce']
 }
 
-export function fetchReport<K extends keyof ReportResponses>(report: K, range: DateRange, signal?: AbortSignal) {
-  return apiFetch<ReportResponses[K]>(`${ANALYTICS_BASE}${report}/?${rangeQuery(range)}`, { signal })
+type Fetchers = { [K in keyof ReportResponses]: (query: DateRange, signal?: AbortSignal) => Promise<ReportResponses[K]> }
+
+const reportFetchers: Fetchers = {
+  overview: (query, signal) => unwrap(api.GET('/api/v1/analytics/overview/', { params: { query }, signal })),
+  messages: (query, signal) => unwrap(api.GET('/api/v1/analytics/messages/', { params: { query }, signal })),
+  templates: (query, signal) => unwrap(api.GET('/api/v1/analytics/templates/', { params: { query }, signal })),
+  campaigns: (query, signal) => unwrap(api.GET('/api/v1/analytics/campaigns/', { params: { query }, signal })),
+  team: (query, signal) => unwrap(api.GET('/api/v1/analytics/team/', { params: { query }, signal })),
+  commerce: (query, signal) => unwrap(api.GET('/api/v1/analytics/commerce/', { params: { query }, signal })),
+}
+
+export function fetchReport<K extends keyof ReportResponses>(report: K, range: DateRange, signal?: AbortSignal): Promise<ReportResponses[K]> {
+  const fetcher = reportFetchers[report] as Fetchers[K]
+  return fetcher({ from: range.from, to: range.to }, signal)
 }
 
 function useReport<K extends keyof ReportResponses>(report: K, range: DateRange, enabled = true) {
@@ -63,7 +61,7 @@ export const useCommerceReport = (range: DateRange, enabled = true) => useReport
 export function isFeatureUnavailable(error: unknown, feature: 'analytics' | 'commerce'): boolean {
   if (!isApiError(error, 'feature_not_available')) return false
   const details = error.details as { feature?: unknown } | null
-  // An older backend may omit details; the analytics endpoints only gate on these two features.
+  // Details may be omitted; the analytics endpoints only gate on these two features.
   return !details || details.feature === undefined || details.feature === feature
 }
 
@@ -87,12 +85,14 @@ export function filenameFromDisposition(header: string | null): string | null {
  * workspace header, so a plain link would not work) and saves it with the server's file name.
  */
 export async function downloadReportCsv(report: AnalyticsReport, range: DateRange): Promise<string> {
-  const response = await authFetch(new Request(`${env.apiUrl}${ANALYTICS_BASE}export/?${rangeQuery(range, { report })}`))
-  if (!response.ok) throw await ApiError.fromResponse(response)
+  const { data, error, response } = await api.GET('/api/v1/analytics/export/', {
+    params: { query: { report, from: range.from, to: range.to } },
+    parseAs: 'blob',
+  })
+  if (!response.ok || !data) throw new ApiError(response.status, error ?? null)
   const filename = filenameFromDisposition(response.headers.get('Content-Disposition')) ?? `upchatz-${report}-${range.from}-${range.to}.csv`
-  const blob = await response.blob()
   if (typeof URL.createObjectURL === 'function') {
-    const url = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(data)
     const link = document.createElement('a')
     link.href = url
     link.download = filename
