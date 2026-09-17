@@ -9,6 +9,18 @@ export const PHONE_ALIASES = ['phone', 'phone_number', 'mobile', 'whatsapp', 'nu
 
 export const MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
+/**
+ * Example file shown and offered for download on the import page. Made-up customers; the columns
+ * show each mapping (phone with and without +91, name, email, attributes, a quoted comma).
+ */
+export const SAMPLE_CSV_FILENAME = 'upchatz-contacts-sample.csv'
+export const SAMPLE_CSV = [
+  'phone,name,email,city,last_order',
+  '+919876543210,Priya Sharma,priya.sharma@example.com,Jaipur,Kaju katli 500 g',
+  '9812345678,Rahul Verma,,Pune,"Rasgulla, 1 kg"',
+  '+91 99887 76655,Ananya Iyer,ananya@example.com,Chennai,',
+].join('\r\n')
+
 export type ColumnTarget = 'phone' | 'name' | 'email' | 'attribute' | 'ignored'
 
 export type ColumnMapping = {

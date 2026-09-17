@@ -147,6 +147,30 @@ describe('contact detail', () => {
 })
 
 describe('CSV import', () => {
+  it('shows an example file that can be downloaded', async () => {
+    signIn()
+    // jsdom has no object URLs; define them so they can be spied on (restoreMocks undoes the spies).
+    URL.createObjectURL ??= () => ''
+    URL.revokeObjectURL ??= () => {}
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:sample')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const { user } = renderDashboard(`${base}/imports/new`)
+
+    const sample = await screen.findByRole('table', { name: /Example CSV/ }, LAZY)
+    expect(within(sample).getByRole('columnheader', { name: /phone\s*Phone number/ })).toBeInTheDocument()
+    expect(within(sample).getByRole('columnheader', { name: /city\s*Attribute/ })).toBeInTheDocument()
+    expect(within(sample).getByRole('row', { name: /Priya Sharma/ })).toBeInTheDocument()
+    expect(within(sample).getByRole('cell', { name: 'Rasgulla, 1 kg' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Download sample CSV' }))
+    expect(click).toHaveBeenCalledTimes(1)
+    const link = click.mock.instances[0] as unknown as HTMLAnchorElement
+    expect(link.download).toBe('upchatz-contacts-sample.csv')
+    const text = await (createObjectURL.mock.calls[0][0] as Blob).text()
+    expect(text.split('\r\n')[0]).toBe('phone,name,email,city,last_order')
+  })
+
   it('blocks without the consent attestation, then polls until the import completes', async () => {
     // jsdom's FormData/File aren't understood by Node's fetch, which MSW uses to read multipart bodies.
     const NodeFormData = (
@@ -166,6 +190,7 @@ describe('CSV import', () => {
     const mapping = await screen.findByRole('table', { name: 'Column mapping' })
     expect(within(mapping).getByRole('row', { name: /phone\s+Phone number\s+9876500001/ })).toBeInTheDocument()
     expect(within(mapping).getByRole('row', { name: /city\s+Attribute\s*city\s+Pune/ })).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: /Example CSV/ })).not.toBeInTheDocument()
 
     const before = contactsMock().imports.length
     await user.click(screen.getByRole('button', { name: 'Start import' }))

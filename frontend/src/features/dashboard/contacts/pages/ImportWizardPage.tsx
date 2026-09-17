@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CircleAlert, FileSpreadsheet, X } from 'lucide-react'
+import { ArrowLeft, CircleAlert, Download, FileSpreadsheet, X } from 'lucide-react'
 import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
@@ -12,7 +12,15 @@ import { formatNumber } from '../../../../lib/format'
 import { useWorkspace } from '../../../../lib/workspace'
 import { contactKeys, createImport, useTags } from '../api'
 import { FormError, TagPicker } from '../components/shared'
-import { buildPreview, MAX_IMPORT_BYTES, PHONE_ALIASES, type ColumnTarget, type CsvPreview } from '../lib/csv'
+import {
+  buildPreview,
+  MAX_IMPORT_BYTES,
+  PHONE_ALIASES,
+  SAMPLE_CSV,
+  SAMPLE_CSV_FILENAME,
+  type ColumnTarget,
+  type CsvPreview,
+} from '../lib/csv'
 
 const targetLabels: Record<ColumnTarget, string> = {
   phone: 'Phone number',
@@ -155,6 +163,7 @@ export function ImportWizardPage() {
             Name the phone column one of {PHONE_ALIASES.map((alias) => `"${alias}"`).join(', ')}. Columns named "name" and "email" fill
             those fields; other columns become attributes. Numbers without a country code are read as Indian (+91).
           </p>
+          {!selected && <SampleCsv />}
         </Step>
 
         {preview && (
@@ -279,6 +288,62 @@ export function ImportWizardPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+const samplePreview = buildPreview(SAMPLE_CSV)!
+
+/** An example file: how a CSV should look, as a table plus a download to start from. */
+function SampleCsv() {
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([SAMPLE_CSV], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = SAMPLE_CSV_FILENAME
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <section aria-labelledby="import-sample-title" className="rounded-xl border border-line bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-2 px-4 py-2.5">
+        <h3 id="import-sample-title" className="text-sm font-medium text-ink">
+          Example file
+        </h3>
+        <Button variant="secondary" size="sm" icon={<Download className="size-4" aria-hidden="true" />} onClick={download}>
+          Download sample CSV
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-[13px]">
+          <caption className="sr-only">Example CSV with a header row and three contacts</caption>
+          <thead>
+            <tr className="bg-paper/60 text-left">
+              {samplePreview.mapping.map((column) => (
+                <th key={column.index} scope="col" className="whitespace-nowrap px-3 py-2 align-bottom font-normal">
+                  <span className="block font-mono text-[12.5px] text-ink">{column.header}</span>
+                  <span className="block text-[12px] text-muted">{targetLabels[column.target]}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {samplePreview.rows.map((row, rowIndex) => (
+              <tr key={rowIndex} className="border-t border-line-2">
+                {samplePreview.header.map((_, index) => (
+                  <td key={index} className="whitespace-nowrap px-3 py-2 text-ink-2">
+                    {row[index] || <span className="text-muted">—</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t border-line-2 px-4 py-2.5 text-[13px] text-muted">
+        Only a phone column is required. Blank cells are fine, and a value with a comma needs quotes, e.g. "Rasgulla, 1 kg".
+      </p>
+    </section>
   )
 }
 
