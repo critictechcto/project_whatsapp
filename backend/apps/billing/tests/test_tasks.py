@@ -92,16 +92,43 @@ def test_seeded_plans_match_the_pricing_page():
 def test_the_data_migrations_seed_the_default_catalogue():
     seed = importlib.import_module("apps.billing.migrations.0002_seed_plans")
     commerce = importlib.import_module("apps.billing.migrations.0003_add_commerce_feature")
+    analytics = importlib.import_module("apps.billing.migrations.0004_add_analytics_feature")
 
-    migrated = {
-        slug: {**fields, "features": commerce.with_commerce(fields["features"])}
-        for slug, fields in seed.PLANS.items()
-    }
+    migrated = {}
+    for slug, fields in seed.PLANS.items():
+        features = commerce.with_commerce(fields["features"])
+        if slug in analytics.PLAN_SLUGS:
+            features = analytics.with_analytics(features)
+        migrated[slug] = {**fields, "features": features}
     assert {spec["slug"]: plan_fields(spec) for spec in DEFAULT_PLANS} == migrated
 
 
 def test_every_seeded_plan_includes_commerce():
     assert all("commerce" in plan.features for plan in Plan.objects.all())
+
+
+def test_analytics_is_on_growth_and_pro_only():
+    features = dict(Plan.objects.values_list("slug", "features"))
+    assert "analytics" not in features["starter"]
+    assert "analytics" in features["growth"]
+    assert "analytics" in features["pro"]
+
+
+def test_the_analytics_migration_is_idempotent():
+    analytics = importlib.import_module("apps.billing.migrations.0004_add_analytics_feature")
+    Plan.objects.filter(slug="starter").update(features=["commerce"])
+    Plan.objects.filter(slug="growth").update(features=["commerce"])
+
+    analytics.add_analytics(django_apps, None)
+    analytics.add_analytics(django_apps, None)
+
+    features = dict(Plan.objects.values_list("slug", "features"))
+    assert features["starter"] == ["commerce"]
+    assert features["growth"] == ["commerce", "analytics"]
+    assert features["pro"].count("analytics") == 1
+
+    analytics.remove_analytics(django_apps, None)
+    assert Plan.objects.get(slug="growth").features == ["commerce"]
 
 
 def test_the_commerce_migration_is_idempotent():

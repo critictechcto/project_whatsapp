@@ -4,6 +4,313 @@ info:
   version: 1.0.0
   description: Multi-tenant WhatsApp Business Platform (Cloud API) for Indian businesses.
 paths:
+  /api/v1/analytics/campaigns/:
+    get:
+      operationId: analytics_campaigns_retrieve
+      description: Dates are inclusive and read in the workspace time zone. Readable
+        by every member; needs the plan's `analytics` feature.
+      summary: Campaigns started in the range
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: First day (inclusive, workspace time zone). Defaults to `to`
+          minus 29 days.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Last day (inclusive, workspace time zone). Defaults to today.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsCampaigns'
+          description: ''
+        '400':
+          description: '`invalid`: bad range or report'
+        '409':
+          description: '`feature_not_available`: the plan lacks the feature'
+  /api/v1/analytics/commerce/:
+    get:
+      operationId: analytics_commerce_retrieve
+      description: Dates are inclusive and read in the workspace time zone. Readable
+        by every member; needs the plan's `analytics` feature. Also needs the `commerce`
+        feature.
+      summary: Orders and revenue (needs the commerce feature)
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: First day (inclusive, workspace time zone). Defaults to `to`
+          minus 29 days.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Last day (inclusive, workspace time zone). Defaults to today.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsCommerce'
+          description: ''
+        '400':
+          description: '`invalid`: bad range or report'
+        '409':
+          description: '`feature_not_available`: the plan lacks the feature'
+  /api/v1/analytics/export/:
+    get:
+      operationId: analytics_export_retrieve
+      description: The rows of the matching report (the daily series for `messages`
+        and `commerce`), with money in rupees. Same range and plan checks as that
+        report.
+      summary: Download a report as CSV
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: First day (inclusive, workspace time zone). Defaults to `to`
+          minus 29 days.
+      - in: query
+        name: report
+        schema:
+          type: string
+          enum:
+          - campaigns
+          - commerce
+          - messages
+          - team
+          - templates
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Last day (inclusive, workspace time zone). Defaults to today.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: CSV file
+        '400':
+          description: '`invalid`: bad range or report'
+        '409':
+          description: '`feature_not_available`: the plan lacks the feature'
+  /api/v1/analytics/messages/:
+    get:
+      operationId: analytics_messages_retrieve
+      description: Dates are inclusive and read in the workspace time zone. Readable
+        by every member; needs the plan's `analytics` feature.
+      summary: Daily message series and breakdowns
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: First day (inclusive, workspace time zone). Defaults to `to`
+          minus 29 days.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Last day (inclusive, workspace time zone). Defaults to today.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsMessages'
+          description: ''
+        '400':
+          description: '`invalid`: bad range or report'
+        '409':
+          description: '`feature_not_available`: the plan lacks the feature'
+  /api/v1/analytics/overview/:
+    get:
+      operationId: analytics_overview_retrieve
+      description: Dates are inclusive and read in the workspace time zone. Readable
+        by every member; needs the plan's `analytics` feature.
+      summary: Totals for the range and the previous period
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: First day (inclusive, workspace time zone). Defaults to `to`
+          minus 29 days.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Last day (inclusive, workspace time zone). Defaults to today.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsOverview'
+          description: ''
+        '400':
+          description: '`invalid`: bad range or report'
+        '409':
+          description: '`feature_not_available`: the plan lacks the feature'
+  /api/v1/analytics/team/:
+    get:
+      operationId: analytics_team_retrieve
+      description: Dates are inclusive and read in the workspace time zone. Readable
+        by every member; needs the plan's `analytics` feature.
+      summary: Per-member activity
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: First day (inclusive, workspace time zone). Defaults to `to`
+          minus 29 days.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Last day (inclusive, workspace time zone). Defaults to today.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsTeam'
+          description: ''
+        '400':
+          description: '`invalid`: bad range or report'
+        '409':
+          description: '`feature_not_available`: the plan lacks the feature'
+  /api/v1/analytics/templates/:
+    get:
+      operationId: analytics_templates_retrieve
+      description: Dates are inclusive and read in the workspace time zone. Readable
+        by every member; needs the plan's `analytics` feature.
+      summary: Template performance
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: First day (inclusive, workspace time zone). Defaults to `to`
+          minus 29 days.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Last day (inclusive, workspace time zone). Defaults to today.
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsTemplates'
+          description: ''
+        '400':
+          description: '`invalid`: bad range or report'
+        '409':
+          description: '`feature_not_available`: the plan lacks the feature'
   /api/v1/auth/logout/:
     post:
       operationId: auth_logout_create
@@ -5115,6 +5422,495 @@ components:
         * `pending` - pending
         * `verified` - verified
         * `opted_out` - opted_out
+    AnalyticsCampaignRow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/CampaignStatusEnum'
+        started_at:
+          type: string
+          format: date-time
+        total_count:
+          type: integer
+        sent_count:
+          type: integer
+        delivered_count:
+          type: integer
+        read_count:
+          type: integer
+        failed_count:
+          type: integer
+        replied_count:
+          type: integer
+        delivery_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+        read_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+        reply_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+      required:
+      - delivered_count
+      - delivery_rate
+      - failed_count
+      - id
+      - name
+      - read_count
+      - read_rate
+      - replied_count
+      - reply_rate
+      - sent_count
+      - started_at
+      - status
+      - total_count
+    AnalyticsCampaigns:
+      type: object
+      properties:
+        range:
+          $ref: '#/components/schemas/AnalyticsRange'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsCampaignRow'
+      required:
+      - range
+      - results
+    AnalyticsCategoryRow:
+      type: object
+      properties:
+        category:
+          type: string
+        sent:
+          type: integer
+        delivered:
+          type: integer
+        read:
+          type: integer
+        failed:
+          type: integer
+      required:
+      - category
+      - delivered
+      - failed
+      - read
+      - sent
+    AnalyticsCommerce:
+      type: object
+      properties:
+        range:
+          $ref: '#/components/schemas/AnalyticsRange'
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsCommercePoint'
+        orders:
+          type: integer
+        paid_orders:
+          type: integer
+        revenue_paise:
+          type: integer
+        average_order_paise:
+          type: integer
+          nullable: true
+        by_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsOrderStatusRow'
+        by_payment_method:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsPaymentMethodRow'
+        top_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsProductRow'
+      required:
+      - average_order_paise
+      - by_payment_method
+      - by_status
+      - orders
+      - paid_orders
+      - range
+      - revenue_paise
+      - series
+      - top_products
+    AnalyticsCommercePoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        orders:
+          type: integer
+        revenue_paise:
+          type: integer
+      required:
+      - date
+      - orders
+      - revenue_paise
+    AnalyticsFailureRow:
+      type: object
+      properties:
+        error_code:
+          type: string
+        count:
+          type: integer
+      required:
+      - count
+      - error_code
+    AnalyticsMessagePoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        sent:
+          type: integer
+        delivered:
+          type: integer
+        read:
+          type: integer
+        failed:
+          type: integer
+        received:
+          type: integer
+      required:
+      - date
+      - delivered
+      - failed
+      - read
+      - received
+      - sent
+    AnalyticsMessageSourceEnum:
+      enum:
+      - inbox
+      - campaign
+      - automation
+      - api
+      - commerce
+      type: string
+      description: |-
+        * `inbox` - Inbox
+        * `campaign` - Campaign
+        * `automation` - Automation
+        * `api` - API
+        * `commerce` - Commerce
+    AnalyticsMessages:
+      type: object
+      properties:
+        range:
+          $ref: '#/components/schemas/AnalyticsRange'
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsMessagePoint'
+        by_source:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsSourceRow'
+        by_category:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsCategoryRow'
+        failure_reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsFailureRow'
+      required:
+      - by_category
+      - by_source
+      - failure_reasons
+      - range
+      - series
+    AnalyticsOrderStatusRow:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/OrderStatusEnum'
+        count:
+          type: integer
+      required:
+      - count
+      - status
+    AnalyticsOverview:
+      type: object
+      properties:
+        range:
+          $ref: '#/components/schemas/AnalyticsRange'
+        current:
+          $ref: '#/components/schemas/AnalyticsTotals'
+        previous:
+          $ref: '#/components/schemas/AnalyticsTotals'
+      required:
+      - current
+      - previous
+      - range
+    AnalyticsPaymentMethodEnum:
+      enum:
+      - online
+      - cod
+      type: string
+      description: |-
+        * `online` - Online payment
+        * `cod` - Cash on delivery (COD)
+    AnalyticsPaymentMethodRow:
+      type: object
+      properties:
+        payment_method:
+          oneOf:
+          - $ref: '#/components/schemas/AnalyticsPaymentMethodEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        orders:
+          type: integer
+        revenue_paise:
+          type: integer
+      required:
+      - orders
+      - payment_method
+      - revenue_paise
+    AnalyticsProductRow:
+      type: object
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        quantity:
+          type: integer
+        revenue_paise:
+          type: integer
+      required:
+      - name
+      - product_id
+      - quantity
+      - revenue_paise
+    AnalyticsRange:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        time_zone:
+          type: string
+        previous_from:
+          type: string
+          format: date
+        previous_to:
+          type: string
+          format: date
+      required:
+      - from
+      - previous_from
+      - previous_to
+      - time_zone
+      - to
+    AnalyticsSourceRow:
+      type: object
+      properties:
+        source:
+          $ref: '#/components/schemas/AnalyticsMessageSourceEnum'
+        sent:
+          type: integer
+        delivered:
+          type: integer
+        read:
+          type: integer
+        failed:
+          type: integer
+        delivery_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+        read_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+      required:
+      - delivered
+      - delivery_rate
+      - failed
+      - read
+      - read_rate
+      - sent
+      - source
+    AnalyticsTeam:
+      type: object
+      properties:
+        range:
+          $ref: '#/components/schemas/AnalyticsRange'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsTeamRow'
+      required:
+      - range
+      - results
+    AnalyticsTeamRow:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        messages_sent:
+          type: integer
+        conversations_assigned:
+          type: integer
+        conversations_closed:
+          type: integer
+      required:
+      - conversations_assigned
+      - conversations_closed
+      - email
+      - messages_sent
+      - name
+      - role
+      - user_id
+    AnalyticsTemplateRow:
+      type: object
+      properties:
+        template_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        language:
+          type: string
+        category:
+          type: string
+        sent:
+          type: integer
+        delivered:
+          type: integer
+        read:
+          type: integer
+        failed:
+          type: integer
+        delivery_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+        read_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+      required:
+      - category
+      - delivered
+      - delivery_rate
+      - failed
+      - language
+      - name
+      - read
+      - read_rate
+      - sent
+      - template_id
+    AnalyticsTemplates:
+      type: object
+      properties:
+        range:
+          $ref: '#/components/schemas/AnalyticsRange'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsTemplateRow'
+      required:
+      - range
+      - results
+    AnalyticsTotals:
+      type: object
+      properties:
+        messages_sent:
+          type: integer
+        messages_delivered:
+          type: integer
+        messages_read:
+          type: integer
+        messages_failed:
+          type: integer
+        messages_received:
+          type: integer
+        delivery_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+        read_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+          description: 0-1, or null
+        conversations_started:
+          type: integer
+        contacts_added:
+          type: integer
+        contacts_opted_in:
+          type: integer
+        contacts_opted_out:
+          type: integer
+        campaigns_sent:
+          type: integer
+        automation_runs:
+          type: integer
+        orders:
+          type: integer
+          nullable: true
+        revenue_paise:
+          type: integer
+          nullable: true
+      required:
+      - automation_runs
+      - campaigns_sent
+      - contacts_added
+      - contacts_opted_in
+      - contacts_opted_out
+      - conversations_started
+      - delivery_rate
+      - messages_delivered
+      - messages_failed
+      - messages_read
+      - messages_received
+      - messages_sent
+      - orders
+      - read_rate
+      - revenue_paise
     AssignConversationRequest:
       type: object
       properties:
@@ -5469,6 +6265,9 @@ components:
       - legal_name
       - postal_code
       - state_code
+    BlankEnum:
+      enum:
+      - ''
     BulkTagRequest:
       type: object
       properties:

@@ -38,8 +38,10 @@ def test_entitlement_keys():
         entitlements.KEYWORD_AUTOMATIONS,
         entitlements.API_ACCESS,
         entitlements.COMMERCE,
+        entitlements.ANALYTICS,
     }
     assert entitlements.COMMERCE == "commerce"
+    assert entitlements.ANALYTICS == "analytics"
 
 
 def test_unknown_keys_are_programming_errors(workspace):

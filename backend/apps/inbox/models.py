@@ -211,6 +211,8 @@ class Message(TenantScopedModel):
                 fields=["workspace", "source", "source_ref"], name="inbox_msg_ws_source_ref_idx"
             ),
             models.Index(fields=["conversation", "created_at"], name="inbox_msg_conv_created_idx"),
+            # Analytics reports aggregate a workspace's messages by created_at.
+            models.Index(fields=["workspace", "created_at"], name="inbox_msg_ws_created_idx"),
         ]
 
     def __str__(self) -> str:
