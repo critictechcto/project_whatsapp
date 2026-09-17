@@ -1,10 +1,10 @@
 /*
  * "Sell on WhatsApp" stage — ShopJourneyMockup.tsx.
- * Phones (below sm) get a flat layout; sm and up get a CSS 3D stage with a resting pose, and devices
+ * Below md: a flat layout showing one phone; md and up get a CSS 3D stage with a resting pose, and devices
  * that hover get pointer tilt (usePointerTilt writes --tilt-x/--tilt-y on .shop-stage).
  */
 
-@media (width >= 40rem) {
+@media (width >= 48rem) {
   .shop-stage {
     perspective: 1800px;
     perspective-origin: 50% 40%;
@@ -40,6 +40,15 @@
 .shop-lift[data-lifted][data-lift='badge'] .shop-badge {
   transform: perspective(500px) translateZ(48px);
   filter: drop-shadow(0 8px 8px rgb(16 39 31 / 0.25));
+}
+
+/* Below md: one phone at a time. The ticket stack is left out; the buyer's chat already shows the order. */
+@media (width < 48rem) {
+  .shop-stage[data-phone-focus='buyer'] .shop-seller-side,
+  .shop-stage[data-phone-focus='seller'] .shop-buyer-phone,
+  .shop-stage .order-tickets {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

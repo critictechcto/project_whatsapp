@@ -1,0 +1,38 @@
+/*
+ * Phone swipe row — SwipeRow.tsx. Below md the list turns into a horizontal scroll-snap row that
+ * bleeds to the Container's edges (px-5) and peeks at the next item. Unlayered, so it overrides the
+ * list's grid utilities on phones only.
+ */
+@media (width < 48rem) {
+  .swipe-track {
+    display: flex;
+    align-items: stretch;
+    gap: 0.875rem;
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+    padding-block: 0.25rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1.25rem;
+    scrollbar-width: none;
+    /* Lists styled as one bordered block on desktop become separate cards on phones. */
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .swipe-track::-webkit-scrollbar {
+    display: none;
+  }
+  .swipe-track > * {
+    flex: 0 0 86%;
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+  /* Items off to the side never intersect the viewport, so show them instead of waiting to reveal. */
+  .swipe-track > .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}

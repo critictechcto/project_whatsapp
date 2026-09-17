@@ -4,6 +4,7 @@ import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { TiltCard } from '../../../components/ui/TiltCard'
 import { ChatBubble } from '../mockups/ChatBubble'
+import { SwipeRow } from './SwipeRow'
 
 const useCases = [
   {
@@ -52,7 +53,7 @@ const useCases = [
 
 export function UseCases() {
   return (
-    <section id="use-cases" className="border-t border-line py-20 md:py-28">
+    <section id="use-cases" className="border-t border-line py-16 md:py-28">
       <Container>
         <SectionHeader
           index="08"
@@ -60,17 +61,22 @@ export function UseCases() {
           title="Messages your customers actually want to receive."
           description="WhatsApp works best for timely, useful messages. These are the ones Indian businesses send most — each one a template you can set up in minutes."
         />
-        <ul className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <SwipeRow
+          label="Use cases"
+          itemName="use case"
+          wrapperClassName="mt-10 md:mt-14"
+          className="grid gap-5 md:grid-cols-2 lg:grid-cols-3"
+        >
           {useCases.map((useCase, i) => (
             <Reveal as="li" key={useCase.title} delay={(i % 3) * 90} className="flex">
               <TiltCard className="flex w-full rounded-xl">
                 <div className="group/card flex w-full flex-col overflow-hidden rounded-xl border border-line bg-card transition-[border-color,box-shadow] duration-300 hover:border-ink/25 hover:shadow-[0_20px_40px_-28px_rgba(16,39,31,0.4)]">
                   <div className="flex items-start justify-between gap-3 px-5 pt-5">
                     <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">{useCase.industry}</p>
+                      <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-muted md:text-[11px]">{useCase.industry}</p>
                       <h3 className="mt-1.5 text-[17px] font-semibold tracking-[-0.01em]">{useCase.title}</h3>
                     </div>
-                    <Badge tone={useCase.category === 'Marketing' ? 'amber' : 'green'}>{useCase.category}</Badge>
+                    <Badge tone={useCase.category === 'Marketing' ? 'amber' : 'green'} className="max-md:text-[12px]">{useCase.category}</Badge>
                   </div>
                   <div aria-hidden="true" className="mt-5 flex-1 bg-wallpaper px-4 py-5">
                     <ChatBubble
@@ -87,7 +93,7 @@ export function UseCases() {
               </TiltCard>
             </Reveal>
           ))}
-        </ul>
+        </SwipeRow>
       </Container>
     </section>
   )
