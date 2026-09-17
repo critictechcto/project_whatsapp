@@ -100,7 +100,7 @@ export function KeywordChipsInput({
                   aria-label={`Remove ${itemName} ${entry}`}
                   disabled={disabled}
                   onClick={() => onChange(value.filter((item) => item !== entry))}
-                  className="rounded-full p-0.5 hover:bg-accent/15"
+                  className="touch-target rounded-full p-0.5 hover:bg-accent/15"
                 >
                   <X className="size-3" aria-hidden="true" />
                 </button>

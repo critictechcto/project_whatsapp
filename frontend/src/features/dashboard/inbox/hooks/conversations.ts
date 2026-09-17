@@ -31,7 +31,8 @@ export function useConversationList(filters: InboxFilters) {
 /** A conversation already loaded by any list query (used as placeholder while the detail loads). */
 export function findListedConversation(queryClient: QueryClient, workspaceId: string, id: string): Conversation | undefined {
   for (const [, data] of queryClient.getQueriesData<ConversationPages>({ queryKey: inboxKeys.lists(workspaceId) })) {
-    for (const page of data?.pages ?? []) {
+    // Home caches plain pages (no `pages`) under the same prefix; only infinite lists are searched.
+    for (const page of data && 'pages' in data ? data.pages : []) {
       const found = page.results.find((conversation) => conversation.id === id)
       if (found) return found
     }
@@ -48,7 +49,8 @@ export function patchConversation(
 ) {
   queryClient.setQueryData<Conversation>(inboxKeys.detail(workspaceId, id), (current) => (current ? update(current) : current))
   queryClient.setQueriesData<ConversationPages>({ queryKey: inboxKeys.lists(workspaceId) }, (data) => {
-    if (!data || !data.pages.some((page) => page.results.some((conversation) => conversation.id === id))) return data
+    // Home caches plain pages under the same `lists` prefix; invalidation refreshes those instead.
+    if (!data || !('pages' in data) || !data.pages.some((page) => page.results.some((conversation) => conversation.id === id))) return data
     return {
       ...data,
       pages: data.pages.map((page) => ({

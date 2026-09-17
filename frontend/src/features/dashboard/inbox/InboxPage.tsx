@@ -64,7 +64,7 @@ export function InboxPage() {
   const details = conversation.data
 
   return (
-    <div className="-mx-4 -my-6 h-[calc(100dvh-3.5rem)] min-h-[28rem] sm:-mx-8 sm:-my-8 lg:h-dvh">
+    <div className="-mx-4 -my-6 h-[calc(100dvh-3.5rem-var(--demo-banner-height,0px))] min-h-[28rem] sm:-mx-8 sm:-my-8 lg:h-[calc(100dvh-var(--demo-banner-height,0px))]">
       <div className="flex h-full min-h-0 bg-card xl:border-x xl:border-line">
         <section
           aria-label="Conversation list"

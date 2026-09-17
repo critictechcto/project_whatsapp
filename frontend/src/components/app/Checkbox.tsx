@@ -71,7 +71,7 @@ export function Switch({ checked, onCheckedChange, label, description, disabled,
         disabled={disabled}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
-          'relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+          'touch-target relative inline-flex h-6 w-10 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50',
           checked ? 'border-accent bg-accent' : 'border-line bg-paper-2',
         )}
       >
