@@ -5,6 +5,8 @@ import { Container } from '../../../components/ui/Container'
 import { MagneticButton } from '../../../components/ui/MagneticButton'
 import { Reveal } from '../../../components/ui/Reveal'
 import { SectionHeader } from '../../../components/ui/SectionHeader'
+import { SnapPager } from '../../../components/ui/SnapPager'
+import { useSnapRow } from '../../../components/ui/useSnapRow'
 import { TiltCard } from '../../../components/ui/TiltCard'
 import { ANNUAL_MONTHS_CHARGED, plans, site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
@@ -49,9 +51,14 @@ function useRolledNumber(target: number, duration = 700) {
   return value
 }
 
-/** The visible figure rolls; screen readers get only the settled price. */
+/**
+ * The visible figure rolls; screen readers get only the settled price. Digits use tabular figures so the
+ * width holds still while rolling, but the rupee sign and commas stay proportional: in the display face
+ * tabular figures widen the comma to a full digit ("₹2 , 083").
+ */
 function PlanPrice({ amount }: { amount: number }) {
   const shown = useRolledNumber(amount)
+  const runs = formatINR(shown).match(/\d+|\D+/g) ?? []
 
   return (
     <>
@@ -59,22 +66,36 @@ function PlanPrice({ amount }: { amount: number }) {
         aria-hidden="true"
         data-testid="plan-price"
         data-rolling={shown !== amount}
-        className="pricing-amount font-display text-[2.7rem] font-semibold leading-none tracking-[-0.035em] tabular-nums"
+        className="pricing-amount font-display text-[2.7rem] font-semibold leading-none tracking-[-0.035em]"
       >
-        {formatINR(shown)}
+        {runs.map((run, i) => (
+          <span key={i} className={/\d/.test(run) ? 'tabular-nums' : undefined}>
+            {run}
+          </span>
+        ))}
       </span>
       <span className="sr-only">{formatINR(amount)}</span>
     </>
   )
 }
 
+const recommendedIndex = Math.max(
+  0,
+  plans.findIndex((plan) => plan.recommended),
+)
+
 export function Pricing() {
   const [billing, setBilling] = useState<Billing>('annual')
-  const listRef = useRef<HTMLUListElement | null>(null)
+  // On phones the plans are a swipe row that opens centred on the recommended plan (styles in Pricing.css).
+  const {
+    ref: listRef,
+    index: shownPlan,
+    goTo: showPlan,
+  } = useSnapRow<HTMLUListElement>({ startAt: recommendedIndex })
   const listOnScreen = useOnScreen(listRef)
 
   return (
-    <section id="pricing" className="border-t border-line bg-paper-2/50 py-20 md:py-28">
+    <section id="pricing" className="border-t border-line bg-paper-2/50 py-16 md:py-28">
       <Container>
         <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <SectionHeader
@@ -86,7 +107,7 @@ export function Pricing() {
           <div
             role="group"
             aria-label="Billing period"
-            className="relative inline-grid shrink-0 grid-cols-2 self-start rounded-lg border border-line bg-card p-1 lg:self-auto"
+            className="relative grid shrink-0 grid-cols-2 self-stretch rounded-lg border border-line bg-card p-1 md:inline-grid md:self-start lg:self-auto"
           >
             <span
               aria-hidden="true"
@@ -102,7 +123,7 @@ export function Pricing() {
                 aria-pressed={billing === option}
                 onClick={() => setBilling(option)}
                 className={cn(
-                  'relative rounded-md px-4 py-2 text-[14px] font-medium transition-colors duration-300',
+                  'relative rounded-md px-4 py-2 text-[14px] font-medium transition-colors duration-300 max-md:min-h-11 max-md:px-3 max-md:leading-tight',
                   billing === option ? 'text-paper' : 'text-muted hover:text-ink',
                 )}
               >
@@ -112,7 +133,7 @@ export function Pricing() {
           </div>
         </div>
 
-        <ul ref={listRef} className="mt-14 grid gap-5 lg:grid-cols-3">
+        <ul ref={listRef} className="pricing-plans mt-6 grid gap-5 md:mt-14 lg:grid-cols-3">
           {plans.map((plan, i) => {
             const annualTotal = plan.monthlyPrice * ANNUAL_MONTHS_CHARGED
             const shownPrice = billing === 'monthly' ? plan.monthlyPrice : Math.round(annualTotal / 12)
@@ -128,12 +149,12 @@ export function Pricing() {
                   <TiltCard
                     max={plan.recommended ? 4 : 3}
                     className={cn(
-                      'flex w-full flex-col rounded-xl border bg-card p-7',
+                      'flex w-full flex-col rounded-xl border bg-card p-6 md:p-7',
                       plan.recommended ? 'border-ink shadow-[0_24px_48px_-32px_rgba(16,39,31,0.45)]' : 'border-line',
                     )}
                   >
                     {plan.recommended && (
-                      <span className="absolute -top-3 left-7 rounded bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-paper">
+                      <span className="absolute -top-3 left-7 rounded bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-paper max-md:left-6 max-md:text-[12px] max-md:leading-none">
                         Recommended
                       </span>
                     )}
@@ -183,8 +204,16 @@ export function Pricing() {
             )
           })}
         </ul>
+        <SnapPager
+          label="Show plan"
+          labels={plans.map((plan) => plan.name)}
+          showLabels
+          index={shownPlan}
+          onSelect={showPlan}
+          className="md:hidden"
+        />
 
-        <Reveal className="mt-5 flex flex-col justify-between gap-5 rounded-xl border border-line bg-card p-7 md:flex-row md:items-center">
+        <Reveal className="mt-4 flex flex-col justify-between gap-5 rounded-xl border border-line bg-card p-6 md:mt-5 md:flex-row md:items-center md:p-7">
           <div>
             <h3 className="text-[18px] font-semibold">Enterprise</h3>
             <p className="mt-1.5 max-w-2xl text-[14.5px] text-muted">
@@ -198,13 +227,13 @@ export function Pricing() {
           </Button>
         </Reveal>
 
-        <Reveal as="aside" className="mt-10 grid gap-8 border-t border-line pt-10 md:grid-cols-12">
+        <Reveal as="aside" className="mt-10 grid gap-8 border-t border-line pt-10 max-md:mt-8 max-md:gap-5 max-md:pt-8 md:grid-cols-12">
           <div className="md:col-span-4">
             <h3 className="font-display text-[1.55rem] font-semibold leading-[1.1] tracking-[-0.025em]">
               About Meta’s message charges
             </h3>
           </div>
-          <dl className="grid gap-6 text-[14.5px] sm:grid-cols-3 md:col-span-8">
+          <dl className="grid gap-6 text-[14.5px] max-sm:gap-4 sm:grid-cols-3 md:col-span-8">
             <div>
               <dt className="font-medium">Billed separately</dt>
               <dd className="mt-1.5 leading-relaxed text-muted">

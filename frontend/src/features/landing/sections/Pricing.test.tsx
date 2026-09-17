@@ -61,6 +61,26 @@ describe('Pricing', () => {
     expect(shownPrices()).toEqual(plans.map((plan) => formatINR(plan.monthlyPrice)))
   })
 
+  it('keeps tabular figures off the rupee sign and commas so "₹2,083" has no gaps', () => {
+    mockReducedMotion(false)
+    render(<Pricing />)
+
+    for (const price of screen.getAllByTestId('plan-price')) {
+      for (const run of price.querySelectorAll('span')) {
+        expect(run.classList.contains('tabular-nums')).toBe(/^\d+$/.test(run.textContent ?? ''))
+      }
+    }
+  })
+
+  it('offers plan buttons for the phone swipe row', () => {
+    mockReducedMotion(false)
+    render(<Pricing />)
+
+    const pager = screen.getByRole('group', { name: 'Show plan' })
+    const recommended = plans.find((plan) => plan.recommended)!
+    expect(pager.querySelector('[aria-current="true"]')).toHaveTextContent(recommended.name)
+  })
+
   it('uses a magnetic CTA for the recommended plan', () => {
     mockReducedMotion(false)
     render(<Pricing />)

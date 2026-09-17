@@ -45,7 +45,7 @@ export function Footer() {
 
   return (
     <footer className="border-t border-line bg-paper-2/60">
-      <Container className="py-14">
+      <Container className="py-14 max-md:py-12">
         <div className="grid gap-10 md:grid-cols-12">
           <div className="md:col-span-5">
             <Logo />
@@ -57,11 +57,14 @@ export function Footer() {
           <nav aria-label="Footer" className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:col-span-7">
             {footerColumns().map((column) => (
               <div key={column.title}>
-                <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{column.title}</h2>
-                <ul className="mt-4 space-y-2.5 text-[14.5px]">
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted max-md:text-[12px]">
+                  {column.title}
+                </h2>
+                {/* On phones each link is a full 44 px row, so there is no extra spacing between them. */}
+                <ul className="mt-4 space-y-2.5 text-[14.5px] max-md:mt-2 max-md:space-y-0">
                   {column.links.map((link) => (
                     <li key={link.label}>
-                      <a href={link.href} className="hover:text-accent-2">
+                      <a href={link.href} className="hover:text-accent-2 max-md:flex max-md:min-h-11 max-md:items-center">
                         {link.label}
                       </a>
                     </li>

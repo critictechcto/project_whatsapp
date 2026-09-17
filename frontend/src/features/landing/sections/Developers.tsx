@@ -53,7 +53,7 @@ export function Developers() {
   const [active, setActive] = useState<keyof typeof snippets>('request')
 
   return (
-    <section id="developers" className="bg-ink py-20 text-paper md:py-28">
+    <section id="developers" className="bg-ink py-16 text-paper md:py-28">
       <Container className="grid gap-12 lg:grid-cols-12 lg:gap-10">
         <div className="lg:col-span-5">
           <SectionHeader
@@ -85,7 +85,7 @@ export function Developers() {
                     aria-pressed={active === key}
                     onClick={() => setActive(key)}
                     className={cn(
-                      'rounded-md px-3 py-1.5 font-mono text-[12px] transition-colors',
+                      'rounded-md px-3 py-1.5 font-mono text-[12px] transition-colors max-md:min-h-11',
                       active === key ? 'bg-paper/10 text-paper' : 'text-paper/60 hover:text-paper',
                     )}
                   >

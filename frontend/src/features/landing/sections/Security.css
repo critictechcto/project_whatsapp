@@ -81,6 +81,57 @@
   color: var(--color-accent-2);
 }
 
+/*
+ * Phones: the stacked layers sit up and to the right of the card and the scene is turned, so a
+ * full-width scene reaches past the screen edge. Keep the scene clear of the right edge and a little
+ * shorter.
+ */
+@media (max-width: 39.99rem) {
+  .vault-stage {
+    height: 17rem;
+  }
+  .vault-scene {
+    inset: 0 1rem 0 0.5rem;
+  }
+  .vault-layer,
+  .vault-card {
+    inset: 5.5rem 0 0.5rem;
+  }
+  .vault-token {
+    transform: translate3d(0, -10.5rem, 70px);
+  }
+}
+
+/*
+ * Phones: the six cards become a swipe row (CSS scroll-snap) bleeding to the screen edges, with the
+ * next card peeking in. SnapPager below it moves between cards without swiping.
+ */
+@media (max-width: 39.99rem) {
+  .security-cards {
+    display: flex;
+    gap: 0.75rem;
+    margin-inline: -1.25rem;
+    padding: 0 1.25rem 0.25rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1.25rem;
+    scrollbar-width: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .security-cards::-webkit-scrollbar {
+    display: none;
+  }
+  .security-cards > li {
+    flex: 0 0 min(82%, 20rem);
+    scroll-snap-align: center;
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .vault-token {
     transition: none;

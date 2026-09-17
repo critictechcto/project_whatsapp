@@ -63,7 +63,11 @@ export function Navbar() {
       )}
     >
       <Container className="flex h-16 items-center justify-between gap-6">
-        <a href={onLanding ? '#top' : import.meta.env.BASE_URL} aria-label={`${site.name} home`}>
+        <a
+          href={onLanding ? '#top' : import.meta.env.BASE_URL}
+          aria-label={`${site.name} home`}
+          className="max-lg:flex max-lg:py-2"
+        >
           <Logo />
         </a>
 
@@ -102,7 +106,7 @@ export function Navbar() {
 
         <button
           type="button"
-          className="grid size-10 place-items-center rounded-md hover:bg-ink/5 lg:hidden"
+          className="-mr-0.5 grid size-11 place-items-center rounded-md hover:bg-ink/5 lg:hidden"
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? 'Close menu' : 'Open menu'}

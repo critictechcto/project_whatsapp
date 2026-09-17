@@ -68,7 +68,7 @@ function CtaBubbles() {
 
 export function FinalCta() {
   return (
-    <section className="pb-20 md:pb-28">
+    <section className="pb-16 md:pb-28">
       <Container>
         <Reveal className="relative overflow-hidden rounded-2xl bg-ink px-6 py-14 text-paper md:px-14 md:py-20">
           <div

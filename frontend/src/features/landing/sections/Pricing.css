@@ -9,6 +9,38 @@
   filter: blur(0.4px);
 }
 
+/*
+ * Phones: the plans become a swipe row (CSS scroll-snap) that bleeds to the screen edges, with the
+ * neighbouring plans peeking in. useSnapRow opens it on the recommended plan and SnapPager below it
+ * moves between plans without swiping. The row pads its top so the "Recommended" tag isn't clipped.
+ */
+@media (max-width: 47.99rem) {
+  .pricing-plans {
+    display: flex;
+    gap: 0.75rem;
+    margin-inline: -1.25rem;
+    padding: 0.875rem 1.25rem 1.25rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1.25rem;
+    scrollbar-width: none;
+  }
+  .pricing-plans::-webkit-scrollbar {
+    display: none;
+  }
+  .pricing-plans > li {
+    flex: 0 0 min(84%, 22rem);
+    scroll-snap-align: center;
+  }
+  /* Cards beside the visible one are clipped by the row, so they would never reveal on their own. */
+  .pricing-plans > li.reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* The recommended plan sits a step forward on wide screens and drifts gently while on screen. */
 @media (min-width: 64rem) {
   .pricing-lift {
