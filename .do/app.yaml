@@ -139,6 +139,13 @@ static_sites:
       - key: VITE_WS_URL
         value: ""
         scope: BUILD_TIME
+      # Content-Security-Policy (frontend/scripts/csp.mjs): static sites cannot set response
+      # headers on App Platform, so the build writes the policy as a <meta> tag. Origins product
+      # images load from (PUBLIC_MEDIA_BASE_URL / the Spaces bucket), space-separated; narrow this
+      # to the exact CDN origin once it is known.
+      - key: VITE_MEDIA_ORIGINS
+        value: https://*.digitaloceanspaces.com
+        scope: BUILD_TIME
 
 databases:
   # Existing managed clusters in BLR1 (create them first; names must match).

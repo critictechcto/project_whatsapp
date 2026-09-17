@@ -81,6 +81,38 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# --- Content Security Policy (Django's built-in CSP) ----------------------------------------
+# Every response from this project (JSON API, admin, webhooks) carries SECURE_CSP. The API only
+# returns JSON, which a browser never runs; the policy is there so nothing Django serves can run
+# injected script or be framed. The admin needs its own scripts, styles and icons from /static/
+# ('self'). Views that need more set their own policy: the API docs use API_DOCS_CSP via
+# csp_override (config/urls.py), and the buyer payment return page sets its header itself (the
+# middleware never overwrites an existing header). The dashboard's policy is a <meta> tag built
+# by frontend/vite.config.ts, since App Platform static sites cannot set response headers.
+MIDDLEWARE.insert(
+    MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1,
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
+)
+SECURE_CSP = {
+    "default-src": ["'none'"],
+    "script-src": ["'self'"],
+    "style-src": ["'self'"],
+    "img-src": ["'self'", "data:"],
+    "font-src": ["'self'"],
+    "connect-src": ["'self'"],
+    "form-action": ["'self'"],
+    "base-uri": ["'none'"],
+    "frame-ancestors": ["'none'"],
+}
+# Swagger UI (drf-spectacular's split view: the init script is a same-origin file) loads its
+# bundle and stylesheet from jsDelivr and styles itself inline.
+API_DOCS_CSP = {
+    **SECURE_CSP,
+    "script-src": ["'self'", "https://cdn.jsdelivr.net"],
+    "style-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+    "img-src": ["'self'", "data:", "https://cdn.jsdelivr.net"],
+}
+
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"

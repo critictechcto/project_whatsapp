@@ -1,8 +1,10 @@
 """Root URL map. Every app is mounted here once; apps own only their own urls.py."""
 
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from django.views.decorators.csp import csp_override
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerSplitView
 
 from common.views import healthz, readyz
 
@@ -33,7 +35,13 @@ urlpatterns = [
     path("pay/return/", include("apps.payments.return_urls")),
     path("webhooks/razorpay/", include("apps.billing.webhook_urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="api-docs"),
+    # Split view: Swagger UI's init script is a same-origin file (?script), not inline, so the
+    # docs page runs under API_DOCS_CSP (config/settings/base.py) without 'unsafe-inline' scripts.
+    path(
+        "api/docs/",
+        csp_override(settings.API_DOCS_CSP)(SpectacularSwaggerSplitView.as_view(url_name="schema")),
+        name="api-docs",
+    ),
     path("healthz/", healthz, name="healthz"),
     path("readyz/", readyz, name="readyz"),
 ]
