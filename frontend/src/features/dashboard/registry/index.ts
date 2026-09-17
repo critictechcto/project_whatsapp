@@ -3,6 +3,8 @@
  * they edit `<area>/routes.tsx`, `<area>/nav.ts` and `<area>/mocks.ts` (mocks are wired in `./mocks.ts`).
  */
 import { hasRole, type Role } from '../../../lib/roles'
+import { nav as analyticsNav } from '../analytics/nav'
+import { routes as analyticsRoutes } from '../analytics/routes'
 import { nav as automationsNav } from '../automations/nav'
 import { routes as automationsRoutes } from '../automations/routes'
 import { nav as billingNav } from '../billing/nav'
@@ -41,6 +43,7 @@ export const areaRoutes: AreaRoute[] = [
   ...catalogRoutes,
   ...ordersRoutes,
   ...storeRoutes,
+  ...analyticsRoutes,
   ...whatsappRoutes,
   ...teamRoutes,
   ...billingRoutes,
@@ -57,6 +60,7 @@ export const navItems: NavItem[] = [
   ...catalogNav,
   ...ordersNav,
   ...storeNav,
+  ...analyticsNav,
   ...whatsappNav,
   ...teamNav,
   ...billingNav,

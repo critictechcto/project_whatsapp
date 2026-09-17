@@ -3,6 +3,7 @@
  * builds and tests, so none of this ships in a live build.
  */
 import type { HttpHandler } from 'msw'
+import { handlers as analytics } from '../analytics/mocks'
 import { handlers as automations } from '../automations/mocks'
 import { handlers as billing } from '../billing/mocks'
 import { handlers as campaigns } from '../campaigns/mocks'
@@ -27,6 +28,7 @@ export const areaMockHandlers: HttpHandler[] = [
   ...catalog,
   ...orders,
   ...store,
+  ...analytics,
   ...whatsapp,
   ...team,
   ...billing,
