@@ -320,6 +320,19 @@ def revoke_sessions_on_role_change(sender, event: MembershipRoleChanged, **kwarg
 
 @receiver(membership_removed, dispatch_uid="inbox.revoke_sessions_on_member_removed")
 def revoke_sessions_on_member_removed(sender, event: MembershipRemoved, **kwargs) -> None:
+    # Assignees must be members: return a removed member's chats to the unassigned queue.
+    assigned = Conversation.objects.filter(
+        workspace_id=event.workspace_id, assignee_id=event.user_id
+    )
+    conversation_ids = list(assigned.values_list("pk", flat=True))
+    if conversation_ids:
+        Conversation.objects.filter(pk__in=conversation_ids, assignee_id=event.user_id).update(
+            assignee=None, updated_at=timezone.now()
+        )
+        for conversation_id in conversation_ids:
+            realtime.broadcast(
+                event.workspace_id, "conversation.updated", {"conversation_id": conversation_id}
+            )
     realtime.broadcast_user(
         event.user_id,
         SESSION_REVOKED,
