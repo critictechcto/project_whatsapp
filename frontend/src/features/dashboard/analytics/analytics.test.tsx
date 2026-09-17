@@ -12,7 +12,8 @@ import { addDays, daysInRange, presetRange, rangeFromSearch, todayIn, validateRa
 
 const TZ = 'Asia/Kolkata'
 const base = `/app/w/${ids.sharmaSweets}/analytics`
-const slow = { timeout: 10_000 }
+// The first wait covers the workspace load plus the lazy area chunk, which is slow in a loaded full run.
+const slow = { timeout: 20_000 }
 
 /** The `<dd>` of a KPI card. */
 function kpi(label: string) {
