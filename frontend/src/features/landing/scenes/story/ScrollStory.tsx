@@ -33,7 +33,7 @@ function useNear(ref: RefObject<HTMLElement | null>) {
   return near
 }
 
-const label = 'font-mono text-[11px] uppercase tracking-[0.14em] text-muted'
+const label = 'font-mono text-[12px] md:text-[11px] uppercase tracking-[0.14em] text-muted'
 const title = 'font-display text-[1.3rem] font-semibold leading-[1.15] tracking-[-0.02em] lg:text-[1.4rem]'
 
 function ChapterBody({ index }: { index: number }) {
@@ -53,7 +53,7 @@ function PinnedStory() {
   const near = useNear(trackRef)
 
   return (
-    <div ref={trackRef} data-chapter={chapter} className="relative h-[400vh] [@media(max-height:640px)]:h-[300vh]">
+    <div ref={trackRef} data-chapter={chapter} className="relative h-[200vh] md:h-[400vh] md:[@media(max-height:640px)]:h-[300vh]">
       <div ref={stageRef} className="sticky top-16 h-[calc(100svh-4rem)] overflow-hidden">
         <Container className="flex h-full flex-col gap-4 py-6 lg:grid lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-10">
           <div className="shrink-0 lg:col-span-5">
@@ -135,7 +135,7 @@ function PinnedStory() {
 function StaticStory() {
   return (
     <Container>
-      <ol className="mt-14 grid gap-px overflow-hidden rounded-xl border border-line bg-line">
+      <ol className="mt-10 md:mt-14 grid gap-px overflow-hidden rounded-xl border border-line bg-line">
         {storyChapters.map((item, i) => (
           <li key={item.label} className="grid gap-6 bg-card p-6 md:grid-cols-12 md:gap-10">
             <div className="md:col-span-7">
@@ -162,7 +162,7 @@ export function ScrollStory() {
   const [reduced] = useState(prefersReducedMotion)
 
   return (
-    <section id="story" data-story-mode={reduced ? 'static' : 'pinned'} className="border-b border-line py-20 md:py-28">
+    <section id="story" data-story-mode={reduced ? 'static' : 'pinned'} className="border-b border-line py-12 md:py-28">
       <Container>
         <SectionHeader
           index="03"

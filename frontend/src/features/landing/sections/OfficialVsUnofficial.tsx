@@ -16,8 +16,8 @@ const rows: Array<[string, string, string]> = [
 
 export function OfficialVsUnofficial() {
   return (
-    <section id="why-official" className="py-20 md:py-28">
-      <Container className="grid gap-12 lg:grid-cols-12 lg:gap-10">
+    <section id="why-official" className="py-12 md:py-28">
+      <Container className="grid gap-8 md:gap-12 lg:grid-cols-12 lg:gap-10">
         <SectionHeader
           className="lg:col-span-5"
           index="01"
@@ -33,28 +33,34 @@ export function OfficialVsUnofficial() {
         />
 
         <Reveal delay={120} className="min-w-0 lg:col-span-7 lg:pt-12">
-          {/* Phones: one stacked card per row instead of a sideways-scrolling table */}
-          <dl className="divide-y divide-line border-y border-ink md:hidden">
-            {rows.map(([topic, official, unofficial]) => (
-              <div key={topic} className="py-4">
-                <dt className="text-[15px] font-semibold">{topic}</dt>
-                <dd className="mt-2 flex gap-2 text-[14.5px]">
-                  <Check className="mt-0.5 size-4 shrink-0 text-accent-2" aria-hidden="true" />
-                  <span>
+          {/* Phones: a compact two-column comparison, one topic per row, instead of a sideways-scrolling table */}
+          <div className="md:hidden">
+            <div aria-hidden="true" className="grid grid-cols-2 gap-4 border-b border-ink pb-2.5 text-[13px] font-semibold">
+              <span className="flex items-center gap-1.5">
+                <Check className="size-4 shrink-0 text-accent-2" />
+                {site.name} · Official
+              </span>
+              <span className="flex items-center gap-1.5 text-muted">
+                <X className="size-4 shrink-0 text-signal" />
+                QR-code tools
+              </span>
+            </div>
+            <dl className="divide-y divide-line border-b border-line">
+              {rows.map(([topic, official, unofficial]) => (
+                <div key={topic} className="grid grid-cols-2 gap-x-4 py-2.5">
+                  <dt className="col-span-2 font-mono text-[12px] uppercase tracking-[0.08em] text-muted">{topic}</dt>
+                  <dd className="mt-0.5 text-[14px] leading-snug">
                     <span className="sr-only">{site.name}: </span>
                     {official}
-                  </span>
-                </dd>
-                <dd className="mt-1.5 flex gap-2 text-[14.5px] text-muted">
-                  <X className="mt-0.5 size-4 shrink-0 text-signal" aria-hidden="true" />
-                  <span>
+                  </dd>
+                  <dd className="mt-0.5 text-[14px] leading-snug text-muted">
                     <span className="sr-only">QR-code tools: </span>
                     {unofficial}
-                  </span>
-                </dd>
-              </div>
-            ))}
-          </dl>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
 
           <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[600px] border-collapse text-left text-[14.5px]">

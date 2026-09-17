@@ -9,7 +9,8 @@ import { useOnScreen } from '../lib/useOnScreen'
  * "What happens when you hit send": business → UpChatz → WhatsApp Cloud API → customer's phone,
  * with statuses flowing back. One discrete step clock drives everything; CSS transitions do the
  * in-between motion, so only transforms and opacity animate. Large screens get a 3D diorama;
- * smaller screens get the same list with a vertical rail.
+ * tablets get the same list with a vertical rail; phones get a horizontal mini rail above a swipe
+ * row of station cards.
  */
 
 const STEP_MS = 950
@@ -131,7 +132,17 @@ function Packet({ kind, compact = false }: { kind: HopKind; compact?: boolean })
 }
 
 /** Moves its packet across the parent box along one axis. */
-function Runner({ hop, step, axis }: { hop: Hop; step: number; axis: 'x' | 'y' }) {
+function Runner({
+  hop,
+  step,
+  axis,
+  compact = axis === 'y',
+}: {
+  hop: Hop
+  step: number
+  axis: 'x' | 'y'
+  compact?: boolean
+}) {
   const state = hopState(hop, step)
   const forward = hop.to > hop.from
 
@@ -143,7 +154,7 @@ function Runner({ hop, step, axis }: { hop: Hop; step: number; axis: 'x' | 'y' }
       data-direction={forward ? 'forward' : 'back'}
     >
       <span className="journey-packet">
-        <Packet kind={hop.kind} compact={axis === 'y'} />
+        <Packet kind={hop.kind} compact={compact} />
       </span>
     </span>
   )
@@ -334,6 +345,37 @@ function InlineState({ index, step }: { index: number; step: number }) {
   )
 }
 
+/* ---------- Horizontal mini rail for phones ---------- */
+
+function MiniRail({ step }: { step: number }) {
+  return (
+    <div aria-hidden="true" className="relative mb-4 h-8 md:hidden">
+      {[0, 1, 2].map((segment) => (
+        <span
+          key={`lane-${segment}`}
+          className="absolute top-1/2 h-0 w-1/4 border-t border-dashed border-ink/25"
+          style={{ left: POST_CENTERS[segment] }}
+        >
+          {hops
+            .filter((hop) => Math.min(hop.from, hop.to) === segment)
+            .map((hop) => (
+              <Runner key={`${hop.kind}-${hop.at}`} hop={hop} step={step} axis="x" compact />
+            ))}
+        </span>
+      ))}
+      {POST_CENTERS.map((left, i) => (
+        <span
+          key={`node-${left}`}
+          className="absolute top-1/2 grid size-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-line bg-card font-mono text-[12px]"
+          style={{ left }}
+        >
+          {i + 1}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export function MessageJourney() {
   const rootRef = useRef<HTMLDivElement>(null)
   const onScreen = useOnScreen(rootRef, '0px')
@@ -342,11 +384,20 @@ export function MessageJourney() {
   return (
     <div ref={rootRef}>
       <Diorama step={step} />
+      <MiniRail step={step} />
 
-      <ol className="grid gap-0 lg:mt-2 lg:grid-cols-4">
+      {/* Phones: a swipe row of station cards under the mini rail; md: a vertical rail; lg: under the diorama. */}
+      <ol
+        tabIndex={0}
+        aria-label="Message journey"
+        className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-2 md:mx-0 md:grid md:snap-none md:gap-0 md:overflow-visible md:px-0 md:pb-0 lg:mt-2 lg:grid-cols-4"
+      >
         {stations.map((station, i) => (
-          <li key={station.title} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-4 lg:block lg:px-[7%]">
-            <div aria-hidden="true" className="relative flex flex-col items-center lg:hidden">
+          <li
+            key={station.title}
+            className="w-[84%] shrink-0 snap-start rounded-xl border border-line bg-card p-4 md:grid md:w-auto md:grid-cols-[1.75rem_minmax(0,1fr)] md:gap-x-4 md:rounded-none md:border-0 md:bg-transparent md:p-0 lg:block lg:px-[7%]"
+          >
+            <div aria-hidden="true" className="relative hidden flex-col items-center md:flex lg:hidden">
               <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line bg-card font-mono text-[10.5px]">
                 {i + 1}
               </span>
@@ -360,9 +411,9 @@ export function MessageJourney() {
                 </span>
               )}
             </div>
-            <div className={cn('min-w-0', i < stations.length - 1 && 'pb-9 lg:pb-0')}>
-              <h4 className="pt-0.5 text-[16px] font-semibold tracking-[-0.01em] lg:pt-0">
-                <span className="mr-2 hidden font-mono text-[11px] font-normal text-muted lg:inline">
+            <div className={cn('min-w-0', i < stations.length - 1 && 'md:pb-9 lg:pb-0')}>
+              <h4 className="text-[16px] font-semibold tracking-[-0.01em] md:pt-0.5 lg:pt-0">
+                <span className="mr-2 font-mono text-[12px] font-normal text-muted md:hidden lg:inline lg:text-[11px]">
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 {station.title}

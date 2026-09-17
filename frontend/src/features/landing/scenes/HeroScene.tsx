@@ -40,7 +40,8 @@ const cardShadow =
 
 /**
  * Hero centrepiece: the team inbox and the customer's phone showing the same conversation, with
- * product cards floating at different depths. Phones get a flat stack; sm and up get the 3D scene,
+ * product cards floating at different depths. Phones get only the inbox with the template card on its
+ * corner, so the hero stays short; sm and up get the full 3D scene,
  * with pointer tilt on devices that hover. Entirely decorative.
  */
 export function HeroScene() {
@@ -75,7 +76,7 @@ export function HeroScene() {
             z={60}
             delay={300}
             float={8.5}
-            className="relative mx-auto -mt-8 w-[94%] sm:absolute sm:-right-3 sm:top-[420px] sm:mx-0 sm:mt-0 sm:w-[320px]"
+            className="hidden sm:absolute sm:-right-3 sm:top-[420px] sm:block sm:w-[320px]"
           >
             <CampaignMockup />
           </Layer>
