@@ -98,11 +98,11 @@ A message counts on the day of its `created_at` (in the workspace time zone). St
 | `paid_orders` | int (payment status `paid` or `cod_collected`) |
 | `revenue_paise` | int |
 | `average_order_paise` | int \| null (`revenue_paise / paid_orders`, rounded down) |
-| `by_status` | `{status: OrderStatusEnum, count: int}[]`, ordered by count desc |
-| `by_payment_method` | `{payment_method: "online" \| "cod" \| "", orders: int, revenue_paise: int}[]` |
-| `top_products` | `{product_id: uuid \| null, name: string, quantity: int, revenue_paise: int}[]` — top 10 by revenue from paid orders' items |
+| `by_status` | `AnalyticsOrderStatusRow[]` `{status: OrderStatusEnum, count: int}[]`, ordered by count desc |
+| `by_payment_method` | `AnalyticsPaymentMethodRow[]` `{payment_method: "online" \| "cod" \| "", orders: int, revenue_paise: int}[]` |
+| `top_products` | `AnalyticsProductRow[]` `{product_id: uuid \| null, name: string, quantity: int, revenue_paise: int}[]` — top 10 by revenue from paid orders' items |
 
-Use the existing enum component for order status from the orders app schema (do not register a duplicate).
+Name the payment-method field enum `AnalyticsPaymentMethodEnum` (`online`, `cod`, blank allowed) in `schema_enums.py`. Use the existing enum component for order status from the orders app schema (do not register a duplicate).
 
 ### `GET export/?report=messages|templates|campaigns|team|commerce` → `text/csv`
 
