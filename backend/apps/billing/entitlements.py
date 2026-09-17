@@ -34,7 +34,8 @@ SCHEDULED_CAMPAIGNS = "scheduled_campaigns"
 KEYWORD_AUTOMATIONS = "keyword_automations"
 API_ACCESS = "api_access"
 COMMERCE = "commerce"  # the WhatsApp store (catalog, carts, orders); on every plan
-FEATURES = (SCHEDULED_CAMPAIGNS, KEYWORD_AUTOMATIONS, API_ACCESS, COMMERCE)
+ANALYTICS = "analytics"  # reports under /api/v1/analytics/; Growth and Pro
+FEATURES = (SCHEDULED_CAMPAIGNS, KEYWORD_AUTOMATIONS, API_ACCESS, COMMERCE, ANALYTICS)
 
 ENTITLED_STATUSES = frozenset({"trialing", "active", "pending"})
 RESTRICTED_STATUSES = frozenset({"halted", "cancelled", "expired"})

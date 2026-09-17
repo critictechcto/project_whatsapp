@@ -108,10 +108,17 @@ def test_plans_list_prices_limits_and_features(auth_client):
         "monthly_price_paise": 249900,
         "annual_price_paise": 2499000,
         "limits": {"whatsapp_numbers": 2, "members": 5, "contacts": 25000},
-        "features": ["scheduled_campaigns", "keyword_automations", "api_access", "commerce"],
+        "features": [
+            "scheduled_campaigns",
+            "keyword_automations",
+            "api_access",
+            "commerce",
+            "analytics",
+        ],
     }
     assert plans["starter"]["features"] == ["commerce"]
     assert "commerce" in plans["pro"]["features"]
+    assert "analytics" in plans["pro"]["features"]
 
 
 def test_inactive_plans_are_hidden(auth_client):
