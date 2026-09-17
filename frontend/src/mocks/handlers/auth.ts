@@ -36,6 +36,19 @@ export function meFor(user: MockUser): Schemas['Me'] {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+const MOCK_REFRESH_RE = /^mock-refresh\.([0-9a-f-]{36})\.[0-9a-f-]{36}$/
+
+/**
+ * The browser demo rebuilds the mock database on every page load, which forgets issued refresh
+ * tokens. A well-formed token for a seeded user that was never rotated or logged out in this page
+ * load keeps the demo session alive across reloads and deep links.
+ */
+function restoredSessionUser(refresh: string): string | undefined {
+  const userId = MOCK_REFRESH_RE.exec(refresh)?.[1]
+  if (!userId || db.revokedRefreshTokens.has(refresh)) return undefined
+  return db.users.some((user) => user.id === userId) ? userId : undefined
+}
+
 export const authHandlers = [
   http.post('/api/v1/auth/token/', async ({ request, response }) => {
     await mockDelay()
@@ -51,11 +64,12 @@ export const authHandlers = [
 
   http.post('/api/v1/auth/token/refresh/', async ({ request, response }) => {
     const body = (await request.json()) as Partial<Schemas['TokenRefreshRequest']>
-    const userId = body.refresh ? db.refreshTokens.get(body.refresh) : undefined
+    const userId = body.refresh ? (db.refreshTokens.get(body.refresh) ?? restoredSessionUser(body.refresh)) : undefined
     if (!body.refresh || !userId) {
       return response.untyped(errorResponse(401, 'token_not_valid', 'Token is invalid or expired'))
     }
     db.refreshTokens.delete(body.refresh)
+    db.revokedRefreshTokens.add(body.refresh)
     return response(200).json(issueTokens(userId))
   }),
 
@@ -87,7 +101,10 @@ export const authHandlers = [
 
   http.post('/api/v1/auth/logout/', async ({ request, response }) => {
     const body = (await request.json()) as Partial<Schemas['TokenBlacklistRequest']>
-    if (body.refresh) db.refreshTokens.delete(body.refresh)
+    if (body.refresh) {
+      db.refreshTokens.delete(body.refresh)
+      db.revokedRefreshTokens.add(body.refresh)
+    }
     return response(200).empty()
   }),
 

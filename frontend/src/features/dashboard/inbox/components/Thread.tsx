@@ -202,14 +202,16 @@ function MessageStream({
           {items.length === 0 && (
             <p className="py-10 text-center text-sm text-muted">No messages yet. Start with an approved template.</p>
           )}
-          <ol className="flex flex-col gap-1.5">
+          <ol className="isolate flex flex-col gap-1.5">
             {items.map((item, index) => {
               const showDay = index === 0 || dayKey(item.iso, timeZone) !== dayKey(items[index - 1].iso, timeZone)
               return (
                 <Fragment key={item.key}>
                   {showDay && (
-                    <li className="sticky top-0 z-10 flex justify-center py-1.5">
-                      <span className="rounded-md bg-card/95 px-2.5 py-1 font-mono text-[11px] text-muted shadow-[0_1px_0_rgba(16,39,31,0.08)]">
+                    // Every day chip sticks in the same list, so older chips pile up under the newest one:
+                    // later chips stack higher, and an opaque chip with a shared minimum width hides the rest.
+                    <li className="sticky top-0 flex justify-center py-1.5" style={{ zIndex: 10 + index }}>
+                      <span className="min-w-36 rounded-md bg-card px-2.5 py-1 text-center font-mono text-[11px] text-muted shadow-[0_1px_0_rgba(16,39,31,0.08)]">
                         {dayLabel(item.iso, timeZone, now)}
                       </span>
                     </li>

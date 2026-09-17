@@ -42,7 +42,7 @@ function CloseButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Close"
-      className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-ink/5 hover:text-ink"
+      className="touch-target grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-ink/5 hover:text-ink"
     >
       <X className="size-4" aria-hidden="true" />
     </button>

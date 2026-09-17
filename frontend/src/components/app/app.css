@@ -48,3 +48,25 @@
     animation: none;
   }
 }
+
+/*
+ * Touch hit area: on coarse pointers, small controls (32 px buttons, switches, chip remove buttons)
+ * get an invisible 44 px target without changing their look. In `components` so a positioning
+ * utility such as `absolute` on the same element still wins.
+ */
+@layer components {
+  @media (pointer: coarse) {
+    .touch-target {
+      position: relative;
+    }
+    .touch-target::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      translate: -50% -50%;
+    }
+  }
+}

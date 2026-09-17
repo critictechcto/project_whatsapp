@@ -10,6 +10,10 @@ export const routes: AreaRoute[] = [
     path: 'inbox',
     handle: { title: 'Inbox' },
     lazy: async () => ({ Component: (await import('./InboxPage')).InboxPage }),
-    children: [{ index: true }, { path: ':conversationId' }],
+    // The page reads `:conversationId` itself; `element: null` marks the children as intentionally empty.
+    children: [
+      { index: true, element: null },
+      { path: ':conversationId', element: null },
+    ],
   },
 ]

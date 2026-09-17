@@ -25,6 +25,8 @@ export type MockDb = {
   invitations: MockInvitation[]
   /** Valid refresh tokens → user id. Rotated on refresh, removed on logout. */
   refreshTokens: Map<string, string>
+  /** Refresh tokens that were rotated or logged out, so they can't be restored after a reload. */
+  revokedRefreshTokens: Set<string>
 }
 
 function daysFromNow(days: number): string {
@@ -70,6 +72,7 @@ function build(): MockDb {
       },
     ],
     refreshTokens: new Map(),
+    revokedRefreshTokens: new Set(),
   }
 }
 

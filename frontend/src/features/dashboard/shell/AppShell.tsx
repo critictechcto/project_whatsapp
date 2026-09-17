@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
 
-      <aside className="hidden w-64 shrink-0 border-r border-line bg-paper px-3 py-4 lg:sticky lg:top-0 lg:block lg:h-dvh">
+      <aside className="hidden w-64 shrink-0 border-r border-line bg-paper px-3 py-4 lg:sticky lg:top-0 lg:block lg:h-[calc(100dvh-var(--demo-banner-height,0px))]">
         <p className="mb-4 px-2.5 font-display text-lg font-semibold tracking-[-0.02em] text-ink">{site.name}</p>
         <SidebarContent />
       </aside>
@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             type="button"
             onClick={() => setMenuOpen(true)}
             aria-label="Open navigation"
-            className="grid size-9 place-items-center rounded-md text-ink hover:bg-ink/5"
+            className="touch-target grid size-9 place-items-center rounded-md text-ink hover:bg-ink/5"
           >
             <Menu className="size-5" aria-hidden="true" />
           </button>

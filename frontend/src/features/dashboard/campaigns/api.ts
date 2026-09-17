@@ -34,10 +34,16 @@ export function useCampaign(workspaceId: string, id: string | undefined) {
 
 type CampaignPages = InfiniteData<CursorPage<Campaign>, string | undefined>
 
+/**
+ * Patches every cached campaign list. Home caches a plain page under the same `lists` prefix (so
+ * invalidation reaches it), so both infinite and single-page shapes are handled.
+ */
 function patchLists(queryClient: QueryClient, workspaceId: string, patch: (campaign: Campaign) => Campaign) {
-  queryClient.setQueriesData<CampaignPages>({ queryKey: campaignKeys.lists(workspaceId) }, (data) =>
-    data ? { ...data, pages: data.pages.map((page) => ({ ...page, results: page.results.map(patch) })) } : data,
-  )
+  queryClient.setQueriesData<CampaignPages | CursorPage<Campaign>>({ queryKey: campaignKeys.lists(workspaceId) }, (data) => {
+    if (!data) return data
+    if ('pages' in data) return { ...data, pages: data.pages.map((page) => ({ ...page, results: page.results.map(patch) })) }
+    return { ...data, results: data.results.map(patch) }
+  })
 }
 
 /** Writes a campaign returned by a mutation into the detail cache and every loaded list. */

@@ -52,7 +52,7 @@ export function Table<T>({
 
   return (
     <div className={cn('overflow-hidden rounded-xl border border-line bg-card', className)}>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead>

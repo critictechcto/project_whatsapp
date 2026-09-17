@@ -12,11 +12,11 @@ const buttonVariants: Record<ButtonVariant, string> = {
 }
 
 const buttonSizes: Record<ButtonSize, string> = {
-  sm: 'h-8 gap-1.5 px-3 text-[13px]',
+  sm: 'touch-target h-8 gap-1.5 px-3 text-[13px]',
   md: 'h-10 gap-2 px-4 text-sm',
   lg: 'h-11 gap-2 px-5 text-[15px]',
   icon: 'size-10',
-  'icon-sm': 'size-8',
+  'icon-sm': 'touch-target size-8',
 }
 
 /** Button classes, also for router `<Link>`s that should look like buttons. */
