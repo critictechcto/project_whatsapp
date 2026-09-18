@@ -86,7 +86,7 @@ The other variables:
 | `PLATFORM_WA_*` | UpChatz's own alerts number (WABA ID, phone number ID, display number, system-user token). Leave these empty to turn seller alerts off. |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_PLAN_IDS` | Razorpay Dashboard (live mode) |
 | `BILLING_SELLER_*` | UpChatz's legal name, GSTIN, state code and address, as printed on invoices |
-| `EMAIL_*` | Your SMTP provider (for example ZeptoMail or SES) |
+| `RESEND_API_KEY` | Resend → API Keys, **Sending access** limited to `upchatz.com` (verify the domain first: DKIM `resend._domainkey` plus the `send` MX/TXT records, and a `_dmarc` TXT, in DigitalOcean DNS). `DEFAULT_FROM_EMAIL` and `EMAIL_REPLY_TO` are set in the spec. Without a key the API falls back to SMTP with `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` |
 | `SENTRY_DSN` | Optional; leave it empty to turn Sentry off |
 
 **Updating the spec later:** App Platform does not read `.do/app.yaml` on push. It keeps its own copy. To change the spec:

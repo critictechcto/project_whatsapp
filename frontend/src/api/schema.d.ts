@@ -153,6 +153,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Marks the address verified. Idempotent: an already verified address returns 204. A bad, expired or outdated token is a 400 on `token`: “This link is invalid or has expired.” */
         post: operations["auth_email_verify_create"];
         delete?: never;
         options?: never;
@@ -169,6 +170,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Emails a new verification link to the signed-in user. Does nothing (still 204) when the address is already verified. */
         post: operations["auth_email_verify_request_create"];
         delete?: never;
         options?: never;
@@ -234,6 +236,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Emails a one-time reset link to an active account with this address. Returns 204 whether or not the account exists. */
         post: operations["auth_password_reset_create"];
         delete?: never;
         options?: never;
@@ -250,6 +253,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description A bad, expired or used token is a 400 on `token`: “This link is invalid or has expired.” A password the validators reject is a 400 on `new_password`. On success every session is signed out and the email counts as verified. */
         post: operations["auth_password_reset_confirm_create"];
         delete?: never;
         options?: never;
@@ -4912,6 +4916,20 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Validation error (`invalid`) with field details. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests; `throttled` error. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     auth_email_verify_request_create: {
@@ -4925,6 +4943,13 @@ export interface operations {
         responses: {
             /** @description No response body */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests; `throttled` error. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5053,6 +5078,20 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Validation error (`invalid`) with field details. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests; `throttled` error. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     auth_password_reset_confirm_create: {
@@ -5072,6 +5111,20 @@ export interface operations {
         responses: {
             /** @description No response body */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation error (`invalid`) with field details. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests; `throttled` error. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -321,26 +321,19 @@ envs:
     value: CHANGE_ME
     scope: RUN_AND_BUILD_TIME
 
-  # --- Email (SMTP, e.g. ZeptoMail or SES) ----------------------------------------------------
-  - key: EMAIL_HOST
-    value: CHANGE_ME
-    scope: RUN_AND_BUILD_TIME
-  - key: EMAIL_PORT
-    value: "587"
-    scope: RUN_AND_BUILD_TIME
-  - key: EMAIL_HOST_USER
-    value: CHANGE_ME
-    scope: RUN_AND_BUILD_TIME
-  - key: EMAIL_HOST_PASSWORD
+  # --- Email (Resend HTTP API; with RESEND_API_KEY set the SMTP keys are unused) -------------
+  # Verify upchatz.com in Resend (DKIM + the send.upchatz.com SPF records in DigitalOcean DNS)
+  # and create a "Sending access" key limited to that domain.
+  - key: RESEND_API_KEY
     value: CHANGE_ME
     type: SECRET
-    scope: RUN_AND_BUILD_TIME
-  - key: EMAIL_USE_TLS
-    value: "true"
-    scope: RUN_AND_BUILD_TIME
+    scope: RUN_TIME
   - key: DEFAULT_FROM_EMAIL
     value: UpChatz <no-reply@upchatz.com>
     scope: RUN_AND_BUILD_TIME
+  - key: EMAIL_REPLY_TO
+    value: support@upchatz.com
+    scope: RUN_TIME
 
   # --- Observability --------------------------------------------------------------------------
   # Empty disables Sentry; an invalid DSN stops the process at start.
