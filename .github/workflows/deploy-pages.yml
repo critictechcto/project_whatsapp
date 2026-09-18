@@ -28,8 +28,10 @@ jobs:
       # Served from the custom domain root (upchatz.com, see frontend/public/CNAME).
       # Without a custom domain Pages serves /<repo>/: use VITE_BASE=/<repo>/ instead.
       VITE_BASE: /
-      # No backend on Pages: the dashboard at /app runs on seeded demo data (MSW).
+      # No backend on Pages. Log in / sign up links and any /app URL go to the real dashboard on
+      # app.upchatz.com (DigitalOcean); the landing build itself stays in mock mode (no API calls).
       VITE_API_MODE: mock
+      VITE_APP_URL: https://app.upchatz.com
     steps:
       - uses: actions/checkout@v7
 

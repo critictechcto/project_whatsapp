@@ -2,6 +2,8 @@
 // Brand: UpChatz (upchatz.com).
 
 const BASE_URL = import.meta.env.BASE_URL
+/** Where the dashboard lives when it is not this site (`VITE_APP_URL`, e.g. https://app.upchatz.com). */
+const APP_BASE = import.meta.env.VITE_APP_URL ? `${import.meta.env.VITE_APP_URL.replace(/\/+$/, '')}/` : BASE_URL
 
 /**
  * Legal details shown on the privacy policy and terms of service pages. The owner must fill every
@@ -38,9 +40,9 @@ export const site = {
   trialDays: 14,
   gstRate: 18,
   links: {
-    // Dashboard routes, prefixed with the deploy base (`/` or the GitHub Pages project path).
-    login: `${BASE_URL}app/login`,
-    signup: `${BASE_URL}app/register`,
+    // Dashboard routes: on the dashboard host (VITE_APP_URL) or under this site's deploy base.
+    login: `${APP_BASE}app/login`,
+    signup: `${APP_BASE}app/register`,
     contactSales: 'mailto:sales@upchatz.com',
     // Static pages. GitHub Pages serves them from `<page>/index.html` (see deploy-pages.yml).
     privacy: `${BASE_URL}privacy/`,

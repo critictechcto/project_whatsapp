@@ -12,6 +12,8 @@ declare global {
     readonly VITE_API_MODE?: string
     /** `true` builds the dashboard alone (app.upchatz.com): no landing markup, `/` goes to `/app/`. */
     readonly VITE_APP_ONLY?: string
+    /** Origin of the real dashboard when this site is not it (upchatz.com sets https://app.upchatz.com). */
+    readonly VITE_APP_URL?: string
   }
 }
 
