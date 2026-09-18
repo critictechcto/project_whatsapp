@@ -1,14 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { useNavigate, useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { api, unwrap } from '../../../api/client'
 import { applyApiErrorToForm } from '../../../api/errors'
 import { Button } from '../../../components/app/Button'
 import { Field } from '../../../components/app/Field'
 import { Input } from '../../../components/app/Input'
-import { site } from '../../../config/site'
 import { Notice } from '../settings/ui/Notice'
 import { AuthLayout, AuthLink } from './AuthLayout'
 import { DemoCredentials } from './DemoCredentials'
@@ -24,10 +23,11 @@ const schema = z.object({
 type LoginValues = z.infer<typeof schema>
 
 /** `?reason=` values other screens use when they send someone back to login. */
-const reasons: Record<string, { tone: 'info' | 'warning'; text: string }> = {
+const reasons: Record<string, { tone: 'info' | 'warning' | 'success'; text: string }> = {
   signed_out: { tone: 'info', text: 'You have been logged out.' },
   session_expired: { tone: 'warning', text: 'Your session expired. Log in again to continue.' },
   password_changed: { tone: 'info', text: 'Your password was changed. Log in with the new password.' },
+  password_reset: { tone: 'success', text: 'Your password has been reset. Log in with your new password.' },
 }
 
 export function LoginPage() {
@@ -83,22 +83,17 @@ export function LoginPage() {
         <Field label="Email" error={errors.email?.message} required>
           <Input type="email" autoComplete="email" inputMode="email" {...register('email')} />
         </Field>
-        <Field
-          label="Password"
-          error={errors.password?.message}
-          required
-          hint={
-            <>
-              Forgot it? Email{' '}
-              <a href={`mailto:${site.email.support}`} className="text-accent-2 underline-offset-2 hover:underline">
-                {site.email.support}
-              </a>{' '}
-              from your account address.
-            </>
-          }
-        >
-          <PasswordInput autoComplete="current-password" {...register('password')} />
-        </Field>
+        <div className="flex flex-col gap-1.5">
+          <Field label="Password" error={errors.password?.message} required>
+            <PasswordInput autoComplete="current-password" {...register('password')} />
+          </Field>
+          <Link
+            to="/app/forgot-password"
+            className="touch-target self-end text-[13px] font-medium text-accent-2 underline-offset-2 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
           Log in
         </Button>

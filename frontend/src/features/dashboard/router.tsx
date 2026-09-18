@@ -22,6 +22,19 @@ export const dashboardRoutes: RouteObject[] = [
           { path: 'register', lazy: async () => ({ Component: (await import('./auth/RegisterPage')).RegisterPage }) },
         ],
       },
+      // Email links and password recovery: open signed in or out, never redirected.
+      {
+        path: 'forgot-password',
+        lazy: async () => ({ Component: (await import('./auth/ForgotPasswordPage')).ForgotPasswordPage }),
+      },
+      {
+        path: 'reset-password',
+        lazy: async () => ({ Component: (await import('./auth/ResetPasswordPage')).ResetPasswordPage }),
+      },
+      {
+        path: 'verify-email',
+        lazy: async () => ({ Component: (await import('./auth/VerifyEmailPage')).VerifyEmailPage }),
+      },
       {
         path: 'invitations/accept',
         lazy: async () => ({ Component: (await import('./auth/AcceptInvitationPage')).AcceptInvitationPage }),

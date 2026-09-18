@@ -1,7 +1,7 @@
 import { HttpResponse } from 'msw'
 import type { Schemas } from '../../api/types'
 import { db, type MockUser } from '../db'
-import { endMockSession, rotateMockSession, startMockSession } from '../session'
+import { endMockSession, readMockSession, rotateMockSession, startMockSession } from '../session'
 import { authenticate, errorResponse, http, issueAccessToken, mockDelay, nowIso, uuid, validationError } from '../utils'
 
 function publicUser(user: MockUser): Schemas['User'] {
@@ -36,6 +36,20 @@ export function meFor(user: MockUser): Schemas['Me'] {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Mock email-link tokens: `mock-verify-<userId>` confirms an email and `mock-reset-<userId>` resets
+ * a password. Anything else is "invalid or expired", like a real used or old link.
+ */
+export const VERIFY_TOKEN_PREFIX = 'mock-verify-'
+export const RESET_TOKEN_PREFIX = 'mock-reset-'
+const INVALID_LINK = 'This link is invalid or has expired.'
+
+function userFromToken(token: unknown, prefix: string): MockUser | undefined {
+  if (typeof token !== 'string' || !token.startsWith(prefix)) return undefined
+  const userId = token.slice(prefix.length)
+  return db.users.find((user) => user.id === userId)
+}
 
 /** The real API requires `X-UpChatz-Auth: 1` on the refresh-cookie endpoints. */
 function csrfRejected(request: Request) {
@@ -129,6 +143,44 @@ export const authHandlers = [
       return response.untyped(validationError({ current_password: ['Your current password is incorrect.'] }))
     }
     user.password = String(body.new_password ?? '')
+    return response.untyped(new HttpResponse(null, { status: 204 }))
+  }),
+
+  http.post('/api/v1/auth/email/verify/request/', ({ request, response }) => {
+    const user = authenticate(request)
+    if (user instanceof Response) return response.untyped(user)
+    return response.untyped(new HttpResponse(null, { status: 204 }))
+  }),
+
+  http.post('/api/v1/auth/email/verify/', async ({ request, response }) => {
+    await mockDelay()
+    const body = (await request.json()) as { token?: unknown }
+    const user = userFromToken(body.token, VERIFY_TOKEN_PREFIX)
+    if (!user) return response.untyped(validationError({ token: [INVALID_LINK] }))
+    user.email_verified_at ??= nowIso()
+    return response.untyped(new HttpResponse(null, { status: 204 }))
+  }),
+
+  http.post('/api/v1/auth/password/reset/', async ({ response }) => {
+    await mockDelay()
+    // Always 204 so the response never reveals whether an account exists.
+    return response.untyped(new HttpResponse(null, { status: 204 }))
+  }),
+
+  http.post('/api/v1/auth/password/reset/confirm/', async ({ request, response }) => {
+    await mockDelay()
+    const body = (await request.json()) as { token?: unknown; new_password?: unknown }
+    const user = userFromToken(body.token, RESET_TOKEN_PREFIX)
+    if (!user) return response.untyped(validationError({ token: [INVALID_LINK] }))
+    const password = String(body.new_password ?? '')
+    if (password.length < 8) {
+      return response.untyped(
+        validationError({ new_password: ['This password is too short. It must contain at least 8 characters.'] }),
+      )
+    }
+    user.password = password
+    // The real API signs the user out everywhere.
+    if (readMockSession()?.userId === user.id) endMockSession()
     return response.untyped(new HttpResponse(null, { status: 204 }))
   }),
 ]

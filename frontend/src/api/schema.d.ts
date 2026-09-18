@@ -144,6 +144,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/email/verify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_email_verify_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/verify/request/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_email_verify_request_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout/": {
         parameters: {
             query?: never;
@@ -187,6 +219,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["auth_password_change_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_password_reset_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password/reset/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_password_reset_confirm_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2775,6 +2839,9 @@ export interface components {
             readonly amount: string;
             readonly note: string;
         };
+        EmailVerifyRequest: {
+            token: string;
+        };
         EmbeddedSignupRequest: {
             code: string;
             waba_id: string;
@@ -3746,6 +3813,14 @@ export interface components {
         PasswordChangeRequest: {
             current_password: string;
             new_password: string;
+        };
+        PasswordResetConfirmRequest: {
+            token: string;
+            new_password: string;
+        };
+        PasswordResetRequestRequest: {
+            /** Format: email */
+            email: string;
         };
         PatchedAlertRecipientRequest: {
             name?: string;
@@ -4815,6 +4890,48 @@ export interface operations {
             };
         };
     };
+    auth_email_verify_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailVerifyRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["EmailVerifyRequest"];
+                "multipart/form-data": components["schemas"]["EmailVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_email_verify_request_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     auth_logout_create: {
         parameters: {
             query?: never;
@@ -4902,6 +5019,54 @@ export interface operations {
                 "application/json": components["schemas"]["PasswordChangeRequest"];
                 "application/x-www-form-urlencoded": components["schemas"]["PasswordChangeRequest"];
                 "multipart/form-data": components["schemas"]["PasswordChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_password_reset_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PasswordResetRequestRequest"];
+                "multipart/form-data": components["schemas"]["PasswordResetRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_password_reset_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirmRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PasswordResetConfirmRequest"];
+                "multipart/form-data": components["schemas"]["PasswordResetConfirmRequest"];
             };
         };
         responses: {
