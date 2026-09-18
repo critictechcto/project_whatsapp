@@ -1,6 +1,7 @@
 /** Dashboard UI kit. Import from `components/app`, never from the landing `components/ui`. */
 export { Avatar } from './Avatar'
 export { initials } from './initials'
+export { BrandLoader } from './BrandLoader'
 export { Button, type ButtonProps } from './Button'
 export { LazyTrendChart } from './charts/LazyTrendChart'
 export type { TrendChartProps, TrendPoint } from './charts/TrendChart'

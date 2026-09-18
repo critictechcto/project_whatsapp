@@ -572,6 +572,60 @@ html[data-landing]:not([data-full-layout]) #root > footer {
   transform: rotateX(90deg);
 }
 
+/* Dashboard loading states ------------------------------------------------------------- */
+/* Wordmark loader (components/app/BrandLoader): fades in late, then a wave runs through the letters. */
+.brand-loader {
+  animation: loader-in 200ms ease-out 180ms both;
+}
+.brand-loader-letter {
+  display: inline-block;
+  animation: brand-wave 1.6s ease-in-out calc(var(--i) * 90ms) infinite;
+}
+@keyframes loader-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes brand-wave {
+  0%,
+  45%,
+  100% {
+    transform: none;
+    color: var(--color-ink);
+  }
+  18% {
+    transform: translateY(-4px);
+    color: var(--color-accent);
+  }
+}
+/* Top bar while the router loads the next page (shell/RouteProgress). */
+.route-progress-bar {
+  animation: route-progress 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes route-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+/* Each dashboard area fades in when opened (shell/WorkspaceLayout). */
+.page-enter {
+  animation: page-enter 220ms ease-out both;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* The page being left dims while the next one loads. */
+.page-leaving {
+  opacity: 0.55;
+  transition: opacity 200ms ease 100ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

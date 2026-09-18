@@ -1,4 +1,5 @@
 import { cn } from '../../lib/cn'
+import { BrandLoader } from './BrandLoader'
 
 const sizes = { sm: 'size-4', md: 'size-5', lg: 'size-8' } as const
 
@@ -29,11 +30,11 @@ export function Skeleton({ className }: { className?: string }) {
   return <span aria-hidden="true" className={cn('block animate-pulse rounded-md bg-line-2', className)} />
 }
 
-/** Centered spinner for a loading page or panel. */
+/** Loading state for a page or panel: the animated wordmark, centered. */
 export function PageSpinner({ label = 'Loading' }: { label?: string }) {
   return (
-    <div className="grid min-h-[40vh] place-items-center text-muted">
-      <Spinner size="lg" label={label} />
+    <div className="grid min-h-[40vh] place-items-center">
+      <BrandLoader label={label} />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
-import { Outlet, useMatches, useNavigate, useParams } from 'react-router'
+import { Outlet, useLocation, useMatches, useNavigate, useParams } from 'react-router'
 import { api, unwrap } from '../../../api/client'
 import { queryKeys } from '../../../api/queryKeys'
 import { PageSpinner } from '../../../components/app/Spinner'
@@ -57,6 +57,9 @@ export function WorkspaceLayout() {
   })
 
   const handle = useRouteHandle()
+  // The area segment after the workspace id: a new area fades in, moving within one (inbox threads,
+  // detail pages) does not remount it.
+  const area = useLocation().pathname.split(`/w/${workspaceId}`)[1]?.split('/')[1] ?? ''
   const context = useMemo(() => (workspace.data ? workspaceContextValue(workspace.data) : null), [workspace.data])
 
   useEffect(() => {
@@ -71,7 +74,9 @@ export function WorkspaceLayout() {
   return (
     <WorkspaceContext.Provider value={context}>
       <AppShell>
-        {handle.minRole && !hasRole(context.role, handle.minRole) ? <NoAccess /> : <Outlet key={workspaceId} />}
+        <div key={`${workspaceId}/${area}`} className="page-enter">
+          {handle.minRole && !hasRole(context.role, handle.minRole) ? <NoAccess /> : <Outlet />}
+        </div>
       </AppShell>
     </WorkspaceContext.Provider>
   )
