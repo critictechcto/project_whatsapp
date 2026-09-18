@@ -31,3 +31,11 @@ export function canRemove(actor: Role, target: MemberTarget): boolean {
   if (target.isSelf || !hasRole(actor, 'admin')) return false
   return target.role !== 'owner' || actor === 'owner'
 }
+
+/**
+ * Admins and owners change the role on an open invitation (by sending a fresh one); only an owner
+ * can replace an invitation for an owner, as on the backend.
+ */
+export function canChangeInvitationRole(actor: Role, invitedRole: Role): boolean {
+  return hasRole(actor, 'admin') && (invitedRole !== 'owner' || actor === 'owner')
+}

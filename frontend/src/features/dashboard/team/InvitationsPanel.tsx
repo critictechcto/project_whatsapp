@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, MoreHorizontal, RotateCw, UserPlus, XCircle } from 'lucide-react'
+import { Mail, MoreHorizontal, RotateCw, ShieldCheck, UserPlus, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { api, unwrap } from '../../../api/client'
 import type { Invitation } from '../../../api/types'
@@ -11,15 +11,19 @@ import { ConfirmDialog } from '../settings/ui/ConfirmDialog'
 import { actionErrorMessage } from '../settings/ui/hooks'
 import { Notice } from '../settings/ui/Notice'
 import { teamKeys, type InvitationsQuery } from './queries'
+import { ChangeInvitationRoleDialog } from './ChangeInvitationRoleDialog'
 import { RoleBadge } from './RoleBadge'
+import { RoleButton } from './RoleButton'
+import { canChangeInvitationRole } from './roles'
 
 type InvitationsPanelProps = { query: InvitationsQuery; onInvite: () => void }
 
 export function InvitationsPanel({ query, onInvite }: InvitationsPanelProps) {
-  const { workspaceId, timeZone } = useWorkspace()
+  const { workspaceId, timeZone, role: actorRole } = useWorkspace()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const [revoking, setRevoking] = useState<Invitation | null>(null)
+  const [changingRole, setChangingRole] = useState<Invitation | null>(null)
 
   // There is no resend endpoint: creating an invitation for the same email replaces the open one
   // and sends a fresh link.
@@ -54,7 +58,18 @@ export function InvitationsPanel({ query, onInvite }: InvitationsPanelProps) {
         </div>
       ),
     },
-    { id: 'role', header: 'Role', cell: (invitation) => <RoleBadge role={invitation.role ?? 'agent'} /> },
+    {
+      id: 'role',
+      header: 'Role',
+      cell: (invitation) => {
+        const role = invitation.role ?? 'agent'
+        return canChangeInvitationRole(actorRole, role) ? (
+          <RoleButton role={role} subject={invitation.email} onClick={() => setChangingRole(invitation)} />
+        ) : (
+          <RoleBadge role={role} />
+        )
+      },
+    },
     {
       id: 'invited_by',
       header: 'Invited by',
@@ -81,6 +96,16 @@ export function InvitationsPanel({ query, onInvite }: InvitationsPanelProps) {
           triggerSize="icon-sm"
           placement="bottom-end"
           items={[
+            ...(canChangeInvitationRole(actorRole, invitation.role ?? 'agent')
+              ? [
+                  {
+                    id: 'role',
+                    label: 'Change role',
+                    icon: <ShieldCheck className="size-4" aria-hidden="true" />,
+                    onSelect: () => setChangingRole(invitation),
+                  },
+                ]
+              : []),
             {
               id: 'resend',
               label: 'Resend invitation',
@@ -145,6 +170,14 @@ export function InvitationsPanel({ query, onInvite }: InvitationsPanelProps) {
           />
         }
       />
+
+      {changingRole && (
+        <ChangeInvitationRoleDialog
+          key={changingRole.id}
+          invitation={changingRole}
+          onClose={() => setChangingRole(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={revoking !== null}

@@ -16,6 +16,7 @@ import { exitWorkspace } from '../workspaces/exitWorkspace'
 import { ChangeRoleDialog } from './ChangeRoleDialog'
 import { teamKeys, useMembers } from './queries'
 import { RoleBadge } from './RoleBadge'
+import { RoleButton } from './RoleButton'
 import { canChangeRole, canRemove } from './roles'
 
 type Target = { kind: 'role' | 'remove' | 'leave'; member: Membership }
@@ -55,18 +56,25 @@ export function MembersPanel() {
     {
       id: 'role',
       header: 'Role',
-      cell: (member) => (
-        <span className="inline-flex items-center gap-1.5">
-          <RoleBadge role={member.role ?? 'viewer'} />
-          {member.role === 'owner' && (
-            <Tooltip content="The owner's role can't be changed here.">
-              <span tabIndex={0} aria-label="Owner role is locked" className="inline-grid rounded text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30">
-                <Lock className="size-3.5" aria-hidden="true" />
-              </span>
-            </Tooltip>
-          )}
-        </span>
-      ),
+      cell: (member) => {
+        const role = member.role ?? 'viewer'
+        const isSelf = member.user.id === me.data?.id
+        if (canChangeRole(actorRole, { role, isSelf })) {
+          return <RoleButton role={role} subject={memberName(member)} onClick={() => setTarget({ kind: 'role', member })} />
+        }
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <RoleBadge role={role} />
+            {member.role === 'owner' && (
+              <Tooltip content="The owner's role can't be changed here.">
+                <span tabIndex={0} aria-label="Owner role is locked" className="inline-grid rounded text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30">
+                  <Lock className="size-3.5" aria-hidden="true" />
+                </span>
+              </Tooltip>
+            )}
+          </span>
+        )
+      },
     },
     {
       id: 'joined',
