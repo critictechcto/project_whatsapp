@@ -10,6 +10,8 @@ declare global {
     readonly VITE_WS_URL?: string
     /** `mock` serves the dashboard from MSW with seeded demo data; anything else talks to the API. */
     readonly VITE_API_MODE?: string
+    /** `true` builds the dashboard alone (app.upchatz.com): no landing markup, `/` goes to `/app/`. */
+    readonly VITE_APP_ONLY?: string
   }
 }
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { LandingPage } from './features/landing/LandingPage'
 import { sitePageFor } from './features/site-pages/paths'
 
@@ -25,6 +25,17 @@ function isDashboardPath(pathname: string) {
   return pathname === app || pathname.startsWith(`${app}/`)
 }
 
+/**
+ * App-only builds (`VITE_APP_ONLY=true`, the app.upchatz.com site) serve just the dashboard: the
+ * landing and site pages live on upchatz.com, so every other path goes to the dashboard.
+ */
+function ToDashboard() {
+  useEffect(() => {
+    window.location.replace(`${import.meta.env.BASE_URL}app/`)
+  }, [])
+  return null
+}
+
 export default function App() {
   // The build-time prerender has no window and renders the landing page.
   const pathname = typeof window === 'undefined' ? import.meta.env.BASE_URL : window.location.pathname
@@ -35,13 +46,18 @@ export default function App() {
       </Suspense>
     )
   }
-  const page = sitePageFor(pathname)
-  if (page) {
-    return (
-      <Suspense fallback={null}>
-        <SitePage page={page} />
-      </Suspense>
-    )
+  // Inline env check with an else branch: app-only builds drop the landing and site page modules.
+  if (import.meta.env.VITE_APP_ONLY === 'true') {
+    return <ToDashboard />
+  } else {
+    const page = sitePageFor(pathname)
+    if (page) {
+      return (
+        <Suspense fallback={null}>
+          <SitePage page={page} />
+        </Suspense>
+      )
+    }
+    return <LandingPage />
   }
-  return <LandingPage />
 }

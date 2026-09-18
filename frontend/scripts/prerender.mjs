@@ -4,6 +4,8 @@
 // - dist/index.html: the landing page markup inside #root; main.tsx hydrates it.
 // - dist/shell.html: the same document with an empty #root, for every other path (404.html, the
 //   site pages and SPA fallbacks), so those never ship or flash the landing markup.
+// - With VITE_APP_ONLY=true (the dashboard-only app.upchatz.com site) index.html is the empty shell
+//   too: that host never serves the landing page.
 // - Both get the Content-Security-Policy meta tag (scripts/csp.mjs), hashed from their final text.
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -21,21 +23,30 @@ if (template.split(EMPTY_ROOT).length !== 2) {
   throw new Error(`prerender: expected exactly one ${EMPTY_ROOT} in dist/index.html`)
 }
 
-const { render } = await import(pathToFileURL(path.join(ssrDir, 'entry-server.js')).href)
-const markup = await render()
-if (!markup.includes('id="main"')) {
-  throw new Error('prerender: the rendered markup does not look like the landing page')
-}
-
 // The same VITE_* values `vite build` saw: .env files for the production mode plus the environment.
 const env = loadEnv('production', root, 'VITE_')
+const appOnly = env.VITE_APP_ONLY === 'true'
+
+let markup = ''
+if (!appOnly) {
+  const { render } = await import(pathToFileURL(path.join(ssrDir, 'entry-server.js')).href)
+  markup = await render()
+  if (!markup.includes('id="main"')) {
+    throw new Error('prerender: the rendered markup does not look like the landing page')
+  }
+}
+
 const pages = {
   'shell.html': injectCsp(template, env),
-  'index.html': injectCsp(template.replace(EMPTY_ROOT, () => `<div id="root">${markup}</div>`), env),
+  'index.html': injectCsp(appOnly ? template : template.replace(EMPTY_ROOT, () => `<div id="root">${markup}</div>`), env),
 }
 for (const [file, html] of Object.entries(pages)) await writeFile(path.join(dist, file), html)
 // Check what hosts will serve: every inline script on disk has its hash in the policy.
 for (const file of Object.keys(pages)) verifyCsp(await readFile(path.join(dist, file), 'utf8'))
 await rm(ssrDir, { recursive: true, force: true })
 
-console.log(`prerender: landing page ${(markup.length / 1024).toFixed(1)} kB -> dist/index.html; empty shell -> dist/shell.html (with CSP)`)
+console.log(
+  appOnly
+    ? 'prerender: app-only build, empty shell -> dist/index.html and dist/shell.html (with CSP)'
+    : `prerender: landing page ${(markup.length / 1024).toFixed(1)} kB -> dist/index.html; empty shell -> dist/shell.html (with CSP)`,
+)

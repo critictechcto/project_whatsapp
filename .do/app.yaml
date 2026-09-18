@@ -132,6 +132,11 @@ static_sites:
       - key: VITE_API_MODE
         value: live
         scope: BUILD_TIME
+      # Dashboard only: no landing markup, and / (or any non-/app path) goes to /app/. The landing
+      # page lives on upchatz.com (GitHub Pages).
+      - key: VITE_APP_ONLY
+        value: "true"
+        scope: BUILD_TIME
       # Empty = same origin (https://app.upchatz.com); the WebSocket URL derives to wss://.
       - key: VITE_API_URL
         value: ""
