@@ -1,0 +1,9 @@
+{% autoescape off %}{{ inviter }} invited you to join {{ workspace }} on {{ brand }} as {{ role }}.
+
+Accept the invitation: {{ link }}
+
+This invitation expires on {{ expires_on }}.
+
+If you weren't expecting this, you can ignore this email.
+
+{{ brand }} · {{ support_email }}{% endautoescape %}

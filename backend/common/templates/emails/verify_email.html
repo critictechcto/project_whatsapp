@@ -1,0 +1,11 @@
+{% extends "emails/base.html" %}
+{% block title %}Confirm your email{% endblock %}
+{% block preheader %}Confirm your email address for {{ brand }}.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 16px 0;font-size:22px;line-height:30px;color:#16181d;">Confirm your email</h1>
+<p style="margin:0 0 16px 0;">Hi {{ name }},</p>
+<p style="margin:0;">Confirm that <strong>{{ email }}</strong> is your email address for {{ brand }}.</p>
+{% include "emails/_button.html" with url=link label="Confirm email" %}
+<p style="margin:0;color:#5f636b;">This link expires in {{ expires_days }} day{{ expires_days|pluralize }}. If you didn't create a {{ brand }} account, you can ignore this email.</p>
+{% endblock %}
+{% block reason %}someone signed up for {{ brand }} with this address{% endblock %}

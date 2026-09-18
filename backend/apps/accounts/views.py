@@ -1,15 +1,17 @@
 import contextlib
 import hashlib
+from functools import partial
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import exceptions, generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
+from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
@@ -26,13 +28,19 @@ from .cookies import (
     set_refresh_cookie,
 )
 from .serializers import (
+    INVALID_LINK,
     AccessTokenSerializer,
+    EmailVerifySerializer,
     MeSerializer,
     PasswordChangeSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     RegisterResponseSerializer,
     RegisterSerializer,
     UserSerializer,
 )
+from .tasks import send_password_reset_email, send_verification_email
+from .tokens import check_password_reset_token, check_verification_token
 
 User = get_user_model()
 
@@ -101,6 +109,7 @@ class RegisterView(AuthThrottleMixin, generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        transaction.on_commit(partial(send_verification_email.delay, str(user.pk)), robust=True)
         refresh = RefreshToken.for_user(user)
         body = {"user": UserSerializer(user).data, "access": str(refresh.access_token)}
         response = Response(body, status=status.HTTP_201_CREATED)
@@ -199,6 +208,139 @@ class MeView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
+def _blacklist_all_sessions(user) -> None:
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
+
+
+class UserEmailSendThrottle(UserRateThrottle):
+    """``email_send`` per signed-in user."""
+
+    scope = "email_send"
+
+
+class SubmittedEmailSendThrottle(LoginEmailThrottle):
+    """``email_send`` keyed on the submitted email address (sha256 of it, lowercased)."""
+
+    scope = "email_send"
+    default_rate = "5/hour"
+
+
+THROTTLED_429 = OpenApiResponse(description="Too many requests; `throttled` error.")
+INVALID_400 = OpenApiResponse(description="Validation error (`invalid`) with field details.")
+
+
+class EmailVerifyRequestView(APIView):
+    """Send (again) the email that confirms the signed-in user's address."""
+
+    throttle_classes = (UserEmailSendThrottle,)
+
+    @extend_schema(
+        request=None,
+        responses={204: None, 429: THROTTLED_429},
+        description=(
+            "Emails a new verification link to the signed-in user. Does nothing (still 204) "
+            "when the address is already verified."
+        ),
+    )
+    def post(self, request):
+        user = request.user
+        if user.email_verified_at is None:
+            transaction.on_commit(partial(send_verification_email.delay, str(user.pk)), robust=True)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class EmailVerifyView(AuthThrottleMixin, generics.GenericAPIView):
+    """Confirm an email address with the token from the verification link."""
+
+    serializer_class = EmailVerifySerializer
+    permission_classes = (AllowAny,)
+    authentication_classes = ()
+
+    @extend_schema(
+        responses={204: None, 400: INVALID_400, 429: THROTTLED_429},
+        description=(
+            "Marks the address verified. Idempotent: an already verified address returns 204. "
+            f"A bad, expired or outdated token is a 400 on `token`: “{INVALID_LINK}”"
+        ),
+    )
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        check = check_verification_token(serializer.validated_data["token"])
+        if check is None:
+            raise exceptions.ValidationError({"token": [INVALID_LINK]})
+        with transaction.atomic():
+            user = User.objects.select_for_update().get(pk=check.user.pk)
+            if user.email_verified_at is None:
+                if check.expired:
+                    raise exceptions.ValidationError({"token": [INVALID_LINK]})
+                user.email_verified_at = timezone.now()
+                user.save(update_fields=["email_verified_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetRequestView(AuthThrottleMixin, generics.GenericAPIView):
+    """Email a password reset link. Always 204, so it never reveals whether an account exists."""
+
+    serializer_class = PasswordResetRequestSerializer
+    permission_classes = (AllowAny,)
+    authentication_classes = ()
+    throttle_classes = (ScopedRateThrottle, SubmittedEmailSendThrottle)
+
+    @extend_schema(
+        responses={204: None, 400: INVALID_400, 429: THROTTLED_429},
+        description=(
+            "Emails a one-time reset link to an active account with this address. Returns 204 "
+            "whether or not the account exists."
+        ),
+    )
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"].strip()
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if user is not None:
+            transaction.on_commit(
+                partial(send_password_reset_email.delay, str(user.pk)), robust=True
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetConfirmView(AuthThrottleMixin, generics.GenericAPIView):
+    """Set a new password with the token from the reset link; signs out every session."""
+
+    serializer_class = PasswordResetConfirmSerializer
+    permission_classes = (AllowAny,)
+    authentication_classes = ()
+
+    @extend_schema(
+        responses={204: None, 400: INVALID_400, 429: THROTTLED_429},
+        description=(
+            f"A bad, expired or used token is a 400 on `token`: “{INVALID_LINK}” A password "
+            "the validators reject is a 400 on `new_password`. On success every session is "
+            "signed out and the email counts as verified."
+        ),
+    )
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            # Lock, then check the token again: two requests racing with one token get one use.
+            list(User.objects.select_for_update().filter(pk=serializer.validated_data["user"].pk))
+            user = check_password_reset_token(serializer.validated_data["token"])
+            if user is None:
+                raise exceptions.ValidationError({"token": [INVALID_LINK]})
+            user.set_password(serializer.validated_data["new_password"])
+            fields = ["password"]
+            if user.email_verified_at is None:
+                user.email_verified_at = timezone.now()
+                fields.append("email_verified_at")
+            user.save(update_fields=fields)
+            _blacklist_all_sessions(user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class PasswordChangeView(generics.GenericAPIView):
     serializer_class = PasswordChangeSerializer
 
@@ -211,6 +353,5 @@ class PasswordChangeView(generics.GenericAPIView):
             user.set_password(serializer.validated_data["new_password"])
             user.save(update_fields=["password"])
             # Sign out every other session.
-            for token in OutstandingToken.objects.filter(user=user):
-                BlacklistedToken.objects.get_or_create(token=token)
+            _blacklist_all_sessions(user)
         return Response(status=status.HTTP_204_NO_CONTENT)

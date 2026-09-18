@@ -8,7 +8,7 @@ steps can use ``config.settings.build`` (placeholders, no secrets) for ``collect
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
-from .base import SENTRY_DSN, env
+from .base import RESEND_API_KEY, SENTRY_DSN, env
 
 
 def _require(name: str) -> str:
@@ -69,7 +69,15 @@ WS_ALLOWED_ORIGINS = [origin for origin in env.list("WS_ALLOWED_ORIGINS", defaul
 if not WS_ALLOWED_ORIGINS:
     raise ImproperlyConfigured("WS_ALLOWED_ORIGINS must list the dashboard origin(s).")
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# Resend's HTTP API when a key is set (the platform may block SMTP ports), else SMTP.
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default=(
+        "common.mail_backends.ResendEmailBackend"
+        if RESEND_API_KEY
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
+)
 
 if SENTRY_DSN:
     import sentry_sdk

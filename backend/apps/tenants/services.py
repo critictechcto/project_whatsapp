@@ -3,7 +3,6 @@ from datetime import timedelta
 from functools import partial
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
@@ -24,6 +23,7 @@ from common.roles import Role, role_at_least
 from common.tenancy import InsufficientRole
 
 from .models import Invitation, Membership, Workspace
+from .tasks import send_invitation_email
 
 
 class LastOwner(Conflict):
@@ -163,23 +163,10 @@ def create_invitation(
             invited_by=invited_by.user,
             expires_at=now + timedelta(days=settings.INVITATION_TTL_DAYS),
         )
-        transaction.on_commit(partial(send_invitation_email, invitation, raw_token))
+        transaction.on_commit(
+            partial(send_invitation_email.delay, str(invitation.pk), raw_token), robust=True
+        )
     return invitation
-
-
-def send_invitation_email(invitation: Invitation, raw_token: str) -> None:
-    inviter = invitation.invited_by.get_full_name() if invitation.invited_by else "A teammate"
-    link = f"{settings.FRONTEND_URL.rstrip('/')}/app/invitations/accept?token={raw_token}"
-    send_mail(
-        subject=f"You're invited to {invitation.workspace.name} on UpChatz",
-        message=(
-            f"{inviter} invited you to join {invitation.workspace.name} as {invitation.role}.\n\n"
-            f"Accept the invitation: {link}\n\n"
-            f"This link expires on {timezone.localtime(invitation.expires_at):%d %b %Y}."
-        ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[invitation.email],
-    )
 
 
 def revoke_invitation(invitation: Invitation) -> None:
@@ -213,4 +200,8 @@ def accept_invitation(*, raw_token: str, user) -> Membership:
     invitation.accepted_at = timezone.now()
     invitation.accepted_by = user
     invitation.save(update_fields=["accepted_at", "accepted_by", "updated_at"])
+    if user.email_verified_at is None:
+        # The invitation link was mailed to this address, so opening it proves inbox control.
+        user.email_verified_at = invitation.accepted_at
+        user.save(update_fields=["email_verified_at"])
     return membership
