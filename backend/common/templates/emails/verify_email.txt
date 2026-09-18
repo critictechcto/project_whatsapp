@@ -1,0 +1,9 @@
+{% autoescape off %}Hi {{ name }},
+
+Confirm that {{ email }} is your email address for {{ brand }}:
+
+{{ link }}
+
+This link expires in {{ expires_days }} day{{ expires_days|pluralize }}. If you didn't create a {{ brand }} account, you can ignore this email.
+
+{{ brand }} · {{ support_email }}{% endautoescape %}

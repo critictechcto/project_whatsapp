@@ -1,0 +1,11 @@
+{% extends "emails/base.html" %}
+{% block title %}Join {{ workspace }} on {{ brand }}{% endblock %}
+{% block preheader %}{{ inviter }} invited you to join {{ workspace }} on {{ brand }}.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 16px 0;font-size:22px;line-height:30px;color:#16181d;">Join {{ workspace }}</h1>
+<p style="margin:0;"><strong>{{ inviter }}</strong> invited you to join <strong>{{ workspace }}</strong> on {{ brand }} as {{ role }}.</p>
+{% include "emails/_button.html" with url=link label="Accept invitation" %}
+<p style="margin:0 0 16px 0;color:#5f636b;">This invitation expires on {{ expires_on }}.</p>
+<p style="margin:0;color:#5f636b;">If you weren't expecting this, you can ignore this email.</p>
+{% endblock %}
+{% block reason %}someone invited {{ email }} to a {{ brand }} workspace{% endblock %}

@@ -262,6 +262,9 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "common.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {
         "auth": "20/min",
+        # Transactional emails a client can trigger (verification resend, password reset), per
+        # user or per submitted email address.
+        "email_send": "5/hour",
         "webhooks": "600/min",
     },
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
@@ -443,6 +446,15 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="UpChatz <no-reply@upchatz.com>")
+EMAIL_REPLY_TO = env("EMAIL_REPLY_TO", default="support@upchatz.com")
+# Resend HTTP API (common.mail_backends.ResendEmailBackend); prod uses it when the key is set.
+RESEND_API_KEY = env("RESEND_API_KEY", default="")
+RESEND_TIMEOUT = env.float("RESEND_TIMEOUT", default=15.0)
+# Public marketing site, linked from emails.
+SITE_URL = env("SITE_URL", default="https://upchatz.com")
+# Seconds a password reset link stays valid (Django's token generator reads this).
+PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=3600)
+EMAIL_VERIFICATION_MAX_AGE_DAYS = env.int("EMAIL_VERIFICATION_MAX_AGE_DAYS", default=3)
 
 # --- Observability --------------------------------------------------------------------------
 

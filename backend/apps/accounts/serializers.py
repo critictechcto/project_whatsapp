@@ -1,9 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from common.roles import Role
+
+from .tokens import check_password_reset_token
 
 User = get_user_model()
 
@@ -89,3 +92,30 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate_new_password(self, value: str) -> str:
         validate_password(value, user=self.context["request"].user)
         return value
+
+
+INVALID_LINK = "This link is invalid or has expired."
+
+
+class EmailVerifySerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=1024)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=512)
+    new_password = serializers.CharField(write_only=True, style={"input_type": "password"})
+
+    def validate(self, attrs):
+        user = check_password_reset_token(attrs["token"])
+        if user is None:
+            raise serializers.ValidationError({"token": [INVALID_LINK]})
+        try:
+            validate_password(attrs["new_password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"new_password": list(exc.messages)}) from exc
+        attrs["user"] = user
+        return attrs

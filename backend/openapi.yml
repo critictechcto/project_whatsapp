@@ -311,6 +311,49 @@ paths:
           description: '`invalid`: bad range or report'
         '409':
           description: '`feature_not_available`: the plan lacks the feature'
+  /api/v1/auth/email/verify/:
+    post:
+      operationId: auth_email_verify_create
+      description: 'Marks the address verified. Idempotent: an already verified address
+        returns 204. A bad, expired or outdated token is a 400 on `token`: “This link
+        is invalid or has expired.”'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailVerifyRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Validation error (`invalid`) with field details.
+        '429':
+          description: Too many requests; `throttled` error.
+  /api/v1/auth/email/verify/request/:
+    post:
+      operationId: auth_email_verify_request_create
+      description: Emails a new verification link to the signed-in user. Does nothing
+        (still 204) when the address is already verified.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+        '429':
+          description: Too many requests; `throttled` error.
   /api/v1/auth/logout/:
     post:
       operationId: auth_logout_create
@@ -400,6 +443,63 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/auth/password/reset/:
+    post:
+      operationId: auth_password_reset_create
+      description: Emails a one-time reset link to an active account with this address.
+        Returns 204 whether or not the account exists.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Validation error (`invalid`) with field details.
+        '429':
+          description: Too many requests; `throttled` error.
+  /api/v1/auth/password/reset/confirm/:
+    post:
+      operationId: auth_password_reset_confirm_create
+      description: 'A bad, expired or used token is a 400 on `token`: “This link is
+        invalid or has expired.” A password the validators reject is a 400 on `new_password`.
+        On success every session is signed out and the email counts as verified.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: Validation error (`invalid`) with field details.
+        '429':
+          description: Too many requests; `throttled` error.
   /api/v1/auth/register/:
     post:
       operationId: auth_register_create
@@ -7367,6 +7467,15 @@ components:
       - amount
       - currency
       - note
+    EmailVerifyRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 1024
+      required:
+      - token
     EmbeddedSignupRequest:
       type: object
       properties:
@@ -9451,6 +9560,29 @@ components:
       required:
       - current_password
       - new_password
+    PasswordResetConfirmRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 512
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - new_password
+      - token
+    PasswordResetRequestRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
     PatchedAlertRecipientRequest:
       type: object
       properties:
