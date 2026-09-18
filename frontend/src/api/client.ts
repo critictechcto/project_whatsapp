@@ -36,7 +36,16 @@ const AUTH_PATH_PREFIX = '/api/v1/auth/'
 const REFRESH_PATH = '/api/v1/auth/token/refresh/'
 const LOGOUT_PATH = '/api/v1/auth/logout/'
 /** Endpoints that never take a Bearer token and never trigger refresh-and-retry. */
-const PUBLIC_AUTH_PATHS = ['/api/v1/auth/token/', REFRESH_PATH, '/api/v1/auth/register/', LOGOUT_PATH]
+const PUBLIC_AUTH_PATHS = [
+  '/api/v1/auth/token/',
+  REFRESH_PATH,
+  '/api/v1/auth/register/',
+  LOGOUT_PATH,
+  // Links from emails work signed out, so they never send or refresh a session.
+  '/api/v1/auth/email/verify/',
+  '/api/v1/auth/password/reset/',
+  '/api/v1/auth/password/reset/confirm/',
+]
 
 function pathOf(url: string) {
   return new URL(url).pathname

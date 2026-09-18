@@ -6,6 +6,7 @@ import { cn } from '../../../lib/cn'
 import { site } from '../../../config/site'
 import { useWorkspace } from '../../../lib/workspace'
 import { visibleNav } from '../registry'
+import { EmailVerificationBanner } from './EmailVerificationBanner'
 import { UserMenu } from './UserMenu'
 import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 
@@ -92,6 +93,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <span className="min-w-0 truncate text-sm font-medium text-ink">{workspace.name}</span>
         </header>
+
+        <EmailVerificationBanner />
 
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 focus:outline-none sm:px-8 sm:py-8">
           {children}
