@@ -1,7 +1,7 @@
 /*
  * LEGAL REVIEW REQUIRED: this privacy policy is a plain-language draft written from how the product
  * works. Have a lawyer review it (DPDP Act 2023, IT Act 2000 and IT Rules, Meta and payment gateway
- * terms) and fill `site.legal` in config/site.ts before publishing it as final.
+ * terms). `site.legal` in config/site.ts holds the operator details.
  */
 import { legalReady, site } from '../../config/site'
 import { GrievanceOfficer, LegalDetails } from './LegalDetails'
@@ -117,8 +117,9 @@ export function PrivacyPage() {
         <p>We share data only with service providers that help us run {name}, and only as needed:</p>
         <BulletList>
           <li>
-            <strong className="font-semibold">DigitalOcean</strong> — hosting, databases and file storage, in its India
-            region.
+            <strong className="font-semibold">DigitalOcean</strong> — hosting and databases in its Bengaluru (India)
+            region, and file storage (such as message media and product images) in its Singapore region. Files stored
+            in Singapore are transferred outside India as the law permits.
           </li>
           <li>
             <strong className="font-semibold">Meta Platforms</strong> — to send and receive WhatsApp messages through
@@ -130,7 +131,8 @@ export function PrivacyPage() {
             links when a business connects its own Cashfree account.
           </li>
           <li>
-            <strong className="font-semibold">An email delivery provider</strong> — to send service emails.
+            <strong className="font-semibold">Resend</strong> — to deliver service emails such as sign-up
+            verification, password resets and invitations.
           </li>
         </BulletList>
         <p>
@@ -141,9 +143,10 @@ export function PrivacyPage() {
 
       <ProseSection id="cookies" title="Cookies and local storage">
         <p>
-          The marketing site does not use advertising or tracking cookies. When you sign in to the dashboard, we keep a
-          sign-in refresh token in your browser’s local storage so you stay signed in; signing out removes it. The
-          short-lived access token stays in memory only.
+          The marketing site does not use advertising or tracking cookies. When you sign in to the dashboard, we set
+          one essential cookie that keeps you signed in; it cannot be read by page scripts and signing out removes it.
+          The dashboard also keeps a small marker in your browser’s local storage that records that you are signed in,
+          with no personal data in it. The short-lived access token stays in memory only.
         </p>
       </ProseSection>
 
@@ -163,6 +166,25 @@ export function PrivacyPage() {
           where we must keep records longer for legal, tax or dispute reasons. Copies in backups are removed as those
           backups expire.
         </p>
+      </ProseSection>
+
+      <ProseSection id="meta-data-deletion" title="Deleting data received from Meta">
+        <p>
+          A business can remove the data {name} received through Meta’s WhatsApp Business Platform at any time:
+        </p>
+        <BulletList>
+          <li>
+            To stop access: in the {name} dashboard, open the <strong className="font-semibold">WhatsApp</strong> page
+            and choose <strong className="font-semibold">Disconnect</strong> on the connected number. We stop using its
+            Meta access token and stop syncing its messages.
+          </li>
+          <li>
+            To erase the data: email <TextLink href={supportMail}>{site.email.support}</TextLink> with the subject
+            “Meta data deletion request”, the email you sign in with and your WhatsApp Business Account ID. We
+            acknowledge the request within 48 hours and delete the data from our live systems within 30 days, except
+            records the law requires us to keep. Copies in backups are removed as those backups expire.
+          </li>
+        </BulletList>
       </ProseSection>
 
       <ProseSection id="your-rights" title="Your rights">
@@ -191,7 +213,7 @@ export function PrivacyPage() {
         </p>
         <GrievanceOfficer />
         <p>
-          We aim to acknowledge complaints promptly and resolve them within the time the law allows. If you are not
+          We acknowledge complaints within 48 hours and aim to resolve them within the time the law allows. If you are not
           satisfied with our response, you may be able to complain to the Data Protection Board of India.
         </p>
       </ProseSection>

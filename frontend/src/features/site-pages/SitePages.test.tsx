@@ -44,15 +44,18 @@ describe('site pages', () => {
     expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
   })
 
-  it.each(['/privacy/', '/terms/'])('%s shows the draft note and noindex until legal details are filled', async (path) => {
-    const view = visit(path)
+  it.each(['/privacy/', '/terms/'])('%s is final: operator shown, no draft note, indexable', async (path) => {
+    visit(path)
     await screen.findByRole('heading', { level: 1 })
 
-    expect(screen.getByRole('note')).toHaveTextContent('Draft — details pending')
-    expect(robotsMeta()).toHaveAttribute('content', 'noindex')
-
-    view.unmount()
+    expect(screen.getByText(site.legal.entityName)).toBeInTheDocument()
+    expect(screen.queryByText(/Draft — details pending/)).not.toBeInTheDocument()
     expect(robotsMeta()).toBeNull()
+  })
+
+  it('privacy explains how to delete data received from Meta', async () => {
+    visit('/privacy/')
+    expect(await screen.findByRole('heading', { name: 'Deleting data received from Meta' })).toBeInTheDocument()
   })
 
   it('sets the document title and restores it on unmount', async () => {

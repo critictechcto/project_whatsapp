@@ -23,11 +23,12 @@ export type LegalDetails = {
 }
 
 const legal: LegalDetails = {
-  entityName: '',
-  registeredAddress: '',
-  grievanceOfficer: { name: '', email: '' },
-  effectiveDate: '',
-  jurisdictionCity: '',
+  entityName: 'Critictech Solutions Private Limited',
+  registeredAddress:
+    'No. 3/28, Ganesh Nagar, 1st Street, Maduravoyal, Tiruvallur, Chennai, Tamil Nadu 600095, India',
+  grievanceOfficer: { name: 'Saravana Bhava', email: 'support@upchatz.com' },
+  effectiveDate: '22 September 2026',
+  jurisdictionCity: 'Chennai',
 }
 
 export const site = {

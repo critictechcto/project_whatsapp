@@ -1,8 +1,7 @@
 /*
  * LEGAL REVIEW REQUIRED: these terms are a plain-language draft written from how the product works.
  * Have a lawyer review them (limitation of liability, indemnity, governing law and jurisdiction,
- * consumer and IT law, Meta and payment gateway terms) and fill `site.legal` in config/site.ts
- * before publishing them as final.
+ * consumer and IT law, Meta and payment gateway terms). `site.legal` in config/site.ts holds the operator details.
  */
 import { ANNUAL_MONTHS_CHARGED, legalReady, plans, site } from '../../config/site'
 import { formatINR } from '../../lib/format'

@@ -36,8 +36,8 @@ describe('site config', () => {
     expect(site.links.contact).toBe('/contact/')
   })
 
-  it('is not legally ready while legal details are empty', () => {
-    expect(site.legal.entityName).toBe('')
-    expect(legalReady).toBe(false)
+  it('is legally ready: every legal detail is filled in', () => {
+    expect(site.legal.entityName).toBe('Critictech Solutions Private Limited')
+    expect(legalReady).toBe(true)
   })
 })
