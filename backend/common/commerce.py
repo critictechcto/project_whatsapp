@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 REPLY_ID_PREFIX = "upc"
 # Meta allows 200 characters for list row ids and 256 for reply button ids.
 REPLY_ID_MAX_LENGTH = 200
-SCOPES = frozenset({"shop", "chk", "ord", "nfm", "alerts"})
+# ``consent`` is not commerce: the opt-in buttons of the automations action ``send_opt_in_request``
+# share the grammar so the tap is claimed here and never re-triggers automation rules.
+SCOPES = frozenset({"shop", "chk", "ord", "nfm", "alerts", "consent"})
 # Message types always handled by commerce (a native WhatsApp cart).
 CLAIMED_MESSAGE_TYPES = frozenset({"order"})
 

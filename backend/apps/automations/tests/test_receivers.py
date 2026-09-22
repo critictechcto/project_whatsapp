@@ -110,3 +110,21 @@ def test_automation_replies_do_not_trigger_more_automations(
     assert reply.status == Message.Status.SENT
     assert len(fake_graph.sent_messages) == 1
     assert AutomationRun.objects.get().rule == rule
+
+
+def test_opt_in_taps_go_to_the_consent_handler(
+    monkeypatch, workspace, conversation, inbound, commit, enqueued
+):
+    handled: list[tuple] = []
+    monkeypatch.setattr(
+        receivers, "handle_consent_reply", SimpleNamespace(delay=lambda *args: handled.append(args))
+    )
+    rule = AutomationRuleFactory(workspace=workspace)
+    reply_id = f"upc:consent:yes:{rule.pk}:0"
+    message = inbound("Yes, send offers", type=Message.Type.INTERACTIVE)
+
+    with commit():
+        inbox_services.emit_message_recorded(message, conversation, reply_id=reply_id)
+
+    assert handled == [(str(message.pk), reply_id)]
+    assert enqueued == []

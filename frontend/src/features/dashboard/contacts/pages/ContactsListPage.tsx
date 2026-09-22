@@ -142,6 +142,9 @@ export function ContactsListPage() {
       <Link to={`${base}/contacts/tags`} className={buttonClasses('secondary')}>
         Tags
       </Link>
+      <Link to={`${base}/contacts/consent-keywords`} className={buttonClasses('secondary')}>
+        Consent keywords
+      </Link>
       {canDelete ? (
         <Link to={`${base}/contacts/imports/new`} className={buttonClasses('secondary')}>
           <Upload className="size-4" aria-hidden="true" />

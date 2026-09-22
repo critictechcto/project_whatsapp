@@ -995,6 +995,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/contacts/consent-keywords/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's consent keywords (one per workspace). Admins edit them. */
+        get: operations["contacts_consent_keywords_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description The workspace's consent keywords (one per workspace). Admins edit them. */
+        patch: operations["contacts_consent_keywords_partial_update"];
+        trace?: never;
+    };
     "/api/v1/contacts/imports/": {
         parameters: {
             query?: never;
@@ -2279,14 +2297,14 @@ export interface components {
         };
         AutomationAction: {
             type: components["schemas"]["AutomationActionTypeEnum"];
-            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}. */
+            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}; send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}. */
             config?: {
                 [key: string]: unknown;
             };
         };
         AutomationActionRequest: {
             type: components["schemas"]["AutomationActionTypeEnum"];
-            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}. */
+            /** @description send_text {text}; send_template {template_id, body_params: VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}; send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}. */
             config?: {
                 [key: string]: unknown;
             };
@@ -2300,9 +2318,10 @@ export interface components {
          *     * `send_shop_menu` - send_shop_menu
          *     * `send_catalog` - send_catalog
          *     * `send_collection` - send_collection
+         *     * `send_opt_in_request` - send_opt_in_request
          * @enum {string}
          */
-        AutomationActionTypeEnum: "send_text" | "send_template" | "add_tags" | "assign" | "close_conversation" | "send_shop_menu" | "send_catalog" | "send_collection";
+        AutomationActionTypeEnum: "send_text" | "send_template" | "add_tags" | "assign" | "close_conversation" | "send_shop_menu" | "send_catalog" | "send_collection" | "send_opt_in_request";
         AutomationRule: {
             /** Format: uuid */
             readonly id: string;
@@ -2670,6 +2689,19 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /** @description The workspace's consent words. Opt-out words are extras on top of the locked defaults. */
+        ConsentKeywords: {
+            /** @description Whole messages that record a marketing opt-in. May be empty. */
+            opt_in_keywords: string[];
+            /** @description Extra whole messages that record an opt-out, besides the locked words. */
+            opt_out_keywords: string[];
+            /** @description Opt-out words that always apply and cannot be removed. */
+            readonly locked_opt_out_keywords: string[];
+            /** @description The opt-in words a new workspace starts with. */
+            readonly default_opt_in_keywords: string[];
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
         /**
          * @description * `marketing` - Marketing
          * @enum {string}
@@ -2691,10 +2723,11 @@ export interface components {
          *     * `import` - Import
          *     * `api` - API
          *     * `whatsapp_keyword` - WhatsApp keyword
+         *     * `whatsapp_button` - WhatsApp opt-in button
          *     * `meta_marketing_optout` - Meta marketing opt-out
          * @enum {string}
          */
-        ConsentSourceEnum: "manual" | "import" | "api" | "whatsapp_keyword" | "meta_marketing_optout";
+        ConsentSourceEnum: "manual" | "import" | "api" | "whatsapp_keyword" | "whatsapp_button" | "meta_marketing_optout";
         Contact: {
             /** Format: uuid */
             readonly id: string;
@@ -3911,6 +3944,13 @@ export interface components {
             phone_number_id?: string;
             is_cart_enabled?: boolean;
             is_catalog_visible?: boolean;
+        };
+        /** @description The workspace's consent words. Opt-out words are extras on top of the locked defaults. */
+        PatchedConsentKeywordsRequest: {
+            /** @description Whole messages that record a marketing opt-in. May be empty. */
+            opt_in_keywords?: string[];
+            /** @description Extra whole messages that record an opt-out, besides the locked words. */
+            opt_out_keywords?: string[];
         };
         PatchedContactRequest: {
             /** @description Any common format; Indian local numbers are accepted. Stored as E.164. */
@@ -6798,6 +6838,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkTagResult"];
+                };
+            };
+        };
+    };
+    contacts_consent_keywords_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentKeywords"];
+                };
+            };
+        };
+    };
+    contacts_consent_keywords_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedConsentKeywordsRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedConsentKeywordsRequest"];
+                "multipart/form-data": components["schemas"]["PatchedConsentKeywordsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentKeywords"];
                 };
             };
         };

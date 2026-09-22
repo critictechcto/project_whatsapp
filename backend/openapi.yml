@@ -2608,6 +2608,64 @@ paths:
               schema:
                 $ref: '#/components/schemas/BulkTagResult'
           description: ''
+  /api/v1/contacts/consent-keywords/:
+    get:
+      operationId: contacts_consent_keywords_retrieve
+      description: The workspace's consent keywords (one per workspace). Admins edit
+        them.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - contacts
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentKeywords'
+          description: ''
+    patch:
+      operationId: contacts_consent_keywords_partial_update
+      description: The workspace's consent keywords (one per workspace). Admins edit
+        them.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - contacts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedConsentKeywordsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedConsentKeywordsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedConsentKeywordsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentKeywords'
+          description: ''
   /api/v1/contacts/imports/:
     get:
       operationId: contacts_imports_list
@@ -6101,7 +6159,8 @@ components:
           additionalProperties: {}
           description: 'send_text {text}; send_template {template_id, body_params:
             VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation
-            {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}.'
+            {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id};
+            send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}.'
       required:
       - type
     AutomationActionRequest:
@@ -6114,7 +6173,8 @@ components:
           additionalProperties: {}
           description: 'send_text {text}; send_template {template_id, body_params:
             VariableSource[]}; add_tags {tag_ids}; assign {user_id}; close_conversation
-            {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id}.'
+            {}; send_shop_menu {}; send_catalog {}; send_collection {collection_id};
+            send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}.'
       required:
       - type
     AutomationActionTypeEnum:
@@ -6127,6 +6187,7 @@ components:
       - send_shop_menu
       - send_catalog
       - send_collection
+      - send_opt_in_request
       type: string
       description: |-
         * `send_text` - send_text
@@ -6137,6 +6198,7 @@ components:
         * `send_shop_menu` - send_shop_menu
         * `send_catalog` - send_catalog
         * `send_collection` - send_collection
+        * `send_opt_in_request` - send_opt_in_request
     AutomationRule:
       type: object
       properties:
@@ -7023,6 +7085,46 @@ components:
       - purpose
       - source
       - wamid
+    ConsentKeywords:
+      type: object
+      description: The workspace's consent words. Opt-out words are extras on top
+        of the locked defaults.
+      properties:
+        opt_in_keywords:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          description: Whole messages that record a marketing opt-in. May be empty.
+        opt_out_keywords:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          description: Extra whole messages that record an opt-out, besides the locked
+            words.
+        locked_opt_out_keywords:
+          type: array
+          items:
+            type: string
+          readOnly: true
+          description: Opt-out words that always apply and cannot be removed.
+        default_opt_in_keywords:
+          type: array
+          items:
+            type: string
+          readOnly: true
+          description: The opt-in words a new workspace starts with.
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - default_opt_in_keywords
+      - locked_opt_out_keywords
+      - opt_in_keywords
+      - opt_out_keywords
+      - updated_at
     ConsentPurposeEnum:
       enum:
       - marketing
@@ -7052,6 +7154,7 @@ components:
       - import
       - api
       - whatsapp_keyword
+      - whatsapp_button
       - meta_marketing_optout
       type: string
       description: |-
@@ -7059,6 +7162,7 @@ components:
         * `import` - Import
         * `api` - API
         * `whatsapp_keyword` - WhatsApp keyword
+        * `whatsapp_button` - WhatsApp opt-in button
         * `meta_marketing_optout` - Meta marketing opt-out
     Contact:
       type: object
@@ -9748,6 +9852,24 @@ components:
           type: boolean
         is_catalog_visible:
           type: boolean
+    PatchedConsentKeywordsRequest:
+      type: object
+      description: The workspace's consent words. Opt-out words are extras on top
+        of the locked defaults.
+      properties:
+        opt_in_keywords:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          description: Whole messages that record a marketing opt-in. May be empty.
+        opt_out_keywords:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          description: Extra whole messages that record an opt-out, besides the locked
+            words.
     PatchedContactRequest:
       type: object
       properties:

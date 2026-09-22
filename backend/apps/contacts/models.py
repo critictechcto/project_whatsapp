@@ -87,6 +87,7 @@ class ConsentEvent(TenantScopedModel):
         IMPORT = "import", "Import"
         API = "api", "API"
         WHATSAPP_KEYWORD = "whatsapp_keyword", "WhatsApp keyword"
+        WHATSAPP_BUTTON = "whatsapp_button", "WhatsApp opt-in button"
         META_MARKETING_OPTOUT = "meta_marketing_optout", "Meta marketing opt-out"
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name="consent_events")
@@ -162,3 +163,31 @@ class ContactImport(TenantScopedModel):
 
     def __str__(self) -> str:
         return f"Contact import {self.pk} ({self.status})"
+
+
+def default_opt_in_keywords() -> list[str]:
+    return ["start", "subscribe"]
+
+
+class ConsentKeywords(TenantScopedModel):
+    """One per workspace: the whole-message words that record consent on WhatsApp.
+
+    ``opt_in_keywords`` is the full opt-in list (the seller may remove the defaults).
+    ``opt_out_keywords`` holds only the seller's extra words: the defaults in
+    ``services.LOCKED_OPT_OUT_KEYWORDS`` always apply and cannot be removed. Words are stored
+    normalised (see ``services.normalize_keyword``).
+    """
+
+    opt_in_keywords = models.JSONField(default=default_opt_in_keywords, blank=True)
+    opt_out_keywords = models.JSONField(default=list, blank=True)
+
+    class Meta(TenantScopedModel.Meta):
+        verbose_name_plural = "consent keywords"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace"], name="contacts_one_consent_keywords_per_workspace"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Consent keywords for {self.workspace_id}"

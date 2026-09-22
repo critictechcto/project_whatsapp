@@ -283,7 +283,7 @@ function ConsentHistory({ contact }: { contact: Contact }) {
 
   const who = (event: ConsentEvent) => {
     if (event.actor) return names.get(event.actor) ?? 'a team member'
-    if (event.source === 'whatsapp_keyword' || event.source === 'meta_marketing_optout') return 'the contact'
+    if (event.source === 'whatsapp_keyword' || event.source === 'whatsapp_button' || event.source === 'meta_marketing_optout') return 'the contact'
     return null
   }
 

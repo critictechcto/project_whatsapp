@@ -28,6 +28,8 @@ export type ContactsMockState = {
   consentEvents: MockConsentEvent[]
   imports: MockImport[]
   conversations: MockConversation[]
+  /** Consent keywords by workspace id; a missing entry means the defaults. */
+  consentKeywords: Record<string, { opt_in_keywords: string[]; opt_out_keywords: string[]; updated_at: string }>
 }
 
 const pad = (n: number) => String(n).padStart(12, '0')
@@ -214,6 +216,7 @@ function build(): ContactsMockState {
     consentEvents,
     imports: [],
     conversations: buildConversations(contacts),
+    consentKeywords: {},
   }
 }
 

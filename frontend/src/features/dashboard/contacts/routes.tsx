@@ -1,7 +1,7 @@
 import type { AreaRoute } from '../registry/types'
 
 /**
- * Routes under /app/w/:workspaceId/. Static segments (`tags`, `imports`) rank above `:contactId`.
+ * Routes under /app/w/:workspaceId/. Static segments (`tags`, `consent-keywords`, `imports`) rank above `:contactId`.
  * Role gates follow the API: contacts and tags are readable by any member, imports need agent
  * to read and admin to upload.
  */
@@ -15,6 +15,11 @@ export const routes: AreaRoute[] = [
     path: 'contacts/tags',
     handle: { title: 'Tags' },
     lazy: async () => ({ Component: (await import('./pages/TagsPage')).TagsPage }),
+  },
+  {
+    path: 'contacts/consent-keywords',
+    handle: { title: 'Consent keywords' },
+    lazy: async () => ({ Component: (await import('./pages/ConsentKeywordsPage')).ConsentKeywordsPage }),
   },
   {
     path: 'contacts/imports',

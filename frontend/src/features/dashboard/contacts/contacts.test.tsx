@@ -218,6 +218,44 @@ describe('CSV import', () => {
   })
 })
 
+describe('consent keywords', () => {
+  it('adds local words, keeps STOP locked and saves', async () => {
+    signIn()
+    const { user } = renderDashboard(`${base}/consent-keywords`)
+
+    const optIn = await screen.findByLabelText('Opt-in words', {}, LAZY)
+    expect(screen.getByRole('list', { name: 'Opt-in words added' })).toHaveTextContent('startsubscribe')
+    expect(screen.getByRole('list', { name: 'Opt-out words that always apply' })).toHaveTextContent('stop')
+    expect(screen.getByRole('button', { name: 'Save keywords' })).toBeDisabled()
+
+    await user.type(optIn, 'STOP{Enter}')
+    expect(screen.getByText('“stop” always opts out.')).toBeInTheDocument()
+    await user.clear(optIn)
+    await user.type(optIn, 'Haan!{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Remove opt-in word subscribe' }))
+    await user.type(screen.getByLabelText('Extra opt-out words'), 'Band karo{Enter}')
+    await user.click(screen.getByRole('button', { name: 'Save keywords' }))
+
+    expect(await screen.findByText('Consent keywords saved')).toBeInTheDocument()
+    expect(contactsMock().consentKeywords[ids.sharmaSweets]).toMatchObject({
+      opt_in_keywords: ['start', 'haan'],
+      opt_out_keywords: ['band karo'],
+    })
+    await user.click(screen.getByRole('button', { name: 'Reset to START and SUBSCRIBE' }))
+    expect(screen.getByRole('list', { name: 'Opt-in words added' })).toHaveTextContent('startsubscribe')
+  })
+
+  it('is read-only for viewers', async () => {
+    makeViewer()
+    signIn()
+    renderDashboard(`${base}/consent-keywords`)
+
+    expect(await screen.findByLabelText('Opt-in words', {}, LAZY)).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save keywords' })).not.toBeInTheDocument()
+    expect(screen.getByText('Only admins can change consent keywords.')).toBeInTheDocument()
+  })
+})
+
 describe('viewer role', () => {
   it('hides write actions from viewers', async () => {
     makeViewer()

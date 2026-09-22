@@ -11,6 +11,7 @@ AUTOMATION_ACTION_TYPES = (
     "send_shop_menu",
     "send_catalog",
     "send_collection",
+    "send_opt_in_request",
 )
 AUTOMATION_RUN_STATUSES = ("succeeded", "skipped", "failed")
 

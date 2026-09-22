@@ -353,6 +353,7 @@ Every commerce reply id has the form `upc:<scope>:<action>[:<arg>...]`. It is at
 | `ord` | `view` (order_id), `list` | orders |
 | `nfm` | `address_message` (set by the webhook parser for `nfm_reply`) | orders |
 | `alerts` | `verify` (recipient_id), `pack` / `ship` / `cancel` / `cancel_yes` / `cancel_no` (order_id), `orders` (no args: the open orders list; order_id: one order's actions) | seller_alerts |
+| `consent` | `yes` / `no` (rule_id, action_index): the opt-in buttons of the automations action `send_opt_in_request`. Not commerce, but it shares the grammar so the tap is claimed and never re-triggers rules | automations |
 
 **Claiming:**
 - `is_claimed_by_commerce(event)` is true for inbound `order` messages, for any well-formed `upc:` reply id, and for anything a registered claimer accepts.
@@ -476,6 +477,7 @@ Feature `commerce` is added to `FEATURES` and enabled on every plan and the tria
 - `send_catalog` in bot mode sends the collections list.
 - Skip codes: `store_unavailable`, `store_empty`, `collection_empty`. Failure code: `collection_not_found`.
 - `AutomationActionTypeEnum` gains those values.
+- Later addition, `send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}` (in `SEND_ACTIONS`): two reply buttons `upc:consent:yes|no:<rule_id>:<index>` (labels ≤ 20 characters, defaults *Yes, send offers* / *No thanks*). *Yes* records a marketing opt-in with `ConsentEvent` source `whatsapp_button` (idempotent per wamid) and sends the confirmation text (a default when blank or when the rule is gone); *No* changes nothing and sends the decline text if one is set. The task `automations.handle_consent_reply` handles the tap. Failure code: `outside_service_window`.
 
 ### Settings (lead-owned, in `config/settings/base.py`)
 `PUBLIC_API_BASE_URL`, `PUBLIC_MEDIA_BASE_URL`, `PAYMENT_LINK_EXPIRY_MINUTES` (30), `ORDER_CHECKOUT_TTL_MINUTES` (35), `PLATFORM_WA_WABA_ID`, `PLATFORM_WA_PHONE_NUMBER_ID`, `PLATFORM_WA_DISPLAY_PHONE_NUMBER`, `PLATFORM_WA_ACCESS_TOKEN`.

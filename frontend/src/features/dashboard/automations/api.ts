@@ -104,6 +104,7 @@ export const actionLabels: Record<AutomationActionType, string> = {
   send_shop_menu: 'Send shop menu',
   send_catalog: 'Send catalog',
   send_collection: 'Send collection',
+  send_opt_in_request: 'Ask to opt in',
 }
 
 export const runStatusInfo: Record<RunStatus, { label: string; tone: 'green' | 'neutral' | 'red' }> = {

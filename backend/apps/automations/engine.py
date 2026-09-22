@@ -24,6 +24,9 @@ Action failure semantics: each action runs in its own savepoint. Policy errors (
 a sequence never continues without its message, e.g. a conversation is not closed when the reply
 could not be queued. Other failed actions don't halt. A run with any failed action is ``failed``.
 
+``send_opt_in_request`` sends two opt-in buttons; the customer's tap is handled by :mod:`.consent`
+(it records the opt-in and replies), not by rules.
+
 Commerce send actions (``send_shop_menu``, ``send_catalog``, ``send_collection``) run the handler
 ``apps.shop`` registers in :mod:`.hooks`. Without one, or when the handler raises
 ``ActionSkipped``, the action is ``skipped`` ("Store is not available.") and, being a send, halts
@@ -55,7 +58,7 @@ from apps.inbox.models import Conversation, Message
 from apps.message_templates.models import MessageTemplate
 from apps.tenants.models import Membership
 
-from . import business_hours, matching
+from . import business_hours, consent, matching
 from .hooks import (
     COMMERCE_ACTION_TYPES,
     STORE_UNAVAILABLE,
@@ -74,7 +77,9 @@ RunStatus = AutomationRun.Status
 # At most this many automation messages per conversation in any rolling hour.
 MAX_AUTOMATED_SENDS_PER_HOUR = 10
 SEND_CAP_WINDOW = timedelta(hours=1)
-SEND_ACTIONS = frozenset({"send_text", "send_template", *COMMERCE_ACTION_TYPES})
+SEND_ACTIONS = frozenset(
+    {"send_text", "send_template", consent.ACTION_TYPE, *COMMERCE_ACTION_TYPES}
+)
 # Reactions to an automated reply would otherwise trigger more replies; unsupported/system
 # messages carry no customer text; native carts (orders) are always answered by commerce.
 IGNORED_MESSAGE_TYPES = frozenset(
@@ -461,6 +466,21 @@ def _send_template(*, rule, message, conversation, config, index) -> dict[str, A
     return {"message_id": str(sent.pk)}
 
 
+def _send_opt_in_request(*, rule, message, conversation, config, index) -> dict[str, Any]:
+    if not sending.window_open(conversation.contact, conversation.phone_number):
+        raise sending.OutsideServiceWindow()
+    sent = sending.send_message(
+        workspace=message.workspace,
+        contact=conversation.contact,
+        content=consent.request_content(rule, index, config),
+        conversation=conversation,
+        source=Message.Source.AUTOMATION,
+        source_ref=str(rule.pk),
+        idempotency_key=idempotency_key(rule, message, index),
+    )
+    return {"message_id": str(sent.pk)}
+
+
 def _add_tags(*, rule, message, conversation, config, index) -> dict[str, Any]:
     ids = [tag_id for tag_id in map(_uuid, config.get("tag_ids") or ()) if tag_id]
     tags = list(Tag.objects.filter(workspace_id=message.workspace_id, pk__in=ids))
@@ -500,6 +520,7 @@ def _store_unavailable(*, rule, message, conversation, config, index) -> dict[st
 ACTION_HANDLERS: dict[str, ActionHandler] = {
     "send_text": _send_text,
     "send_template": _send_template,
+    consent.ACTION_TYPE: _send_opt_in_request,
     "add_tags": _add_tags,
     "assign": _assign,
     "close_conversation": _close_conversation,

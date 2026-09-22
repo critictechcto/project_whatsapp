@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { RoleEnum } from '../../../api/types'
 import { db } from '../../../mocks/db'
@@ -105,6 +105,45 @@ describe('rule editor', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Automations' })).toBeInTheDocument()
     const created = automationState().rules.find((record) => record.rule.name === 'Diwali boxes')?.rule
     expect(created?.actions).toEqual([{ type: 'send_collection', config: { collection_id: collectionId } }])
+  })
+
+  it('builds an opt-in request with two buttons and saves it', async () => {
+    signIn()
+    const { user } = renderDashboard(`${base}/new`)
+
+    await user.type(await screen.findByLabelText(/^Rule name/), 'Offers opt-in')
+    await user.type(screen.getByLabelText(/^Keywords/), 'offers{Enter}')
+    await user.selectOptions(screen.getByLabelText('Do this'), 'send_opt_in_request')
+
+    const preview = screen.getByRole('group', { name: 'Preview of action 1' })
+    expect(within(preview).getByRole('list', { name: 'Reply buttons' })).toHaveTextContent('Yes, send offersNo thanks')
+
+    const decline = screen.getByLabelText(/^Decline button/)
+    await user.clear(decline)
+    await fill(user, decline, 'yes, SEND offers')
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+    expect(await screen.findByText('Use different text for the two buttons.')).toBeInTheDocument()
+
+    await user.clear(decline)
+    await fill(user, decline, 'Not now')
+    await fill(user, screen.getByLabelText(/^Reply after declining/), 'No problem!')
+    expect(within(preview).getByRole('list', { name: 'Reply buttons' })).toHaveTextContent('Yes, send offersNot now')
+    await user.click(screen.getByRole('button', { name: 'Create rule' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Automations' })).toBeInTheDocument()
+    const created = automationState().rules.find((record) => record.rule.name === 'Offers opt-in')?.rule
+    expect(created?.actions).toEqual([
+      {
+        type: 'send_opt_in_request',
+        config: {
+          text: 'Would you like new arrivals and offers from us on WhatsApp? You can reply STOP anytime to stop them.',
+          yes_label: 'Yes, send offers',
+          no_label: 'Not now',
+          confirmation_text: '',
+          decline_text: 'No problem!',
+        },
+      },
+    ])
   })
 
   it('explains the shop menu and catalog actions', async () => {

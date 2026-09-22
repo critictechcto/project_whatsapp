@@ -3,7 +3,14 @@ import type { VariableSource } from '../campaigns/api'
 import { variableSourceSchema } from '../campaigns/wizardSchema'
 import type { AutomationActionType, AutomationRule, RuleWrite } from './api'
 
-export const actionTypes = ['send_text', 'send_template', 'add_tags', 'assign', 'close_conversation', 'send_shop_menu', 'send_catalog', 'send_collection'] as const
+export const actionTypes = ['send_text', 'send_template', 'add_tags', 'assign', 'close_conversation', 'send_shop_menu', 'send_catalog', 'send_collection', 'send_opt_in_request'] as const
+/** Meta's limits for an interactive message body and a reply button title. */
+export const MAX_OPT_IN_TEXT = 1024
+export const MAX_BUTTON_LABEL = 20
+export const DEFAULT_YES_LABEL = 'Yes, send offers'
+export const DEFAULT_NO_LABEL = 'No thanks'
+export const DEFAULT_OPT_IN_TEXT = 'Would you like new arrivals and offers from us on WhatsApp? You can reply STOP anytime to stop them.'
+export const DEFAULT_CONFIRMATION = "You're subscribed ✅ We'll send you offers and updates here. Reply STOP anytime to stop."
 export const MAX_ACTIONS = 5
 export const MAX_KEYWORDS = 50
 
@@ -16,6 +23,10 @@ const actionSchema = z
     tag_ids: z.array(z.string()),
     user_id: z.string(),
     collection_id: z.string(),
+    yes_label: z.string(),
+    no_label: z.string(),
+    confirmation_text: z.string(),
+    decline_text: z.string(),
   })
   .superRefine((action, ctx) => {
     const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message })
@@ -27,6 +38,20 @@ const actionSchema = z
     if (action.type === 'add_tags' && !action.tag_ids.length) issue('tag_ids', 'Choose at least one tag.')
     if (action.type === 'assign' && !action.user_id) issue('user_id', 'Choose a team member.')
     if (action.type === 'send_collection' && !action.collection_id) issue('collection_id', 'Choose a collection.')
+    if (action.type === 'send_opt_in_request') {
+      if (!action.text.trim()) issue('text', 'Enter the question to ask.')
+      else if (action.text.length > MAX_OPT_IN_TEXT) issue('text', `A message with buttons can be up to ${MAX_OPT_IN_TEXT.toLocaleString('en-IN')} characters.`)
+      for (const key of ['yes_label', 'no_label'] as const) {
+        if (!action[key].trim()) issue(key, 'Enter the button text.')
+        else if (action[key].trim().length > MAX_BUTTON_LABEL) issue(key, `Button text can be up to ${MAX_BUTTON_LABEL} characters.`)
+      }
+      if (action.yes_label.trim() && action.yes_label.trim().toLowerCase() === action.no_label.trim().toLowerCase()) {
+        issue('no_label', 'Use different text for the two buttons.')
+      }
+      for (const key of ['confirmation_text', 'decline_text'] as const) {
+        if (action[key].length > 4096) issue(key, 'WhatsApp text messages can be up to 4,096 characters.')
+      }
+    }
   })
 
 export const ruleSchema = z
@@ -52,7 +77,20 @@ export type RuleFormValues = z.infer<typeof ruleSchema>
 export type ActionFormValues = RuleFormValues['actions'][number]
 
 export function emptyAction(type: AutomationActionType = 'send_text'): ActionFormValues {
-  return { type, text: '', template_id: '', body_params: [], tag_ids: [], user_id: '', collection_id: '' }
+  const optIn = type === 'send_opt_in_request'
+  return {
+    type,
+    text: optIn ? DEFAULT_OPT_IN_TEXT : '',
+    template_id: '',
+    body_params: [],
+    tag_ids: [],
+    user_id: '',
+    collection_id: '',
+    yes_label: optIn ? DEFAULT_YES_LABEL : '',
+    no_label: optIn ? DEFAULT_NO_LABEL : '',
+    confirmation_text: '',
+    decline_text: '',
+  }
 }
 
 const text = (value: unknown) => (typeof value === 'string' ? value : '')
@@ -83,6 +121,10 @@ export function ruleToForm(rule: AutomationRule | null): RuleFormValues {
           tag_ids: strings(action.config?.tag_ids),
           user_id: text(action.config?.user_id),
           collection_id: text(action.config?.collection_id),
+          yes_label: text(action.config?.yes_label),
+          no_label: text(action.config?.no_label),
+          confirmation_text: text(action.config?.confirmation_text),
+          decline_text: text(action.config?.decline_text),
         }))
       : [emptyAction()],
     cooldown_minutes: rule?.cooldown_minutes ?? 0,
@@ -106,6 +148,14 @@ export function actionConfig(action: ActionFormValues): Record<string, unknown> 
       return {}
     case 'send_collection':
       return { collection_id: action.collection_id }
+    case 'send_opt_in_request':
+      return {
+        text: action.text,
+        yes_label: action.yes_label.trim(),
+        no_label: action.no_label.trim(),
+        confirmation_text: action.confirmation_text,
+        decline_text: action.decline_text,
+      }
   }
 }
 
@@ -134,6 +184,7 @@ export const actionConfigKeys: Record<AutomationActionType, string | null> = {
   send_shop_menu: null,
   send_catalog: null,
   send_collection: 'collection_id',
+  send_opt_in_request: 'text',
 }
 
 /** Maps API error paths such as `actions.0.config` onto form fields such as `actions.0.text`. */

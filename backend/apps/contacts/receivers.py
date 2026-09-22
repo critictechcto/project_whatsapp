@@ -40,7 +40,7 @@ def on_inbound_message(sender, event: InboundMessage, **kwargs) -> None:
         return
     services.touch_last_inbound(contact, event.timestamp)
 
-    action = services.match_consent_keyword(event.text)
+    action = services.match_workspace_consent_keyword(workspace.pk, event.text)
     if action is None:
         return
     record = (

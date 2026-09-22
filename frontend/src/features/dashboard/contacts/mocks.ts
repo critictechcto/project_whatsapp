@@ -3,12 +3,27 @@ import { db } from '../../../mocks/db'
 import { authorize, errorResponse, http, mockDelay, notFound, nowIso, paginate, uuid, validationError } from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
 import { MAX_IMPORT_BYTES, mapColumns, parseCsv } from './lib/csv'
+import { normalizeKeyword } from './lib/consent'
 import { isValidE164, normalizePhoneInput } from './lib/phone'
 import { contactsMock, type MockConsentEvent, type MockContact, type MockImport, type MockTag } from './mockState'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 const MAX_IMPORT_ERRORS = 100
+
+const LOCKED_OPT_OUT = ['stop', 'stop all', 'stop promotions', 'unsubscribe']
+const DEFAULT_OPT_IN = ['start', 'subscribe']
+
+function toConsentKeywords(workspaceId: string): Schemas['ConsentKeywords'] {
+  const saved = contactsMock().consentKeywords[workspaceId]
+  return {
+    opt_in_keywords: [...(saved?.opt_in_keywords ?? DEFAULT_OPT_IN)],
+    opt_out_keywords: [...(saved?.opt_out_keywords ?? [])],
+    locked_opt_out_keywords: [...LOCKED_OPT_OUT],
+    default_opt_in_keywords: [...DEFAULT_OPT_IN],
+    updated_at: saved?.updated_at ?? '2026-01-01T00:00:00Z',
+  }
+}
 
 const byNewest = <T extends { created_at: string }>(items: T[]) =>
   [...items].sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -389,6 +404,32 @@ export const handlers: AreaMockHandlers = [
     state.tags = state.tags.filter((t) => t !== tag)
     for (const contact of state.contacts) contact.tags = contact.tags.filter((id) => id !== tag.id)
     return response(204).empty()
+  }),
+
+  // Consent keywords (mirrors ConsentKeywordsSerializer)
+  http.get('/api/v1/contacts/consent-keywords/', ({ request, response }) => {
+    const ctx = authorize(request)
+    if (ctx instanceof Response) return response.untyped(ctx)
+    return response(200).json(toConsentKeywords(ctx.workspace.id))
+  }),
+
+  http.patch('/api/v1/contacts/consent-keywords/', async ({ request, response }) => {
+    await mockDelay()
+    const ctx = authorize(request, 'admin')
+    if (ctx instanceof Response) return response.untyped(ctx)
+    const body = (await request.json()) as Schemas['PatchedConsentKeywordsRequest']
+    const current = toConsentKeywords(ctx.workspace.id)
+    const clean = (words: readonly string[]) => [...new Set(words.map(normalizeKeyword).filter(Boolean))]
+    const optIn = clean(body.opt_in_keywords ?? current.opt_in_keywords)
+    const optOut = clean(body.opt_out_keywords ?? current.opt_out_keywords).filter((word) => !LOCKED_OPT_OUT.includes(word))
+    for (const [field, words] of [['opt_in_keywords', optIn], ['opt_out_keywords', optOut]] as const) {
+      if (words.some((word) => word.length > 40)) return response.untyped(validationError({ [field]: ['Keep each word under 40 characters.'] }))
+      if (words.length > 20) return response.untyped(validationError({ [field]: ['Use at most 20 words.'] }))
+    }
+    const clash = optIn.find((word) => LOCKED_OPT_OUT.includes(word) || optOut.includes(word))
+    if (clash) return response.untyped(validationError({ opt_in_keywords: [`“${clash}” is an opt-out word. Use it in one list only.`] }))
+    contactsMock().consentKeywords[ctx.workspace.id] = { opt_in_keywords: optIn, opt_out_keywords: optOut, updated_at: nowIso() }
+    return response(200).json(toConsentKeywords(ctx.workspace.id))
   }),
 
   // Imports

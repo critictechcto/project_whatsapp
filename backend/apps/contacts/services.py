@@ -1,6 +1,7 @@
 """Contact and consent operations shared by the API, the import task and signal receivers."""
 
 import string
+from dataclasses import dataclass
 from datetime import datetime
 
 from django.db import transaction
@@ -9,10 +10,15 @@ from django.utils import timezone
 
 from common.phone import InvalidPhoneNumber, normalize_e164, to_wa_id
 
-from .models import ConsentEvent, Contact
+from .models import ConsentEvent, ConsentKeywords, Contact, default_opt_in_keywords
 
-OPT_OUT_KEYWORDS = frozenset({"stop", "unsubscribe", "stop promotions", "stop all"})
-OPT_IN_KEYWORDS = frozenset({"start", "subscribe"})
+# Always opt out, whatever the workspace configures: customers expect STOP to work.
+LOCKED_OPT_OUT_KEYWORDS = frozenset({"stop", "unsubscribe", "stop promotions", "stop all"})
+OPT_OUT_KEYWORDS = LOCKED_OPT_OUT_KEYWORDS
+# The default opt-in words; a workspace may replace them.
+OPT_IN_KEYWORDS = frozenset(default_opt_in_keywords())
+MAX_KEYWORD_LENGTH = 40
+MAX_KEYWORDS_PER_LIST = 20
 _TRAILING_PUNCTUATION = string.punctuation + "।"
 
 
@@ -148,16 +154,55 @@ def is_marketing_allowed(contact: Contact) -> bool:
     return contact.marketing_opt_in_status == Contact.OptInStatus.OPTED_IN
 
 
-def match_consent_keyword(text: str | None) -> str | None:
-    """``ConsentEvent.Action`` for an exact opt-in/opt-out keyword message, else None."""
-    if not text:
+def normalize_keyword(text: str | None) -> str:
+    """How keyword messages and configured words are compared: case, spacing and trailing
+    punctuation are ignored."""
+    return " ".join((text or "").split()).casefold().rstrip(_TRAILING_PUNCTUATION).strip()
+
+
+@dataclass(frozen=True, slots=True)
+class KeywordSets:
+    opt_in: frozenset[str]
+    opt_out: frozenset[str]
+
+
+DEFAULT_KEYWORDS = KeywordSets(opt_in=OPT_IN_KEYWORDS, opt_out=LOCKED_OPT_OUT_KEYWORDS)
+
+
+def consent_keywords(workspace_id) -> KeywordSets:
+    """The workspace's consent words; the locked opt-out words always apply."""
+    settings_row = (
+        ConsentKeywords.objects.filter(workspace_id=workspace_id)
+        .values("opt_in_keywords", "opt_out_keywords")
+        .first()
+    )
+    if settings_row is None:
+        return DEFAULT_KEYWORDS
+    return KeywordSets(
+        opt_in=frozenset(settings_row["opt_in_keywords"] or ()),
+        opt_out=LOCKED_OPT_OUT_KEYWORDS | frozenset(settings_row["opt_out_keywords"] or ()),
+    )
+
+
+def match_consent_keyword(text: str | None, keywords: KeywordSets = DEFAULT_KEYWORDS) -> str | None:
+    """``ConsentEvent.Action`` for an exact opt-in/opt-out keyword message, else None. Opt-out
+    wins if a word is somehow in both sets."""
+    normalized = normalize_keyword(text)
+    if not normalized:
         return None
-    normalized = " ".join(text.split()).casefold().rstrip(_TRAILING_PUNCTUATION).strip()
-    if normalized in OPT_OUT_KEYWORDS:
+    if normalized in keywords.opt_out:
         return ConsentEvent.Action.OPT_OUT
-    if normalized in OPT_IN_KEYWORDS:
+    if normalized in keywords.opt_in:
         return ConsentEvent.Action.OPT_IN
     return None
+
+
+def match_workspace_consent_keyword(workspace_id, text: str | None) -> str | None:
+    """``match_consent_keyword`` with the workspace's words (loaded only for short messages)."""
+    normalized = normalize_keyword(text)
+    if not normalized or len(normalized) > MAX_KEYWORD_LENGTH:
+        return None
+    return match_consent_keyword(normalized, consent_keywords(workspace_id))
 
 
 def _same_workspace_tags(contact: Contact, tags) -> list:

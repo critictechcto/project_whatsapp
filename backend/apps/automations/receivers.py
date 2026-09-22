@@ -8,7 +8,8 @@ from django.dispatch import receiver
 from common.commerce import is_claimed_by_commerce
 from common.events import MessageRecorded, message_recorded
 
-from .tasks import process_inbound
+from . import consent
+from .tasks import handle_consent_reply, process_inbound
 
 INBOUND = "inbound"
 
@@ -20,6 +21,12 @@ def on_message_recorded(sender, event: MessageRecorded, **kwargs) -> None:
     (carts, ``upc:`` replies, store keywords) are skipped so a buyer never gets two replies; no
     run is recorded. Redelivered events are safe: the task records one run per (rule, message)."""
     if event.direction != INBOUND or event.source != INBOUND:
+        return
+    if consent.parse(event.reply_id) is not None:
+        # A tap on an opt-in button: recorded and answered by the consent handler, not by rules.
+        transaction.on_commit(
+            partial(handle_consent_reply.delay, str(event.message_id), event.reply_id)
+        )
         return
     if is_claimed_by_commerce(event):
         return

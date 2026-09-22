@@ -19,6 +19,7 @@ const CONFIG_KEYS: Record<string, readonly string[]> = {
   send_shop_menu: [],
   send_catalog: [],
   send_collection: ['collection_id'],
+  send_opt_in_request: ['text'],
 }
 
 function isBlank(value: unknown) {

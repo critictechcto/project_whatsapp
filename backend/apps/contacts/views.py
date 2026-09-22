@@ -10,15 +10,20 @@ from apps.billing import entitlements
 from common.exceptions import Conflict
 from common.roles import Role
 from common.routers import UUID_LOOKUP_REGEX
-from common.tenancy import WorkspaceScopedMixin, WorkspaceScopedViewSet
+from common.tenancy import (
+    WorkspaceScopedGenericViewSet,
+    WorkspaceScopedMixin,
+    WorkspaceScopedViewSet,
+)
 
 from . import services
 from .filters import ContactFilter
-from .models import ConsentEvent, Contact, ContactImport, Tag
+from .models import ConsentEvent, ConsentKeywords, Contact, ContactImport, Tag
 from .serializers import (
     BulkTagResultSerializer,
     BulkTagSerializer,
     ConsentEventSerializer,
+    ConsentKeywordsSerializer,
     ConsentRequestSerializer,
     ContactImportCreateSerializer,
     ContactImportSerializer,
@@ -199,3 +204,32 @@ class ContactImportViewSet(
             transaction.on_commit(lambda: import_csv.delay(job_pk))
         body = ContactImportSerializer(job, context=self.get_serializer_context()).data
         return Response(body, status=status.HTTP_201_CREATED)
+
+
+class ConsentKeywordsViewSet(WorkspaceScopedGenericViewSet):
+    """The workspace's consent keywords (one per workspace). Admins edit them."""
+
+    serializer_class = ConsentKeywordsSerializer
+    filter_backends: list = []
+    read_role = Role.VIEWER
+    write_role = Role.ADMIN
+
+    def get_keywords(self) -> ConsentKeywords:
+        keywords, _ = ConsentKeywords.objects.get_or_create(workspace=self.workspace)
+        return keywords
+
+    @extend_schema(
+        operation_id="contacts_consent_keywords_retrieve", responses=ConsentKeywordsSerializer
+    )
+    def retrieve(self, request):
+        return Response(self.get_serializer(self.get_keywords()).data)
+
+    @extend_schema(
+        operation_id="contacts_consent_keywords_partial_update",
+        request=ConsentKeywordsSerializer,
+        responses=ConsentKeywordsSerializer,
+    )
+    def partial_update(self, request):
+        serializer = self.get_serializer(self.get_keywords(), data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        return Response(self.get_serializer(serializer.save()).data)

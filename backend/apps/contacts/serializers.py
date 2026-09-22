@@ -7,7 +7,15 @@ from rest_framework import serializers
 from common.exceptions import Conflict
 from common.phone import InvalidPhoneNumber, normalize_e164, to_wa_id
 
-from .models import ConsentEvent, Contact, ContactImport, Tag
+from . import services
+from .models import (
+    ConsentEvent,
+    ConsentKeywords,
+    Contact,
+    ContactImport,
+    Tag,
+    default_opt_in_keywords,
+)
 
 # Sources a user may claim when recording consent through the API.
 CONSENT_REQUEST_SOURCES = [
@@ -290,3 +298,79 @@ class ContactImportCreateSerializer(serializers.ModelSerializer):
             if errors:
                 raise serializers.ValidationError(errors)
         return attrs
+
+
+class ConsentKeywordsSerializer(serializers.ModelSerializer):
+    """The workspace's consent words. Opt-out words are extras on top of the locked defaults."""
+
+    opt_in_keywords = serializers.ListField(
+        child=serializers.CharField(max_length=200, allow_blank=True),
+        help_text="Whole messages that record a marketing opt-in. May be empty.",
+    )
+    opt_out_keywords = serializers.ListField(
+        child=serializers.CharField(max_length=200, allow_blank=True),
+        help_text="Extra whole messages that record an opt-out, besides the locked words.",
+    )
+    locked_opt_out_keywords = serializers.SerializerMethodField(
+        help_text="Opt-out words that always apply and cannot be removed."
+    )
+    default_opt_in_keywords = serializers.SerializerMethodField(
+        help_text="The opt-in words a new workspace starts with."
+    )
+
+    class Meta:
+        model = ConsentKeywords
+        fields = (
+            "opt_in_keywords",
+            "opt_out_keywords",
+            "locked_opt_out_keywords",
+            "default_opt_in_keywords",
+            "updated_at",
+        )
+        read_only_fields = ("updated_at",)
+
+    def get_locked_opt_out_keywords(self, obj) -> list[str]:
+        return sorted(services.LOCKED_OPT_OUT_KEYWORDS)
+
+    def get_default_opt_in_keywords(self, obj) -> list[str]:
+        return default_opt_in_keywords()
+
+    @staticmethod
+    def _clean(words: list[str], field: str) -> list[str]:
+        cleaned: list[str] = []
+        for word in words:
+            normalized = services.normalize_keyword(word)
+            if not normalized:
+                continue
+            if len(normalized) > services.MAX_KEYWORD_LENGTH:
+                raise serializers.ValidationError(
+                    {field: [f"Keep each word under {services.MAX_KEYWORD_LENGTH} characters."]}
+                )
+            if normalized not in cleaned:
+                cleaned.append(normalized)
+        if len(cleaned) > services.MAX_KEYWORDS_PER_LIST:
+            raise serializers.ValidationError(
+                {field: [f"Use at most {services.MAX_KEYWORDS_PER_LIST} words."]}
+            )
+        return cleaned
+
+    def validate(self, attrs: dict) -> dict:
+        instance = self.instance
+        opt_in = self._clean(
+            attrs.get("opt_in_keywords", instance.opt_in_keywords if instance else []),
+            "opt_in_keywords",
+        )
+        opt_out = [
+            word
+            for word in self._clean(
+                attrs.get("opt_out_keywords", instance.opt_out_keywords if instance else []),
+                "opt_out_keywords",
+            )
+            if word not in services.LOCKED_OPT_OUT_KEYWORDS
+        ]
+        clash = [word for word in opt_in if word in services.LOCKED_OPT_OUT_KEYWORDS | set(opt_out)]
+        if clash:
+            raise serializers.ValidationError(
+                {"opt_in_keywords": [f"“{clash[0]}” is an opt-out word. Use it in one list only."]}
+            )
+        return {"opt_in_keywords": opt_in, "opt_out_keywords": opt_out}

@@ -5,6 +5,8 @@ import {
   Button,
   Combobox,
   Field,
+  InteractiveMessagePreview,
+  Input,
   Select,
   Textarea,
   TemplatePicker,
@@ -16,7 +18,16 @@ import { VariableSourceFields } from '../../campaigns/components/VariableSourceF
 import { defaultBodySource } from '../../campaigns/variables'
 import { useTagOptions, useTemplate } from '../../campaigns/wizard/queries'
 import { actionLabels, useCollections, useMembers, type AutomationActionType } from '../api'
-import { actionTypes, emptyAction, type RuleFormValues } from '../ruleForm'
+import {
+  actionTypes,
+  DEFAULT_CONFIRMATION,
+  DEFAULT_NO_LABEL,
+  DEFAULT_YES_LABEL,
+  emptyAction,
+  MAX_BUTTON_LABEL,
+  MAX_OPT_IN_TEXT,
+  type RuleFormValues,
+} from '../ruleForm'
 
 type ActionCardProps = {
   index: number
@@ -37,6 +48,8 @@ export function ActionCard({ index, count, onMove, onRemove, readOnly }: ActionC
   const type = useWatch({ control, name: `actions.${index}.type` })
   const text = useWatch({ control, name: `actions.${index}.text` })
   const templateId = useWatch({ control, name: `actions.${index}.template_id` })
+  const yesLabel = useWatch({ control, name: `actions.${index}.yes_label` })
+  const noLabel = useWatch({ control, name: `actions.${index}.no_label` })
   const tags = useTagOptions(workspaceId)
   const members = useMembers(workspaceId)
   const collections = useCollections(workspaceId, type === 'send_collection')
@@ -210,6 +223,49 @@ export function ActionCard({ index, count, onMove, onRemove, readOnly }: ActionC
               />
             )}
           </Field>
+        )}
+
+        {type === 'send_opt_in_request' && (
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted">
+                Asks for marketing consent with two buttons. A tap on the first records an opt-in on the contact, with the time and the
+                message as proof, so campaigns can send them marketing templates.
+              </p>
+              <Field label="Question" error={actionErrors?.text?.message} required>
+                <Textarea rows={3} maxLength={MAX_OPT_IN_TEXT} {...register(`actions.${index}.text`)} />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Opt-in button" hint={`Up to ${MAX_BUTTON_LABEL} characters.`} error={actionErrors?.yes_label?.message} required>
+                  <Input maxLength={MAX_BUTTON_LABEL} {...register(`actions.${index}.yes_label`)} />
+                </Field>
+                <Field label="Decline button" hint={`Up to ${MAX_BUTTON_LABEL} characters.`} error={actionErrors?.no_label?.message} required>
+                  <Input maxLength={MAX_BUTTON_LABEL} {...register(`actions.${index}.no_label`)} />
+                </Field>
+              </div>
+              <Field label="Reply after opting in" hint="Leave empty to use the default." error={actionErrors?.confirmation_text?.message}>
+                <Textarea rows={2} maxLength={4096} placeholder={DEFAULT_CONFIRMATION} {...register(`actions.${index}.confirmation_text`)} />
+              </Field>
+              <Field label="Reply after declining" hint="Leave empty to send nothing." error={actionErrors?.decline_text?.message}>
+                <Textarea rows={2} maxLength={4096} {...register(`actions.${index}.decline_text`)} />
+              </Field>
+            </div>
+            <div aria-label={`Preview of action ${position}`} role="group">
+              <p className="mb-1.5 text-[13px] font-medium text-ink">Preview</p>
+              <InteractiveMessagePreview
+                message={{
+                  type: 'button',
+                  body: { text: text || 'Your question appears here.' },
+                  action: {
+                    buttons: [
+                      { type: 'reply', reply: { id: 'yes', title: yesLabel || DEFAULT_YES_LABEL } },
+                      { type: 'reply', reply: { id: 'no', title: noLabel || DEFAULT_NO_LABEL } },
+                    ],
+                  },
+                }}
+              />
+            </div>
+          </div>
         )}
 
         {type === 'close_conversation' && (

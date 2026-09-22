@@ -122,3 +122,62 @@ def test_price_keyword_webhook_queues_an_automation_reply(
     assert len(fake_graph.sent_messages) == 1
     rule.refresh_from_db()
     assert rule.run_count == 1
+
+
+def inbound_button_reply(reply_id: str, title: str, wamid: str, timestamp: int) -> dict:
+    payload = inbound_text(title, wamid, timestamp)
+    message = payload["entry"][0]["changes"][0]["value"]["messages"][0]
+    del message["text"]
+    message["type"] = "interactive"
+    message["interactive"] = {
+        "type": "button_reply",
+        "button_reply": {"id": reply_id, "title": title},
+    }
+    return payload
+
+
+def test_opt_in_buttons_record_consent_from_a_tap(deliver, workspace, number, fake_graph):
+    rule = AutomationRuleFactory(
+        workspace=workspace,
+        keywords=["offers"],
+        keyword_match="exact",
+        phone_number=number,
+        actions=[
+            {
+                "type": "send_opt_in_request",
+                "config": {
+                    "text": "Want new arrivals and offers on WhatsApp?",
+                    "yes_label": "Yes, send offers",
+                    "no_label": "No thanks",
+                    "confirmation_text": "Subscribed ✅",
+                    "decline_text": "",
+                },
+            }
+        ],
+    )
+    now = int(time.time())
+
+    deliver(inbound_text("OFFERS", "wamid.OFFERS1", now))
+
+    request = fake_graph.sent_messages[-1]
+    assert request["type"] == "interactive"
+    buttons = request["interactive"]["action"]["buttons"]
+    assert [button["reply"] for button in buttons] == [
+        {"id": f"upc:consent:yes:{rule.pk}:0", "title": "Yes, send offers"},
+        {"id": f"upc:consent:no:{rule.pk}:0", "title": "No thanks"},
+    ]
+
+    yes = buttons[0]["reply"]
+    deliver(inbound_button_reply(yes["id"], yes["title"], "wamid.TAP1", now + 5))
+    deliver(inbound_button_reply(yes["id"], yes["title"], "wamid.TAP1", now + 5))  # redelivery
+
+    contact = Message.objects.get(wamid="wamid.TAP1").conversation.contact
+    assert contact.marketing_opt_in_status == "opted_in"
+    assert contact.opt_in_source == "whatsapp_button"
+    assert list(contact.consent_events.values_list("source", "wamid")) == [
+        ("whatsapp_button", "wamid.TAP1")
+    ]
+    replies = [sent for sent in fake_graph.sent_messages if sent.get("type") == "text"]
+    assert [sent["text"]["body"] for sent in replies] == ["Subscribed ✅"]
+    # The tap is answered by the consent handler only: no rule ran for it.
+    assert AutomationRun.objects.count() == 1

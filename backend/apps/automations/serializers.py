@@ -10,6 +10,10 @@ Action configs are validated against the request's workspace and stored normalis
 - ``assign {user_id}``: a member of this workspace.
 - ``close_conversation {}``.
 - ``send_shop_menu {}`` and ``send_catalog {}``: commerce sends run by ``apps.shop``.
+- ``send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}``: a message
+  with two opt-in buttons. ``text`` is required (at most 1024 characters); button labels default
+  and are at most 20 characters; the two reply texts are optional (at most 4096 characters; a blank
+  confirmation uses the default, a blank decline sends nothing).
 - ``send_collection {collection_id}``: a UUID. The collection is looked up when the rule runs; a
   missing collection fails that action.
 """
@@ -28,7 +32,7 @@ from apps.message_templates.models import MessageTemplate
 from apps.tenants.models import Membership
 from apps.whatsapp.models import PhoneNumber
 
-from . import business_hours, matching
+from . import business_hours, consent, matching
 from .engine import CONTACT_FIELDS
 from .models import AutomationRule, BusinessHours
 from .schema_enums import (
@@ -56,6 +60,7 @@ ACTION_CONFIG_KEYS = {
     "send_shop_menu": (),
     "send_catalog": (),
     "send_collection": ("collection_id",),
+    consent.ACTION_TYPE: ("text",),
 }
 
 KEYWORDS_REQUIRED = "Add at least one keyword for the keyword trigger."
@@ -97,6 +102,39 @@ def _clean_send_text(workspace, config: Mapping[str, Any]) -> dict[str, Any]:
             {"text": [f"Ensure this field has no more than {MAX_TEXT_LENGTH} characters."]}
         )
     return {"text": text}
+
+
+MAX_INTERACTIVE_BODY = 1024
+MAX_BUTTON_LABEL = 20
+
+
+def _optional_text(config: Mapping[str, Any], key: str, max_length: int) -> str:
+    value = config.get(key, "")
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ConfigError({key: ["Enter text."]})
+    value = value.strip()
+    if len(value) > max_length:
+        raise ConfigError({key: [f"Ensure this field has no more than {max_length} characters."]})
+    return value
+
+
+def _clean_send_opt_in_request(workspace, config: Mapping[str, Any]) -> dict[str, Any]:
+    text = _optional_text(config, "text", MAX_INTERACTIVE_BODY)
+    if not text:
+        raise ConfigError({"text": ["Enter the message that asks for permission."]})
+    yes_label = _optional_text(config, "yes_label", MAX_BUTTON_LABEL) or consent.DEFAULT_YES_LABEL
+    no_label = _optional_text(config, "no_label", MAX_BUTTON_LABEL) or consent.DEFAULT_NO_LABEL
+    if yes_label.casefold() == no_label.casefold():
+        raise ConfigError({"no_label": ["Use different labels for the two buttons."]})
+    return {
+        "text": text,
+        "yes_label": yes_label,
+        "no_label": no_label,
+        "confirmation_text": _optional_text(config, "confirmation_text", MAX_TEXT_LENGTH),
+        "decline_text": _optional_text(config, "decline_text", MAX_TEXT_LENGTH),
+    }
 
 
 def _clean_variable_source(raw: Any) -> dict[str, str]:
@@ -228,6 +266,7 @@ CONFIG_CLEANERS = {
     "send_shop_menu": _clean_close,
     "send_catalog": _clean_close,
     "send_collection": _clean_send_collection,
+    consent.ACTION_TYPE: _clean_send_opt_in_request,
 }
 
 
@@ -241,7 +280,8 @@ class AutomationActionSerializer(serializers.Serializer):
         help_text=(
             "send_text {text}; send_template {template_id, body_params: VariableSource[]}; "
             "add_tags {tag_ids}; assign {user_id}; close_conversation {}; send_shop_menu {}; "
-            "send_catalog {}; send_collection {collection_id}."
+            "send_catalog {}; send_collection {collection_id}; "
+            "send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}."
         ),
     )
 

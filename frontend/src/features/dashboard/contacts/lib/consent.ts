@@ -37,6 +37,8 @@ export function consentSourceLabel(source: ConsentSource, action: ConsentAction)
       return 'API'
     case 'whatsapp_keyword':
       return action === 'opt_out' ? 'Sent STOP on WhatsApp' : 'Sent START on WhatsApp'
+    case 'whatsapp_button':
+      return 'Tapped the opt-in button on WhatsApp'
     case 'meta_marketing_optout':
       return 'Stopped marketing messages in WhatsApp (reported by Meta)'
     default:
@@ -51,7 +53,19 @@ export function optInSourceLabel(source: string): string {
     import: 'CSV import',
     api: 'API',
     whatsapp_keyword: 'WhatsApp keyword',
+    whatsapp_button: 'WhatsApp opt-in button',
     meta_marketing_optout: 'Meta',
   }
   return known[source] ?? source
+}
+
+/** As the backend's `normalize_keyword`: case, spacing and trailing punctuation are ignored. */
+export function normalizeKeyword(word: string): string {
+  return word
+    .split(/\s+/)
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/[!-/:-@[-`{-~।]+$/, '')
+    .trim()
 }
