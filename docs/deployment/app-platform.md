@@ -1,6 +1,6 @@
 # Deploying UpChatz to DigitalOcean App Platform
 
-This guide sets up the product at **`https://app.upchatz.com`**: the API, webhooks, WebSockets and dashboard. The marketing site stays on GitHub Pages at `upchatz.com`. For the choice of platform and the cost breakdown, see [digitalocean.md](digitalocean.md) (Option B).
+This guide sets up the product at **`https://app.upchatz.com`**: the API, webhooks, WebSockets and dashboard. The marketing site stays on GitHub Pages at `upchatz.com`. For the choice of platform and the cost breakdown, see [digitalocean.md](digitalocean.md) (Option B). Once it runs, connect Meta with [meta.md](meta.md).
 
 The spec is [`.do/app.yaml`](../../.do/app.yaml). It describes one app in region `blr`:
 
