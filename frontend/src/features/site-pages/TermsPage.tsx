@@ -27,6 +27,7 @@ export function TermsPage() {
       lead={`These terms are an agreement between ${name} and the business that creates a ${name} account. By creating an account or using the service, you accept them on behalf of that business.`}
       aside={<LegalDetails />}
       noindex={!legalReady}
+      canonicalPath="terms/"
     >
       <ProseSection id="service" title="The service">
         <p>

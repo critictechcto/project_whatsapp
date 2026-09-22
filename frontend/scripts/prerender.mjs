@@ -6,6 +6,8 @@
 //   site pages and SPA fallbacks), so those never ship or flash the landing markup.
 // - With VITE_APP_ONLY=true (the dashboard-only app.upchatz.com site) index.html is the empty shell
 //   too: that host never serves the landing page.
+// - Only the landing index.html gets the canonical link and og:url (SITE_URL): the shell also serves
+//   the site pages and 404s, which must not claim to be the home page.
 // - Both get the Content-Security-Policy meta tag (scripts/csp.mjs), hashed from their final text.
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -17,6 +19,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const dist = path.join(root, 'dist')
 const ssrDir = path.join(root, 'node_modules', '.prerender')
 const EMPTY_ROOT = '<div id="root"></div>'
+const SITE_URL = 'https://upchatz.com/'
 
 const template = await readFile(path.join(dist, 'index.html'), 'utf8')
 if (template.split(EMPTY_ROOT).length !== 2) {
@@ -36,9 +39,16 @@ if (!appOnly) {
   }
 }
 
+function landingPage(html, markup) {
+  const head = `    <link rel="canonical" href="${SITE_URL}" />
+    <meta property="og:url" content="${SITE_URL}" />
+  </head>`
+  return html.replace('</head>', () => head).replace(EMPTY_ROOT, () => `<div id="root">${markup}</div>`)
+}
+
 const pages = {
   'shell.html': injectCsp(template, env),
-  'index.html': injectCsp(appOnly ? template : template.replace(EMPTY_ROOT, () => `<div id="root">${markup}</div>`), env),
+  'index.html': injectCsp(appOnly ? template : landingPage(template, markup), env),
 }
 for (const [file, html] of Object.entries(pages)) await writeFile(path.join(dist, file), html)
 // Check what hosts will serve: every inline script on disk has its hash in the policy.

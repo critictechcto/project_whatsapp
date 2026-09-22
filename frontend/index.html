@@ -9,17 +9,33 @@
       content="Send campaigns, reminders and order updates on WhatsApp using the official WhatsApp Business Platform. Connect your number in minutes, answer replies from a shared team inbox."
     />
     <meta name="theme-color" content="#f6f3ec" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
+    <!--
+      Social previews. Crawlers need an absolute PNG URL (no SVG). og:url and the canonical link are
+      added to the landing page only, by scripts/prerender.mjs; site pages set their own canonical.
+    -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="UpChatz" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:title" content="UpChatz — WhatsApp messaging for Indian businesses" />
     <meta
       property="og:description"
       content="Official WhatsApp Business Platform. Bulk campaigns, scheduled messages, shared inbox and automations."
     />
-    <!-- Replace with a 1200x630 PNG before launch -->
-    <meta property="og:image" content="/og-image.svg" />
+    <meta property="og:image" content="https://upchatz.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="UpChatz: WhatsApp messaging for Indian businesses, done properly. A chat with an order update and a Shop now button."
+    />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://upchatz.com/og-image.png" />
 
     <!--
       index.html carries the prerendered landing page. Hosts that serve it as the SPA fallback (for

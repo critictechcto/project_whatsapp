@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { Container } from '../../components/ui/Container'
+import { site } from '../../config/site'
 import { Footer } from '../landing/sections/Footer'
 import { Navbar } from '../landing/sections/Navbar'
 
@@ -14,10 +15,12 @@ type PageLayoutProps = {
   aside?: ReactNode
   /** Adds `<meta name="robots" content="noindex">` while the page is mounted. */
   noindex?: boolean
+  /** Path on the site domain (e.g. `privacy/`) for the canonical link and og:url; omitted on the 404 page. */
+  canonicalPath?: string
   children: ReactNode
 }
 
-function useDocumentMeta(title: string, description: string, noindex: boolean) {
+function useDocumentMeta(title: string, description: string, noindex: boolean, canonicalPath?: string) {
   useEffect(() => {
     const previousTitle = document.title
     document.title = title
@@ -40,13 +43,28 @@ function useDocumentMeta(title: string, description: string, noindex: boolean) {
       document.head.appendChild(robots)
     }
 
+    // The shell has neither tag (scripts/prerender.mjs adds them to the landing page only).
+    const added: HTMLElement[] = []
+    if (canonicalPath !== undefined) {
+      const url = `https://${site.domain}/${canonicalPath}`
+      const canonical = document.createElement('link')
+      canonical.rel = 'canonical'
+      canonical.href = url
+      const ogUrl = document.createElement('meta')
+      ogUrl.setAttribute('property', 'og:url')
+      ogUrl.content = url
+      added.push(canonical, ogUrl)
+    }
+    document.head.append(...added)
+
     return () => {
       document.title = previousTitle
+      for (const element of added) element.remove()
       if (createdDescription) descriptionTag.remove()
       else descriptionTag.content = previousDescription ?? ''
       robots?.remove()
     }
-  }, [title, description, noindex])
+  }, [title, description, noindex, canonicalPath])
 }
 
 /** The page loads after a full navigation: start at the top, or at the linked section once it exists. */
@@ -67,9 +85,10 @@ export function PageLayout({
   lead,
   aside,
   noindex = false,
+  canonicalPath,
   children,
 }: PageLayoutProps) {
-  useDocumentMeta(title, description, noindex)
+  useDocumentMeta(title, description, noindex, canonicalPath)
   useInitialScroll()
 
   return (

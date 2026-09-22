@@ -21,6 +21,7 @@ export function PrivacyPage() {
       lead={`This policy explains what personal data ${name} processes, why, who we share it with and the choices you have. We have tried to keep it in plain language.`}
       aside={<LegalDetails />}
       noindex={!legalReady}
+      canonicalPath="privacy/"
     >
       <ProseSection id="who-we-are" title="Who this policy covers">
         <p>

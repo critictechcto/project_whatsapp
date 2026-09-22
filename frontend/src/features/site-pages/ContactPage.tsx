@@ -51,6 +51,7 @@ export function ContactPage() {
       description={`Talk to ${name} sales about plans and setup, or email support about your workspace.`}
       eyebrow="Contact"
       heading="Talk to us"
+      canonicalPath="contact/"
       lead={`Questions about plans, getting your number connected, or something not working in ${name}? Email the right team and a person will reply.`}
     >
       <div className="grid gap-5 sm:grid-cols-2">

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
+import { isLandingPath } from './config/site'
 import { LandingPage } from './features/landing/LandingPage'
 import { sitePageFor } from './features/site-pages/paths'
 
@@ -17,7 +18,7 @@ const DashboardApp = lazy(async () => {
   return import('./features/dashboard/DashboardApp')
 })
 
-// Privacy, terms and contact pages: their own chunk, so the landing bundle carries none of their text.
+// Privacy, terms, contact and 404 pages: their own chunk, so the landing bundle carries none of their text.
 const SitePage = lazy(() => import('./features/site-pages/SitePage'))
 
 function isDashboardPath(pathname: string) {
@@ -65,14 +66,12 @@ export default function App() {
   if (import.meta.env.VITE_APP_ONLY === 'true') {
     return <ToDashboard />
   } else {
-    const page = sitePageFor(pathname)
-    if (page) {
-      return (
-        <Suspense fallback={null}>
-          <SitePage page={page} />
-        </Suspense>
-      )
-    }
-    return <LandingPage />
+    if (isLandingPath(pathname)) return <LandingPage />
+    // Unknown paths (GitHub Pages serves the shell as 404.html) get the not-found page.
+    return (
+      <Suspense fallback={null}>
+        <SitePage page={sitePageFor(pathname) ?? 'not-found'} />
+      </Suspense>
+    )
   }
 }

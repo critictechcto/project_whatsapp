@@ -108,3 +108,41 @@ describe('site pages', () => {
     )
   })
 })
+
+describe('not-found page', () => {
+  it.each(['/nope', '/pricing', '/privacy/extra', '/blog/post/'])('App shows it for %s', async (path) => {
+    const view = visit(path)
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'This page doesn’t exist' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to the home page' })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: 'Contact us' })).toHaveAttribute('href', site.links.contact)
+    expect(robotsMeta()).toHaveAttribute('content', 'noindex')
+    expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
+
+    view.unmount()
+    expect(robotsMeta()).toBeNull()
+  })
+
+  it('does not replace the landing page', () => {
+    const view = visit('/')
+    expect(screen.queryByRole('heading', { level: 1, name: 'This page doesn’t exist' })).toBeNull()
+    view.unmount()
+  })
+})
+
+describe('canonical links', () => {
+  it.each([
+    ['/privacy', 'https://upchatz.com/privacy/'],
+    ['/terms/', 'https://upchatz.com/terms/'],
+    ['/contact', 'https://upchatz.com/contact/'],
+  ])('%s points at %s and removes it on unmount', async (path, url) => {
+    const view = visit(path)
+    await screen.findByRole('heading', { level: 1 })
+
+    expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute('href', url)
+    expect(document.head.querySelector('meta[property="og:url"]')).toHaveAttribute('content', url)
+
+    view.unmount()
+    expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
+  })
+})
