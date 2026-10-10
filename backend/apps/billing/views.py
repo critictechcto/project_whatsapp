@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from common.roles import Role
 from common.tenancy import WorkspaceScopedGenericViewSet
 
-from . import entitlements, razorpay, services, webhooks
+from . import cashfree, entitlements, razorpay, services, webhooks
 from .models import Invoice, Plan
 from .serializers import (
     BillingProfileSerializer,
@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 SIGNATURE_HEADER = "X-Razorpay-Signature"
 EVENT_ID_HEADER = "X-Razorpay-Event-Id"
 EVENT_ID_MAX_LENGTH = 100
+CASHFREE_SIGNATURE_HEADER = "x-webhook-signature"
+CASHFREE_TIMESTAMP_HEADER = "x-webhook-timestamp"
 
 
 class BillingViewSet(WorkspaceScopedGenericViewSet):
@@ -73,7 +75,10 @@ class SubscriptionViewSet(BillingViewSet):
         operation_id="billing_subscription_checkout_create",
         request=CheckoutSerializer,
         responses=CheckoutSessionSerializer,
-        description="Create a Razorpay subscription and return options for Razorpay Checkout.",
+        description=(
+            "Start a checkout on the configured gateway: a prepaid Cashfree order (options for "
+            "Cashfree Checkout) or a Razorpay subscription (options for Razorpay Checkout)."
+        ),
     )
     def checkout(self, request):
         data = self.validated(CheckoutSerializer)
@@ -86,16 +91,15 @@ class SubscriptionViewSet(BillingViewSet):
         operation_id="billing_subscription_verify_create",
         request=CheckoutVerifySerializer,
         responses=SubscriptionSerializer,
-        description="Verify the Checkout signature. Status may stay pending until the webhook.",
+        description=(
+            "Cashfree (order_id): ask Cashfree for the order and activate the plan once it is "
+            "paid; 409 payment_not_completed otherwise. Razorpay: verify the Checkout signature; "
+            "the status may stay pending until the webhook."
+        ),
     )
     def verify(self, request):
         data = self.validated(CheckoutVerifySerializer)
-        subscription = services.verify_checkout(
-            workspace=self.workspace,
-            payment_id=data["razorpay_payment_id"],
-            subscription_id=data["razorpay_subscription_id"],
-            signature=data["razorpay_signature"],
-        )
+        subscription = services.verify_checkout(workspace=self.workspace, **data)
         return Response(SubscriptionSerializer(subscription).data)
 
     @extend_schema(
@@ -203,3 +207,35 @@ def razorpay_webhook(request: HttpRequest) -> JsonResponse:
         event_id = f"sha256:{hashlib.sha256(body).hexdigest()}"
     outcome = webhooks.handle_delivery(event_id, payload)
     return JsonResponse({"status": outcome})
+
+
+@csrf_exempt
+@require_POST
+def cashfree_webhook(request: HttpRequest) -> JsonResponse:
+    """``POST /webhooks/cashfree/billing/`` (public). Not in the OpenAPI schema.
+
+    Verifies ``x-webhook-signature`` (base64 HMAC-SHA256 of ``x-webhook-timestamp`` + the raw
+    body with ``BILLING_CASHFREE_SECRET``). Fulfilling is idempotent, so retries are harmless;
+    unknown orders and event types answer 200 so Cashfree stops retrying.
+    """
+    secret = settings.BILLING_CASHFREE_SECRET
+    if not secret:
+        logger.error("BILLING_CASHFREE_SECRET is not configured; rejecting Cashfree webhook")
+    body = request.body
+    valid = cashfree.webhook_signature_is_valid(
+        body,
+        request.headers.get(CASHFREE_TIMESTAMP_HEADER),
+        request.headers.get(CASHFREE_SIGNATURE_HEADER),
+        secret,
+    )
+    if not valid:
+        logger.warning("Cashfree billing webhook with a missing or invalid signature rejected")
+        return _error("invalid_signature", "Invalid webhook signature.", 400)
+
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, ValueError):
+        payload = None
+    if not isinstance(payload, dict):
+        return _error("invalid_payload", "The webhook body must be a JSON object.", 400)
+    return JsonResponse({"status": webhooks.handle_cashfree_event(payload)})

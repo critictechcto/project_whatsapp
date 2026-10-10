@@ -1,0 +1,11 @@
+{% extends "emails/base.html" %}
+{% block title %}Your {{ brand }} plan ends {% if ends_tomorrow %}soon{% else %}on {{ ends_on }}{% endif %}{% endblock %}
+{% block preheader %}Your {{ plan }} plan for {{ workspace }} is paid until {{ ends_on }}.{% endblock %}
+{% block content %}
+<h1 style="margin:0 0 16px 0;font-size:22px;line-height:30px;color:#16181d;">Your plan ends {% if ends_tomorrow %}soon{% else %}on {{ ends_on }}{% endif %}</h1>
+<p style="margin:0 0 16px 0;">Your <strong>{{ plan }}</strong> plan for <strong>{{ workspace }}</strong> on {{ brand }} is paid until <strong>{{ ends_on }}</strong>.</p>
+<p style="margin:0;">Plans are prepaid and nothing is charged automatically. To keep your plan's limits and features without a break, renew for another {{ interval }} before then.</p>
+{% include "emails/_button.html" with url=link label="Renew your plan" %}
+<p style="margin:0;color:#5f636b;">If you don't renew, your data stays, but you can't add contacts, numbers or team members and the plan's features switch off until you choose a plan again.</p>
+{% endblock %}
+{% block reason %}{{ email }} is an owner or billing contact of a {{ brand }} workspace{% endblock %}

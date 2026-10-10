@@ -10,6 +10,7 @@ from pathlib import Path
 import environ
 from django.core.exceptions import ImproperlyConfigured
 
+from common.cashfree import credentials_for as cashfree_credentials_for
 from common.enum_overrides import AppEnumNameOverrides
 from common.redis_tls import redis_ssl_options
 
@@ -415,6 +416,26 @@ BILLING_SAC_CODE = env("BILLING_SAC_CODE", default="998314")
 BILLING_GST_RATE_PERCENT = env.int("BILLING_GST_RATE_PERCENT", default=18)
 # Seconds before a Razorpay API call (checkout, cancel, fetch) times out.
 RAZORPAY_TIMEOUT = env.float("RAZORPAY_TIMEOUT", default=20.0)
+
+# --- Billing provider (Cashfree prepaid plans or Razorpay subscriptions) ----------------------
+
+# Gateway for new checkouts (docs/contracts/billing-cashfree.md). Existing Razorpay subscriptions
+# keep working through /webhooks/razorpay/ whatever this says.
+BILLING_PROVIDERS = ("razorpay", "cashfree")
+BILLING_PROVIDER = env("BILLING_PROVIDER", default="cashfree").strip().lower()
+if BILLING_PROVIDER not in BILLING_PROVIDERS:
+    raise ImproperlyConfigured(
+        f"BILLING_PROVIDER must be one of {', '.join(BILLING_PROVIDERS)}, not {BILLING_PROVIDER!r}."
+    )
+# sandbox uses the test keys (TEST_CASHFREE_API_APP_ID, TEST_CASHFREE_API_SECRET), production the
+# live keys (CASHFREE_API_APP_ID, CASHFREE_API_SECRET). Missing keys don't stop settings from
+# loading; checkout answers 503 instead. The secret also verifies Cashfree webhook signatures.
+CASHFREE_ENV = env("CASHFREE_ENV", default="sandbox").strip().lower()
+BILLING_CASHFREE_APP_ID, BILLING_CASHFREE_SECRET = cashfree_credentials_for(
+    CASHFREE_ENV, lambda name: env(name, default="")
+)
+# Seconds before a Cashfree API call times out (billing and sellers' payment links).
+CASHFREE_TIMEOUT = env.float("CASHFREE_TIMEOUT", default=20.0)
 
 # --- Commerce (sell on WhatsApp) ------------------------------------------------------------
 

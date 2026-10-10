@@ -1,19 +1,24 @@
-"""Razorpay webhook processing.
+"""Razorpay and Cashfree webhook processing.
 
-The view verifies the signature; :func:`handle_delivery` deduplicates on the event id and applies
-the event in one transaction. If processing raises, the event row rolls back too, the view
-returns 500 and Razorpay retries.
+Razorpay: the view verifies the signature; :func:`handle_delivery` deduplicates on the event id
+and applies the event in one transaction. If processing raises, the event row rolls back too, the
+view returns 500 and Razorpay retries.
+
+Cashfree: :func:`handle_cashfree_event` fulfils a paid billing order; ``services.fulfil_order``
+locks the order, so a retry or a race with verify issues one invoice.
 """
 
 import logging
 from collections.abc import Callable, Mapping
+from datetime import datetime
 from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
 
 from . import entitlements, services
-from .models import RazorpayEvent, Subscription
+from .invoices import INDIA_TZ
+from .models import BillingOrder, RazorpayEvent, Subscription
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +145,67 @@ def _ended(subscription: Subscription, entity: dict, payload: Mapping[str, Any])
         subscription.status = Status.EXPIRED if ended else Status.CANCELLED
     subscription.cancel_at_period_end = False
     subscription.save()
+
+
+# --- Cashfree (prepaid orders) --------------------------------------------------------------
+
+CASHFREE_SUCCESS = "PAYMENT_SUCCESS_WEBHOOK"
+CASHFREE_LOGGED = frozenset({"PAYMENT_FAILED_WEBHOOK", "PAYMENT_USER_DROPPED_WEBHOOK"})
+
+
+def handle_cashfree_event(payload: Mapping[str, Any]) -> str:
+    """Apply one signed Cashfree payment webhook. Returns ``processed``, ``duplicate``,
+    ``logged`` or ``ignored``. Raising makes the view answer 500 and Cashfree retry."""
+    event_type = payload.get("type")
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    order = data.get("order") if isinstance(data.get("order"), dict) else {}
+    payment = data.get("payment") if isinstance(data.get("payment"), dict) else {}
+    order_id = order.get("order_id")
+    if event_type in CASHFREE_LOGGED:
+        logger.info(
+            "Cashfree %s for order %s (payment status %s)",
+            event_type,
+            order_id,
+            payment.get("payment_status"),
+        )
+        return "logged"
+    if event_type != CASHFREE_SUCCESS or payment.get("payment_status") != "SUCCESS":
+        logger.info("Cashfree event %r not handled", event_type)
+        return "ignored"
+
+    billing_order = (
+        BillingOrder.objects.filter(order_id=order_id).first()
+        if isinstance(order_id, str) and order_id
+        else None
+    )
+    if billing_order is None:
+        logger.info("Cashfree payment for an unknown order %r ignored", order_id)
+        return "ignored"
+    amount = services.rupees_to_paise(order.get("order_amount"))
+    if amount != billing_order.amount_paise:
+        logger.warning(
+            "Cashfree payment for order %s was %s paise, expected %s; ignored",
+            order_id,
+            amount,
+            billing_order.amount_paise,
+        )
+        return "ignored"
+    payment_id = str(payment.get("cf_payment_id") or "")[:64] or billing_order.order_id
+    fulfilled = services.fulfil_order(
+        billing_order.order_id, payment_id=payment_id, paid_at=_parse_time(payment)
+    )
+    return "processed" if fulfilled else "duplicate"
+
+
+def _parse_time(payment: Mapping[str, Any]) -> datetime | None:
+    value = payment.get("payment_time")
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=INDIA_TZ)
 
 
 SUBSCRIPTION_HANDLERS: dict[str, Handler] = {

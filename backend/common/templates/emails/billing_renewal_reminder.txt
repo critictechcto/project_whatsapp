@@ -1,0 +1,9 @@
+{% autoescape off %}Your {{ plan }} plan for {{ workspace }} on {{ brand }} is paid until {{ ends_on }}.
+
+Plans are prepaid and nothing is charged automatically. To keep your plan's limits and features without a break, renew for another {{ interval }} before then:
+
+{{ link }}
+
+If you don't renew, your data stays, but you can't add contacts, numbers or team members and the plan's features switch off until you choose a plan again.
+
+{{ brand }} · {{ support_email }}{% endautoescape %}

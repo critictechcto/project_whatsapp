@@ -1,9 +1,16 @@
-"""Billing workflows: the trial, Razorpay checkout and cancellation, billing profiles, GST
-invoices and usage counts. Views and the webhook call these; other apps use ``entitlements``."""
+"""Billing workflows: the trial, checkout through Cashfree (prepaid orders) or Razorpay
+(subscriptions), cancellation, prepaid expiry and renewal reminders, billing profiles, GST
+invoices and usage counts. Views and the webhooks call these; other apps use ``entitlements``.
+
+``settings.BILLING_PROVIDER`` picks the gateway for new checkouts only; existing Razorpay
+subscriptions keep their own flow (docs/contracts/billing-cashfree.md)."""
 
 import hmac
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation
+from functools import partial
 
 from django.conf import settings
 from django.db import transaction
@@ -14,20 +21,42 @@ from rest_framework import exceptions
 from apps.contacts.models import Contact
 from apps.tenants.models import Membership
 from apps.whatsapp.models import PhoneNumber
+from common.cashfree import cashfree_phone
 from common.exceptions import Conflict, UpstreamUnavailable
+from common.roles import Role
 
-from . import entitlements, invoices, razorpay
-from .models import BillingProfile, Invoice, InvoiceSequence, Plan, Subscription
+from . import cashfree, entitlements, invoices, razorpay
+from .invoices import INDIA_TZ
+from .models import (
+    BillingOrder,
+    BillingProfile,
+    BillingProvider,
+    Invoice,
+    InvoiceSequence,
+    Plan,
+    Subscription,
+)
 from .plans import TRIAL_DAYS, TRIAL_PLAN_SLUG, ensure_default_plans
 
 logger = logging.getLogger(__name__)
 
 Status = Subscription.Status
 Interval = Subscription.Interval
+OrderStatus = BillingOrder.Status
 
 CHECKOUT_NAME = "UpChatz"
 # Razorpay subscription statuses meaning the customer authorised or paid.
 RAZORPAY_ACTIVE_STATUSES = frozenset({"authenticated", "active"})
+# A Cashfree order can be paid for this long after checkout.
+CASHFREE_ORDER_TTL = timedelta(hours=1)
+# Cashfree order statuses that end the order without a payment.
+CASHFREE_ENDED_STATUSES = {
+    "EXPIRED": OrderStatus.EXPIRED,
+    "TERMINATED": OrderStatus.FAILED,
+    "TERMINATION_REQUESTED": OrderStatus.FAILED,
+}
+# Days before a prepaid plan ends when its renewal reminder goes out (largest first).
+RENEWAL_REMINDER_DAYS = (7, 1)
 
 
 class BillingProfileRequired(Conflict):
@@ -36,6 +65,15 @@ class BillingProfileRequired(Conflict):
         "Complete the billing profile (legal name, email, address, city, state and PIN code) "
         "before checking out."
     )
+    phone_detail = (
+        "Complete the billing profile (legal name, email, phone, address, city, state and PIN "
+        "code) before checking out. Cashfree needs a phone number for payment receipts."
+    )
+
+
+class PaymentNotCompleted(Conflict):
+    default_code = "payment_not_completed"
+    default_detail = "The payment wasn't completed. You haven't been charged."
 
 
 class SubscriptionAlreadyActive(Conflict):
@@ -133,6 +171,7 @@ def activate(subscription: Subscription, entity: dict) -> bool:
     subscription.plan = plan
     subscription.interval = interval
     subscription.status = Status.ACTIVE
+    subscription.provider = BillingProvider.RAZORPAY
     subscription.activated_at = subscription.activated_at or timezone.now()
     subscription.checkout_plan = None
     subscription.checkout_interval = ""
@@ -183,15 +222,38 @@ def _cancel_quietly(razorpay_subscription_id: str) -> None:
         )
 
 
+def _checkout_session(provider: str, *, plan: Plan, interval: str, profile) -> dict:
+    """The ``CheckoutSession`` fields every provider shares; the others start as null."""
+    return {
+        "provider": provider,
+        "name": CHECKOUT_NAME,
+        "description": _checkout_description(plan, interval),
+        "prefill": {"name": profile.legal_name, "email": profile.email},
+        "key_id": None,
+        "subscription_id": None,
+        "order_id": None,
+        "payment_session_id": None,
+        "mode": None,
+        "amount_paise": None,
+    }
+
+
 def start_checkout(*, workspace, plan_slug: str, interval: str) -> dict:
+    """Start a checkout on ``settings.BILLING_PROVIDER`` and return the ``CheckoutSession``."""
+    plan = Plan.objects.filter(slug=plan_slug, is_active=True).first()
+    if plan is None:
+        raise exceptions.ValidationError({"plan_id": ["This plan is not available."]})
+    if settings.BILLING_PROVIDER == BillingProvider.CASHFREE:
+        return start_cashfree_checkout(workspace=workspace, plan=plan, interval=interval)
+    return start_razorpay_checkout(workspace=workspace, plan=plan, interval=interval)
+
+
+def start_razorpay_checkout(*, workspace, plan: Plan, interval: str) -> dict:
     """Create (or reuse) a Razorpay subscription and return Razorpay Checkout options.
 
     The Subscription keeps its current plan (and trial) until Razorpay activates it; a trialing
     workspace shows ``pending`` meanwhile.
     """
-    plan = Plan.objects.filter(slug=plan_slug, is_active=True).first()
-    if plan is None:
-        raise exceptions.ValidationError({"plan_id": ["This plan is not available."]})
     profile = get_billing_profile(workspace)
     if not profile.is_complete:
         raise BillingProfileRequired()
@@ -233,13 +295,119 @@ def start_checkout(*, workspace, plan_slug: str, interval: str) -> dict:
     if superseded:
         _cancel_quietly(superseded)
     entitlements.clear_cache(workspace)
+    session = _checkout_session(
+        BillingProvider.RAZORPAY, plan=plan, interval=interval, profile=profile
+    )
+    session.update(key_id=settings.RAZORPAY_KEY_ID, subscription_id=subscription_id)
+    return session
+
+
+def checkout_total_paise(plan: Plan, interval: str, buyer_state_code: str) -> int:
+    """GST-inclusive price: exactly the total of the invoice issued for it."""
+    return invoices.compute_gst(
+        plan.price_paise(interval),
+        buyer_state_code=buyer_state_code,
+        seller_state_code=settings.BILLING_SELLER_STATE_CODE,
+        rate_percent=settings.BILLING_GST_RATE_PERCENT,
+    ).total_paise
+
+
+def paise_to_rupees(amount_paise: int) -> float:
+    """Cashfree amounts are rupees with up to 2 decimals (a JSON number)."""
+    return float(Decimal(amount_paise) / 100)
+
+
+def rupees_to_paise(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return None
+    try:
+        amount = Decimal(str(value)) * 100
+    except InvalidOperation:
+        return None
+    return int(amount) if amount == amount.to_integral_value() else None
+
+
+def cashfree_order_body(
+    *, order_id: str, workspace, plan: Plan, interval: str, profile, amount_paise: int, now
+) -> dict:
+    frontend = settings.FRONTEND_URL.rstrip("/")
+    order_meta = {"return_url": f"{frontend}/app/w/{workspace.pk}/billing?cf_order_id={order_id}"}
+    notify_url = f"{settings.PUBLIC_API_BASE_URL.rstrip('/')}/webhooks/cashfree/billing/"
+    # Cashfree accepts only HTTPS notify URLs; local dev relies on verify alone.
+    if notify_url.startswith("https://"):
+        order_meta["notify_url"] = notify_url
     return {
-        "key_id": settings.RAZORPAY_KEY_ID,
-        "subscription_id": subscription_id,
-        "name": CHECKOUT_NAME,
-        "description": _checkout_description(plan, interval),
-        "prefill": {"name": profile.legal_name, "email": profile.email},
+        "order_id": order_id,
+        "order_amount": paise_to_rupees(amount_paise),
+        "order_currency": "INR",
+        "customer_details": {
+            "customer_id": workspace.pk.hex,
+            "customer_phone": cashfree_phone(profile.phone),
+            "customer_email": profile.email,
+            "customer_name": profile.legal_name,
+        },
+        "order_meta": order_meta,
+        "order_expiry_time": (now + CASHFREE_ORDER_TTL)
+        .astimezone(INDIA_TZ)
+        .isoformat(timespec="seconds"),
+        "order_note": _checkout_description(plan, interval),
+        "order_tags": {"workspace_id": str(workspace.pk), "plan": plan.slug, "interval": interval},
     }
+
+
+def start_cashfree_checkout(*, workspace, plan: Plan, interval: str) -> dict:
+    """Create a Cashfree order for one prepaid period and return Cashfree Checkout options.
+
+    The subscription doesn't change until the order is paid (:func:`fulfil_order`). An active
+    Cashfree plan may check out again to renew or change plan; an active Razorpay subscription
+    must be cancelled first.
+    """
+    profile = get_billing_profile(workspace)
+    if not (profile.is_complete and profile.phone):
+        raise BillingProfileRequired(BillingProfileRequired.phone_detail)
+    subscription = get_subscription(workspace)
+    if subscription.status == Status.ACTIVE and subscription.is_razorpay:
+        raise SubscriptionAlreadyActive()
+
+    amount_paise = checkout_total_paise(plan, interval, profile.state_code)
+    order_id = f"upc_{uuid.uuid4().hex}"
+    body = cashfree_order_body(
+        order_id=order_id,
+        workspace=workspace,
+        plan=plan,
+        interval=interval,
+        profile=profile,
+        amount_paise=amount_paise,
+        now=timezone.now(),
+    )
+    try:
+        order = cashfree.get_cashfree_client().create_order(body)
+        session_id = order.get("payment_session_id")
+        if not isinstance(session_id, str) or not session_id:
+            raise cashfree.CashfreeError("Cashfree did not return a payment session.")
+    except cashfree.CashfreeError as exc:
+        logger.error("Cashfree checkout failed for workspace %s: %s", workspace.pk, exc)
+        raise BillingUnavailable() from exc
+
+    BillingOrder.objects.create(
+        workspace=workspace,
+        provider=BillingProvider.CASHFREE,
+        order_id=order_id,
+        plan=plan,
+        interval=interval,
+        amount_paise=amount_paise,
+        payment_session_id=session_id,
+    )
+    session = _checkout_session(
+        BillingProvider.CASHFREE, plan=plan, interval=interval, profile=profile
+    )
+    session.update(
+        order_id=order_id,
+        payment_session_id=session_id,
+        mode=settings.CASHFREE_ENV,
+        amount_paise=amount_paise,
+    )
+    return session
 
 
 def _reusable_checkout(client, subscription: Subscription, plan: Plan, interval: str) -> str | None:
@@ -254,7 +422,138 @@ def _reusable_checkout(client, subscription: Subscription, plan: Plan, interval:
     return subscription.razorpay_subscription_id if entity.get("status") == "created" else None
 
 
-def verify_checkout(
+def verify_cashfree_checkout(*, workspace, order_id: str) -> Subscription:
+    """Ask Cashfree whether the workspace's order is paid; fulfil it when it is.
+
+    Raises ``PaymentVerificationFailed`` for an unknown order (or another workspace's),
+    ``PaymentNotCompleted`` while it is unpaid and ``BillingUnavailable`` when Cashfree is down.
+    """
+    order = BillingOrder.objects.filter(workspace=workspace, order_id=order_id).first()
+    if order is None:
+        logger.warning("Cashfree verification for an unknown order in workspace %s", workspace.pk)
+        raise PaymentVerificationFailed()
+    if order.status == OrderStatus.PAID:
+        return get_subscription(workspace)
+
+    try:
+        client = cashfree.get_cashfree_client()
+        remote = client.fetch_order(order_id)
+        status = remote.get("order_status")
+        payment_id = _successful_payment_id(client, order_id) if status == "PAID" else ""
+    except cashfree.CashfreeError as exc:
+        logger.warning("Could not fetch Cashfree order %s: %s", order_id, exc)
+        raise BillingUnavailable() from exc
+    if status != "PAID":
+        ended = CASHFREE_ENDED_STATUSES.get(status)
+        if ended is not None:
+            BillingOrder.objects.filter(pk=order.pk, status=OrderStatus.CREATED).update(
+                status=ended, updated_at=timezone.now()
+            )
+        raise PaymentNotCompleted()
+    if not payment_id:
+        # Paid, but the payment isn't listed yet: key the invoice on the order instead.
+        logger.warning("Cashfree order %s is paid but has no SUCCESS payment listed", order_id)
+        payment_id = order_id
+    fulfil_order(order_id, payment_id=payment_id)
+    return get_subscription(workspace)
+
+
+def _successful_payment_id(client, order_id: str) -> str:
+    for payment in client.fetch_order_payments(order_id):
+        if payment.get("payment_status") == "SUCCESS" and payment.get("cf_payment_id"):
+            return str(payment["cf_payment_id"])[:64]
+    return ""
+
+
+def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = None) -> bool:
+    """Apply a paid Cashfree order: extend or start the plan and issue the GST invoice.
+
+    Idempotent: the order row is locked and an order that is already paid is left alone.
+    Returns True when this call fulfilled it.
+    """
+    now = timezone.now()
+    with transaction.atomic():
+        order = (
+            BillingOrder.objects.select_for_update()
+            .select_related("plan", "workspace")
+            .filter(order_id=order_id)
+            .first()
+        )
+        if order is None or order.status == OrderStatus.PAID:
+            return False
+        subscription = get_subscription(order.workspace, for_update=True)
+        renewal = (
+            subscription.status == Status.ACTIVE
+            and subscription.is_cashfree
+            and subscription.plan_id == order.plan_id
+            and subscription.interval == order.interval
+            and subscription.current_period_end is not None
+            and subscription.current_period_end > now
+        )
+        if renewal:
+            period_start = subscription.current_period_end
+        else:
+            period_start = now
+            subscription.current_period_start = now
+        period_end = period_end_after(period_start, order.interval)
+
+        # A Razorpay subscription still open at Razorpay (an unpaid checkout, or one that would
+        # retry charges) is cancelled there once this commits, and no longer tracked here.
+        live_razorpay = subscription.checkout_in_progress or subscription.status in (
+            Status.ACTIVE,
+            Status.PENDING,
+            Status.HALTED,
+        )
+        superseded = subscription.razorpay_subscription_id if live_razorpay else None
+        subscription.plan = order.plan
+        subscription.interval = order.interval
+        subscription.status = Status.ACTIVE
+        subscription.provider = BillingProvider.CASHFREE
+        subscription.current_period_end = period_end
+        subscription.cancel_at_period_end = False
+        subscription.activated_at = subscription.activated_at or now
+        subscription.checkout_plan = None
+        subscription.checkout_interval = ""
+        subscription.razorpay_subscription_id = None
+        subscription.save()
+
+        create_paid_invoice(
+            subscription=subscription,
+            payment_id=payment_id,
+            payment_provider=BillingProvider.CASHFREE,
+            issued_at=paid_at or now,
+            period_start=period_start,
+            period_end=period_end,
+            amount_paid_paise=order.amount_paise,
+        )
+        order.status = OrderStatus.PAID
+        order.paid_at = paid_at or now
+        order.cf_payment_id = payment_id
+        order.period_start = period_start
+        order.period_end = period_end
+        order.payment_session_id = ""
+        order.save()
+        if superseded:
+            transaction.on_commit(partial(_cancel_quietly, superseded))
+    entitlements.clear_cache(order.workspace)
+    logger.info("Fulfilled Cashfree order %s for workspace %s", order_id, order.workspace_id)
+    return True
+
+
+def verify_checkout(**data) -> Subscription:
+    """``CheckoutVerifyRequest``: a Cashfree ``order_id`` or the three Razorpay fields."""
+    workspace = data.pop("workspace")
+    if data.get("order_id"):
+        return verify_cashfree_checkout(workspace=workspace, order_id=data["order_id"])
+    return verify_razorpay_checkout(
+        workspace=workspace,
+        payment_id=data["razorpay_payment_id"],
+        subscription_id=data["razorpay_subscription_id"],
+        signature=data["razorpay_signature"],
+    )
+
+
+def verify_razorpay_checkout(
     *, workspace, payment_id: str, subscription_id: str, signature: str
 ) -> Subscription:
     """Check the Checkout signature, then sync the status from Razorpay when it's reachable.
@@ -292,13 +591,16 @@ def verify_checkout(
 
 
 def cancel_subscription(*, workspace, at_period_end: bool) -> Subscription:
-    """Cancel at the end of the paid period (or trial) or immediately. Idempotent once ended."""
+    """Cancel at the end of the paid period (or trial) or immediately. Idempotent once ended.
+
+    A prepaid Cashfree plan has nothing to cancel at the gateway (and no Razorpay id).
+    """
     subscription = get_subscription(workspace)
     in_checkout = subscription.checkout_in_progress
     if subscription.status in (Status.CANCELLED, Status.EXPIRED) and not in_checkout:
         return subscription
 
-    razorpay_id = subscription.razorpay_subscription_id
+    razorpay_id = None if subscription.is_cashfree else subscription.razorpay_subscription_id
     at_cycle_end = at_period_end and subscription.status == Status.ACTIVE and not in_checkout
     if razorpay_id and in_checkout:
         _cancel_quietly(razorpay_id)  # nothing was charged; don't block the local change
@@ -344,6 +646,97 @@ def expire_trials(*, now: datetime | None = None) -> int:
     if count:
         logger.info("Expired %d trial subscription(s)", count)
     return count
+
+
+def expire_prepaid(*, now: datetime | None = None) -> int:
+    """End Cashfree plans whose paid period is over: ``cancelled`` when the owner cancelled at
+    period end, otherwise ``expired``. Returns how many changed."""
+    now = now or timezone.now()
+    ended = Subscription.objects.filter(
+        provider=BillingProvider.CASHFREE, status=Status.ACTIVE, current_period_end__lte=now
+    )
+    cancelled = ended.filter(cancel_at_period_end=True).update(
+        status=Status.CANCELLED, cancel_at_period_end=False, updated_at=now
+    )
+    expired = ended.filter(cancel_at_period_end=False).update(status=Status.EXPIRED, updated_at=now)
+    if cancelled or expired:
+        logger.info(
+            "Ended %d prepaid plan(s): %d cancelled, %d expired",
+            cancelled + expired,
+            cancelled,
+            expired,
+        )
+    return cancelled + expired
+
+
+def renewal_reminder_days(period_end: datetime, now: datetime) -> int | None:
+    """Which reminder is due (7 or 1), counting calendar days in India; None when neither."""
+    days_left = (
+        timezone.localtime(period_end, INDIA_TZ).date() - timezone.localtime(now, INDIA_TZ).date()
+    ).days
+    due = [days for days in RENEWAL_REMINDER_DAYS if days_left <= days]
+    return min(due) if due else None
+
+
+def renewal_reminder_recipients(subscription: Subscription) -> list[str]:
+    """The workspace owners and the billing-profile email, without duplicates."""
+    emails = list(
+        Membership.objects.filter(workspace_id=subscription.workspace_id, role=Role.OWNER)
+        .order_by("created_at")
+        .values_list("user__email", flat=True)
+    )
+    profile = BillingProfile.objects.filter(workspace_id=subscription.workspace_id).first()
+    if profile is not None and profile.email:
+        emails.append(profile.email)
+    seen: set[str] = set()
+    recipients = []
+    for email in emails:
+        if email and email.lower() not in seen:
+            seen.add(email.lower())
+            recipients.append(email)
+    return recipients
+
+
+def send_renewal_reminders(*, now: datetime | None = None) -> int:
+    """Queue renewal reminders for prepaid plans ending within 7 days (then within 1 day).
+
+    Each reminder goes out once per period: ``renewal_reminder_key`` is claimed with a
+    conditional update before the emails are queued on commit. Returns how many were claimed.
+    """
+    from .tasks import send_renewal_reminder_email
+
+    now = now or timezone.now()
+    horizon = now + timedelta(days=max(RENEWAL_REMINDER_DAYS) + 1)
+    candidates = Subscription.objects.filter(
+        provider=BillingProvider.CASHFREE,
+        status=Status.ACTIVE,
+        cancel_at_period_end=False,
+        current_period_end__gt=now,
+        current_period_end__lte=horizon,
+    ).only("id", "workspace_id", "current_period_end", "renewal_reminder_key")
+    sent = 0
+    for subscription in candidates:
+        days = renewal_reminder_days(subscription.current_period_end, now)
+        if days is None:
+            continue
+        key = f"{subscription.current_period_end.isoformat()}:{days}"
+        if subscription.renewal_reminder_key == key:
+            continue
+        with transaction.atomic():
+            claimed = Subscription.objects.filter(
+                pk=subscription.pk, renewal_reminder_key=subscription.renewal_reminder_key
+            ).update(renewal_reminder_key=key, updated_at=now)
+            if not claimed:
+                continue
+            for email in renewal_reminder_recipients(subscription):
+                transaction.on_commit(
+                    partial(send_renewal_reminder_email.delay, str(subscription.pk), email, key),
+                    robust=True,
+                )
+        sent += 1
+    if sent:
+        logger.info("Queued %d renewal reminder(s)", sent)
+    return sent
 
 
 # --- Billing profile ------------------------------------------------------------------------
@@ -411,11 +804,12 @@ def create_paid_invoice(
     issued_at: datetime,
     period_start: datetime,
     period_end: datetime,
+    payment_provider: str = BillingProvider.RAZORPAY,
     razorpay_invoice_id: str = "",
     amount_paid_paise: int | None = None,
 ) -> tuple[Invoice, bool]:
-    """Issue a paid GST invoice for a Razorpay payment. Idempotent per ``payment_id``."""
-    existing = Invoice.objects.filter(razorpay_payment_id=payment_id).first()
+    """Issue a paid GST invoice for a gateway payment. Idempotent per ``payment_id``."""
+    existing = Invoice.objects.filter(payment_id=payment_id).first()
     if existing is not None:
         return existing, False
 
@@ -430,8 +824,9 @@ def create_paid_invoice(
     )
     if amount_paid_paise is not None and amount_paid_paise != gst.total_paise:
         logger.warning(
-            "Razorpay payment %s was %s paise but the invoice total is %s paise; check that the "
-            "Razorpay plan amount includes GST",
+            "%s payment %s was %s paise but the invoice total is %s paise; check that the "
+            "charged amount includes GST",
+            payment_provider,
             payment_id,
             amount_paid_paise,
             gst.total_paise,
@@ -457,7 +852,8 @@ def create_paid_invoice(
             sgst_paise=gst.sgst_paise,
             igst_paise=gst.igst_paise,
             total_paise=gst.total_paise,
-            razorpay_payment_id=payment_id,
+            payment_id=payment_id,
+            payment_provider=payment_provider,
             razorpay_invoice_id=razorpay_invoice_id,
             seller=seller_snapshot(),
             buyer=buyer,

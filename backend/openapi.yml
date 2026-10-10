@@ -1045,8 +1045,9 @@ paths:
   /api/v1/billing/subscription/checkout/:
     post:
       operationId: billing_subscription_checkout_create
-      description: Create a Razorpay subscription and return options for Razorpay
-        Checkout.
+      description: 'Start a checkout on the configured gateway: a prepaid Cashfree
+        order (options for Cashfree Checkout) or a Razorpay subscription (options
+        for Razorpay Checkout).'
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -1081,8 +1082,9 @@ paths:
   /api/v1/billing/subscription/verify/:
     post:
       operationId: billing_subscription_verify_create
-      description: Verify the Checkout signature. Status may stay pending until the
-        webhook.
+      description: 'Cashfree (order_id): ask Cashfree for the order and activate the
+        plan once it is paid; 409 payment_not_completed otherwise. Razorpay: verify
+        the Checkout signature; the status may stay pending until the webhook.'
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -1104,7 +1106,6 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/CheckoutVerifyRequest'
-        required: true
       security:
       - jwtAuth: []
       responses:
@@ -6448,6 +6449,11 @@ components:
           type: string
           description: 6-digit PIN code.
           pattern: ^\d{6}$
+        phone:
+          type: string
+          description: E.164 (a 10-digit Indian number is accepted). Needed for Cashfree
+            checkout.
+          maxLength: 20
       required:
       - address_line1
       - city
@@ -6856,6 +6862,14 @@ components:
           type: boolean
           default: true
           description: Keep access until the paid period ends.
+    CashfreeModeEnum:
+      enum:
+      - sandbox
+      - production
+      type: string
+      description: |-
+        * `sandbox` - sandbox
+        * `production` - production
     CatalogSyncStatusEnum:
       enum:
       - not_synced
@@ -6896,13 +6910,13 @@ components:
       - plan_id
     CheckoutSession:
       type: object
-      description: Options for Razorpay Checkout in subscription mode.
+      description: |-
+        Options for Cashfree Checkout (a prepaid order) or Razorpay Checkout (subscription
+        mode); the other provider's fields are null.
       properties:
-        key_id:
-          type: string
-          readOnly: true
-        subscription_id:
-          type: string
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/PaymentProviderEnum'
           readOnly: true
         name:
           type: string
@@ -6914,15 +6928,62 @@ components:
           allOf:
           - $ref: '#/components/schemas/CheckoutPrefill'
           readOnly: true
+        key_id:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Razorpay only.
+        subscription_id:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Razorpay only.
+        order_id:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Cashfree only.
+        payment_session_id:
+          type: string
+          readOnly: true
+          nullable: true
+          description: Cashfree only.
+        mode:
+          readOnly: true
+          nullable: true
+          description: |-
+            Cashfree only.
+
+            * `sandbox` - sandbox
+            * `production` - production
+          oneOf:
+          - $ref: '#/components/schemas/CashfreeModeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        amount_paise:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: GST-inclusive amount charged; Cashfree only.
       required:
+      - amount_paise
       - description
       - key_id
+      - mode
       - name
+      - order_id
+      - payment_session_id
       - prefill
+      - provider
       - subscription_id
     CheckoutVerifyRequest:
       type: object
+      description: Either ``order_id`` (Cashfree) or the three ``razorpay_*`` fields.
       properties:
+        order_id:
+          type: string
+          minLength: 1
+          description: Cashfree.
+          maxLength: 64
         razorpay_payment_id:
           type: string
           minLength: 1
@@ -6935,10 +6996,6 @@ components:
           type: string
           minLength: 1
           maxLength: 256
-      required:
-      - razorpay_payment_id
-      - razorpay_signature
-      - razorpay_subscription_id
     Collection:
       type: object
       properties:
@@ -9789,6 +9846,11 @@ components:
           minLength: 1
           description: 6-digit PIN code.
           pattern: ^\d{6}$
+        phone:
+          type: string
+          description: E.164 (a 10-digit Indian number is accepted). Needed for Cashfree
+            checkout.
+          maxLength: 20
     PatchedBusinessHoursRequest:
       type: object
       properties:
@@ -11062,12 +11124,36 @@ components:
         cancel_at_period_end:
           type: boolean
           readOnly: true
+        provider:
+          readOnly: true
+          nullable: true
+          description: |-
+            Gateway of the paid plan; null on a trial.
+
+            * `razorpay` - razorpay
+            * `cashfree` - cashfree
+          oneOf:
+          - $ref: '#/components/schemas/PaymentProviderEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        auto_renews:
+          type: boolean
+          readOnly: true
+          description: True for an active Razorpay subscription; Cashfree plans are
+            prepaid.
+        checkout_provider:
+          allOf:
+          - $ref: '#/components/schemas/PaymentProviderEnum'
+          description: The gateway a new checkout uses.
+          readOnly: true
       required:
+      - auto_renews
       - cancel_at_period_end
+      - checkout_provider
       - current_period_end
       - current_period_start
       - interval
       - plan
+      - provider
       - status
       - trial_ends_at
     SubscriptionStatusEnum:

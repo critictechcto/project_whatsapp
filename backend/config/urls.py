@@ -34,6 +34,7 @@ urlpatterns = [
     path("webhooks/payments/merchants/", include("apps.payments.webhook_urls")),
     path("pay/return/", include("apps.payments.return_urls")),
     path("webhooks/razorpay/", include("apps.billing.webhook_urls")),
+    path("webhooks/cashfree/billing/", include("apps.billing.cashfree_webhook_urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     # Split view: Swagger UI's init script is a same-origin file (?script), not inline, so the
     # docs page runs under API_DOCS_CSP (config/settings/base.py) without 'unsafe-inline' scripts.

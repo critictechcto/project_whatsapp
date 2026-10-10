@@ -1,5 +1,6 @@
 """Shared test data and helpers for billing tests."""
 
+import base64
 import hashlib
 import hmac
 import json
@@ -89,6 +90,76 @@ def post_webhook(client, payload: dict, *, event_id: str | None = "evt_test1", s
     if event_id is not None:
         headers["HTTP_X_RAZORPAY_EVENT_ID"] = event_id
     return client.post("/webhooks/razorpay/", data=body, content_type="application/json", **headers)
+
+
+def cashfree_signature(body: bytes, timestamp: str, secret: str | None = None) -> str:
+    key = (secret or settings.BILLING_CASHFREE_SECRET).encode()
+    digest = hmac.new(key, timestamp.encode() + body, hashlib.sha256).digest()
+    return base64.b64encode(digest).decode()
+
+
+def cashfree_payment_event(
+    order_id: str,
+    order_amount: float,
+    *,
+    event_type: str = "PAYMENT_SUCCESS_WEBHOOK",
+    payment_status: str = "SUCCESS",
+    cf_payment_id: int | str = 885000777,
+) -> dict:
+    """A Cashfree PG payment webhook body (API version 2025-01-01 and later)."""
+    return {
+        "data": {
+            "order": {
+                "order_id": order_id,
+                "order_amount": order_amount,
+                "order_currency": "INR",
+                "order_tags": None,
+            },
+            "payment": {
+                "cf_payment_id": cf_payment_id,
+                "payment_status": payment_status,
+                "payment_amount": order_amount,
+                "payment_currency": "INR",
+                "payment_message": "Transaction successful",
+                "payment_time": "2026-10-10T12:00:05+05:30",
+                "payment_group": "upi",
+            },
+            "customer_details": {"customer_id": "abc", "customer_phone": "9876543210"},
+        },
+        "event_time": "2026-10-10T12:00:07+05:30",
+        "type": event_type,
+    }
+
+
+def post_cashfree_webhook(
+    client, payload: dict, *, timestamp: str = "1760078407", signature: str | None = None
+):
+    body = json.dumps(payload).encode()
+    headers = {"HTTP_X_WEBHOOK_TIMESTAMP": timestamp}
+    if signature is not False:
+        headers["HTTP_X_WEBHOOK_SIGNATURE"] = (
+            cashfree_signature(body, timestamp) if signature is None else signature
+        )
+    return client.post(
+        "/webhooks/cashfree/billing/", data=body, content_type="application/json", **headers
+    )
+
+
+def make_cashfree_active(
+    workspace, *, plan: str = "growth", interval: str = "monthly", days_left: float = 25
+):
+    """An active prepaid Cashfree plan with ``days_left`` days of its period remaining."""
+    subscription = services.get_subscription(workspace)
+    now = timezone.now()
+    subscription.status = "active"
+    subscription.provider = "cashfree"
+    subscription.plan_id = plan
+    subscription.interval = interval
+    subscription.activated_at = now - timedelta(days=5)
+    subscription.current_period_start = now - timedelta(days=5)
+    subscription.current_period_end = now + timedelta(days=days_left)
+    subscription.save()
+    return subscription
 
 
 def make_active(workspace, razorpay_id: str = "sub_active1"):

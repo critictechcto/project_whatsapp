@@ -33,6 +33,12 @@ INVOICES = f"{BASE}/invoices/"
 USAGE = f"{BASE}/usage/"
 
 
+@pytest.fixture(autouse=True)
+def _razorpay_billing(settings):
+    """These tests cover Razorpay checkout; Cashfree checkout is in test_cashfree_api.py."""
+    settings.BILLING_PROVIDER = "razorpay"
+
+
 def error(response, status: int) -> dict:
     assert response.status_code == status, response.content
     return response.json()["error"]
@@ -150,7 +156,7 @@ def test_billing_profile_starts_empty(auth_client, workspace):
     response = auth_client(Role.ADMIN).get(PROFILE)
 
     assert response.status_code == 200
-    assert response.json() == dict.fromkeys(MAHARASHTRA_PROFILE, "")
+    assert response.json() == {**dict.fromkeys(MAHARASHTRA_PROFILE, ""), "phone": ""}
     assert BillingProfile.objects.filter(workspace=workspace).count() == 1
 
 
@@ -160,7 +166,7 @@ def test_owner_updates_billing_profile(auth_client, workspace):
     response = auth_client().patch(PROFILE, body, format="json")
 
     assert response.status_code == 200, response.content
-    assert response.json() == MAHARASHTRA_PROFILE
+    assert response.json() == {**MAHARASHTRA_PROFILE, "phone": ""}
     profile = BillingProfile.objects.get(workspace=workspace)
     profile.full_clean()
     assert profile.is_complete
@@ -231,11 +237,16 @@ def test_checkout_creates_a_razorpay_subscription(auth_client, workspace, profil
 
     assert response.status_code == 200, response.content
     assert response.json() == {
+        "provider": "razorpay",
         "key_id": "rzp_test_key",
         "subscription_id": "sub_fake000001",
         "name": "UpChatz",
         "description": "Pro plan: ₹59,990 + 18% GST per year",
         "prefill": {"name": profile.legal_name, "email": profile.email},
+        "order_id": None,
+        "payment_session_id": None,
+        "mode": None,
+        "amount_paise": None,
     }
     [call] = fake_razorpay.calls_to("create_subscription")
     assert call == {

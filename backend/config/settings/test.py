@@ -48,6 +48,11 @@ BILLING_SELLER_LEGAL_NAME = "UpChatz Test Seller Private Limited"
 BILLING_SELLER_GSTIN = "29ABCDE1234F1ZW"
 BILLING_SELLER_STATE_CODE = "29"
 BILLING_SELLER_ADDRESS = "1 Test Road, Bengaluru, Karnataka 560001"
+BILLING_PROVIDER = "cashfree"
+CASHFREE_ENV = "sandbox"
+BILLING_CASHFREE_APP_ID = "cf_test_app_id"
+BILLING_CASHFREE_SECRET = "cf-test-secret"
+CASHFREE_TIMEOUT = 20.0
 
 PUBLIC_API_BASE_URL = "https://api.testserver"
 PUBLIC_MEDIA_BASE_URL = "https://media.testserver"

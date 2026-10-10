@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import BillingProfile, Invoice, Plan, RazorpayEvent, Subscription, UsageRecord
+from .models import (
+    BillingOrder,
+    BillingProfile,
+    Invoice,
+    Plan,
+    RazorpayEvent,
+    Subscription,
+    UsageRecord,
+)
 
 
 @admin.register(Plan)
@@ -19,9 +27,14 @@ class SubscriptionAdmin(admin.ModelAdmin):
         "trial_ends_at",
         "current_period_end",
     )
-    list_filter = ("status", "plan", "interval")
+    list_filter = ("status", "provider", "plan", "interval")
     raw_id_fields = ("workspace",)
-    readonly_fields = ("razorpay_subscription_id", "razorpay_customer_id", "activated_at")
+    readonly_fields = (
+        "razorpay_subscription_id",
+        "razorpay_customer_id",
+        "activated_at",
+        "renewal_reminder_key",
+    )
 
 
 @admin.register(BillingProfile)
@@ -34,8 +47,29 @@ class BillingProfileAdmin(admin.ModelAdmin):
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = ("number", "workspace", "status", "issued_at", "total_paise")
     list_filter = ("status", "financial_year")
-    search_fields = ("number", "razorpay_payment_id")
+    search_fields = ("number", "payment_id")
     raw_id_fields = ("workspace", "subscription")
+
+    def has_change_permission(self, request, obj=None) -> bool:
+        return False
+
+
+@admin.register(BillingOrder)
+class BillingOrderAdmin(admin.ModelAdmin):
+    list_display = (
+        "order_id",
+        "workspace",
+        "plan",
+        "interval",
+        "amount_paise",
+        "status",
+        "paid_at",
+        "created_at",
+    )
+    list_filter = ("status", "provider", "plan", "interval")
+    search_fields = ("order_id", "cf_payment_id")
+    raw_id_fields = ("workspace",)
+    exclude = ("payment_session_id",)
 
     def has_change_permission(self, request, obj=None) -> bool:
         return False

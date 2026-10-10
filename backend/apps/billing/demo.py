@@ -31,7 +31,7 @@ def seed(workspace) -> None:
     now = timezone.now()
     for index, months_ago in enumerate((2, 1), start=1):
         payment_id = f"pay_demo{workspace.pk.hex[:12]}{index}"
-        if Invoice.objects.filter(razorpay_payment_id=payment_id).exists():
+        if Invoice.objects.filter(payment_id=payment_id).exists():
             continue
         period_start = now - timedelta(days=30 * months_ago)
         services.create_paid_invoice(

@@ -229,7 +229,7 @@ def test_charge_activates_and_issues_one_igst_invoice(client, workspace, checkou
     assert invoice.status == "paid"
     assert (invoice.subtotal_paise, invoice.cgst_paise, invoice.sgst_paise) == (599900, 0, 0)
     assert (invoice.igst_paise, invoice.total_paise) == (107982, 707882)
-    assert (invoice.razorpay_payment_id, invoice.razorpay_invoice_id) == ("pay_hook1", "inv_hook1")
+    assert (invoice.payment_id, invoice.razorpay_invoice_id) == ("pay_hook1", "inv_hook1")
     assert (invoice.sac_code, invoice.gst_rate_percent) == ("998314", 18)
     assert invoice.buyer["gstin"] == MAHARASHTRA_PROFILE["gstin"]
     assert invoice.buyer["state_name"] == "Maharashtra"

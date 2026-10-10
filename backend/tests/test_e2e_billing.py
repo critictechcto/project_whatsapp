@@ -1,4 +1,5 @@
-"""End to end: Razorpay checkout and a signed charge webhook; an expired plan blocks contacts."""
+"""End to end: Razorpay checkout and a signed charge webhook; Cashfree checkout and a signed
+payment webhook; an expired plan blocks contacts."""
 
 from datetime import timedelta
 
@@ -7,9 +8,17 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.billing import services as billing_services
-from apps.billing.models import Invoice, RazorpayEvent, Subscription
+from apps.billing.cashfree import FakeCashfreeClient, override_cashfree_client
+from apps.billing.models import BillingOrder, Invoice, RazorpayEvent, Subscription
 from apps.billing.razorpay import FakeRazorpayClient, override_razorpay_client
-from apps.billing.tests.helpers import MAHARASHTRA_PROFILE, post_webhook, subscription_event, ts
+from apps.billing.tests.helpers import (
+    MAHARASHTRA_PROFILE,
+    cashfree_payment_event,
+    post_cashfree_webhook,
+    post_webhook,
+    subscription_event,
+    ts,
+)
 from apps.contacts.factories import ContactFactory
 from apps.contacts.models import Contact
 
@@ -28,8 +37,9 @@ def fake_razorpay():
 
 
 def test_checkout_and_charge_webhook_activate_and_invoice_once(
-    auth_client, client, workspace, fake_razorpay
+    auth_client, client, workspace, fake_razorpay, settings
 ):
+    settings.BILLING_PROVIDER = "razorpay"
     owner = auth_client()
     profile = owner.patch(f"{BILLING}/billing-profile/", MAHARASHTRA_PROFILE, format="json")
     assert profile.status_code == 200, profile.content
@@ -68,6 +78,7 @@ def test_checkout_and_charge_webhook_activate_and_invoice_once(
     assert (first.status_code, duplicate.status_code) == (200, 200)
     assert RazorpayEvent.objects.count() == 1
     subscription = Subscription.objects.get(workspace=workspace)
+    assert subscription.provider == "razorpay"
     assert (subscription.status, subscription.plan_id, subscription.interval) == (
         "active",
         "growth",
@@ -79,12 +90,59 @@ def test_checkout_and_charge_webhook_activate_and_invoice_once(
     # Maharashtra buyer, Karnataka seller: inter-state, so IGST only.
     assert (invoice.cgst_paise, invoice.sgst_paise, invoice.igst_paise) == (0, 0, GST_PAISE)
     assert invoice.total_paise == GROWTH_MONTHLY_PAISE + GST_PAISE
-    assert invoice.razorpay_payment_id == "pay_e2e1"
+    assert invoice.payment_id == "pay_e2e1"
+    assert invoice.payment_provider == "razorpay"
 
     body = owner.get(f"{BILLING}/subscription/").json()
     assert (body["status"], body["plan"]["id"]) == ("active", "growth")
     invoices = owner.get(f"{BILLING}/invoices/").json()["results"]
     assert [row["id"] for row in invoices] == [str(invoice.pk)]
+
+
+def test_cashfree_checkout_and_signed_webhook_activate_and_invoice_once(
+    auth_client, client, workspace
+):
+    owner = auth_client()
+    profile = owner.patch(
+        f"{BILLING}/billing-profile/",
+        {**MAHARASHTRA_PROFILE, "phone": "98765 43210"},
+        format="json",
+    )
+    assert profile.status_code == 200, profile.content
+    fake = FakeCashfreeClient()
+
+    with override_cashfree_client(fake):
+        checkout = owner.post(
+            f"{BILLING}/subscription/checkout/",
+            {"plan_id": "growth", "interval": "monthly"},
+            format="json",
+        )
+        assert checkout.status_code == 200, checkout.content
+        session = checkout.json()
+        assert (session["provider"], session["amount_paise"]) == (
+            "cashfree",
+            GROWTH_MONTHLY_PAISE + GST_PAISE,
+        )
+        order_id = session["order_id"]
+        assert Subscription.objects.get(workspace=workspace).status == "trialing"
+
+        payload = cashfree_payment_event(order_id, 2948.82, cf_payment_id=885000555)
+        first = post_cashfree_webhook(client, payload)
+        retry = post_cashfree_webhook(client, payload)
+        fake.pay(order_id, cf_payment_id="885000555")
+        verify = owner.post(f"{BILLING}/subscription/verify/", {"order_id": order_id})
+
+    assert (first.json(), retry.json()) == ({"status": "processed"}, {"status": "duplicate"})
+    assert verify.status_code == 200, verify.content
+    body = owner.get(f"{BILLING}/subscription/").json()
+    assert (body["status"], body["plan"]["id"]) == ("active", "growth")
+    assert (body["provider"], body["auto_renews"]) == ("cashfree", False)
+    invoice = Invoice.objects.get(workspace=workspace)  # exactly one
+    assert (invoice.payment_id, invoice.payment_provider) == ("885000555", "cashfree")
+    assert invoice.total_paise == GROWTH_MONTHLY_PAISE + GST_PAISE
+    assert BillingOrder.objects.get(order_id=order_id).status == "paid"
+    # Once paid, verify answers from the database without asking Cashfree again.
+    assert fake.calls_to("fetch_order") == []
 
 
 def test_expired_subscription_blocks_new_contacts(auth_client, workspace):

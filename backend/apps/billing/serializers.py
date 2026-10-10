@@ -1,9 +1,20 @@
-"""Billing API shapes (docs/contracts/wave-2.md). Money is integer paise (``*_paise``)."""
+"""Billing API shapes (docs/contracts/wave-2.md, billing-cashfree.md). Money is integer paise
+(``*_paise``)."""
 
+from django.conf import settings
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from common.phone import InvalidPhoneNumber, normalize_e164
+
 from . import gst
-from .schema_enums import BILLING_INTERVALS, INVOICE_STATUSES, SUBSCRIPTION_STATUSES
+from .schema_enums import (
+    BILLING_INTERVALS,
+    BILLING_PROVIDERS,
+    CASHFREE_MODES,
+    INVOICE_STATUSES,
+    SUBSCRIPTION_STATUSES,
+)
 
 PLAN_SLUGS = ("starter", "growth", "pro")
 GSTIN_PATTERN = r"^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$"
@@ -38,6 +49,24 @@ class SubscriptionSerializer(serializers.Serializer):
     current_period_start = serializers.DateTimeField(read_only=True, allow_null=True)
     current_period_end = serializers.DateTimeField(read_only=True, allow_null=True)
     cancel_at_period_end = serializers.BooleanField(read_only=True)
+    provider = serializers.ChoiceField(
+        choices=BILLING_PROVIDERS,
+        source="provider_or_none",
+        read_only=True,
+        allow_null=True,
+        help_text="Gateway of the paid plan; null on a trial.",
+    )
+    auto_renews = serializers.BooleanField(
+        read_only=True,
+        help_text="True for an active Razorpay subscription; Cashfree plans are prepaid.",
+    )
+    checkout_provider = serializers.SerializerMethodField(
+        help_text="The gateway a new checkout uses."
+    )
+
+    @extend_schema_field(serializers.ChoiceField(choices=BILLING_PROVIDERS))
+    def get_checkout_provider(self, obj) -> str:
+        return settings.BILLING_PROVIDER
 
 
 class CheckoutSerializer(serializers.Serializer):
@@ -56,19 +85,49 @@ class CheckoutPrefillSerializer(serializers.Serializer):
 
 
 class CheckoutSessionSerializer(serializers.Serializer):
-    """Options for Razorpay Checkout in subscription mode."""
+    """Options for Cashfree Checkout (a prepaid order) or Razorpay Checkout (subscription
+    mode); the other provider's fields are null."""
 
-    key_id = serializers.CharField(read_only=True)
-    subscription_id = serializers.CharField(read_only=True)
+    provider = serializers.ChoiceField(choices=BILLING_PROVIDERS, read_only=True)
     name = serializers.CharField(read_only=True)
     description = serializers.CharField(read_only=True)
     prefill = CheckoutPrefillSerializer(read_only=True)
+    key_id = serializers.CharField(read_only=True, allow_null=True, help_text="Razorpay only.")
+    subscription_id = serializers.CharField(
+        read_only=True, allow_null=True, help_text="Razorpay only."
+    )
+    order_id = serializers.CharField(read_only=True, allow_null=True, help_text="Cashfree only.")
+    payment_session_id = serializers.CharField(
+        read_only=True, allow_null=True, help_text="Cashfree only."
+    )
+    mode = serializers.ChoiceField(
+        choices=CASHFREE_MODES, read_only=True, allow_null=True, help_text="Cashfree only."
+    )
+    amount_paise = serializers.IntegerField(
+        read_only=True, allow_null=True, help_text="GST-inclusive amount charged; Cashfree only."
+    )
 
 
 class CheckoutVerifySerializer(serializers.Serializer):
-    razorpay_payment_id = serializers.CharField(max_length=64)
-    razorpay_subscription_id = serializers.CharField(max_length=64)
-    razorpay_signature = serializers.CharField(max_length=256)
+    """Either ``order_id`` (Cashfree) or the three ``razorpay_*`` fields."""
+
+    RAZORPAY_FIELDS = ("razorpay_payment_id", "razorpay_subscription_id", "razorpay_signature")
+
+    order_id = serializers.CharField(max_length=64, required=False, help_text="Cashfree.")
+    razorpay_payment_id = serializers.CharField(max_length=64, required=False)
+    razorpay_subscription_id = serializers.CharField(max_length=64, required=False)
+    razorpay_signature = serializers.CharField(max_length=256, required=False)
+
+    def validate(self, attrs: dict) -> dict:
+        razorpay = [field for field in self.RAZORPAY_FIELDS if attrs.get(field)]
+        if attrs.get("order_id") and not razorpay:
+            return attrs
+        if not attrs.get("order_id") and len(razorpay) == len(self.RAZORPAY_FIELDS):
+            return attrs
+        raise serializers.ValidationError(
+            "Send either order_id, or razorpay_payment_id, razorpay_subscription_id and "
+            "razorpay_signature."
+        )
 
 
 class CancelSubscriptionSerializer(serializers.Serializer):
@@ -91,6 +150,22 @@ class BillingProfileSerializer(serializers.Serializer):
     city = serializers.CharField(max_length=120)
     state_code = serializers.RegexField(STATE_CODE_PATTERN, help_text="2-digit GST state code.")
     postal_code = serializers.RegexField(POSTAL_CODE_PATTERN, help_text="6-digit PIN code.")
+    phone = serializers.CharField(
+        max_length=20,
+        allow_blank=True,
+        required=False,
+        help_text="E.164 (a 10-digit Indian number is accepted). Needed for Cashfree checkout.",
+    )
+
+    def validate_phone(self, value: str) -> str:
+        if not value.strip():
+            return ""
+        try:
+            return normalize_e164(value, "IN")
+        except InvalidPhoneNumber:
+            raise serializers.ValidationError(
+                "Enter a 10-digit Indian mobile number or an international number with +."
+            ) from None
 
     def to_internal_value(self, data):
         if hasattr(data, "get") and isinstance(data.get("gstin"), str):
