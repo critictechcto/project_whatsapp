@@ -321,6 +321,29 @@ envs:
     value: CHANGE_ME
     scope: RUN_AND_BUILD_TIME
 
+  # --- Billing (Cashfree prepaid plans; the gateway for new checkouts) ----------------------
+  - key: BILLING_PROVIDER
+    value: cashfree
+    scope: RUN_AND_BUILD_TIME
+  # sandbox uses the TEST_* keys; switch to production (live keys) when the owner says so.
+  - key: CASHFREE_ENV
+    value: sandbox
+    scope: RUN_AND_BUILD_TIME
+  - key: TEST_CASHFREE_API_APP_ID
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: TEST_CASHFREE_API_SECRET
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: CASHFREE_API_APP_ID
+    value: CHANGE_ME
+    scope: RUN_AND_BUILD_TIME
+  - key: CASHFREE_API_SECRET
+    value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+
   # --- Email (Resend HTTP API; with RESEND_API_KEY set the SMTP keys are unused) -------------
   # Verify upchatz.com in Resend (DKIM + the send.upchatz.com SPF records in DigitalOcean DNS)
   # and create a "Sending access" key limited to that domain.

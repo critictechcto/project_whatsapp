@@ -34,6 +34,9 @@ Every wave-2 agent (backend and frontend) builds against this document. Backend 
 | `SubscriptionStatusEnum` | `trialing`, `pending`, `active`, `halted`, `cancelled`, `expired` |
 | `BillingIntervalEnum` | `monthly`, `annual` |
 | `InvoiceStatusEnum` | `issued`, `paid`, `void` |
+| `CashfreeModeEnum` | `sandbox`, `production` |
+
+Billing's provider fields (`razorpay`, `cashfree`) reuse the commerce `PaymentProviderEnum`.
 
 ## Inbox — `/api/v1/inbox/`
 
@@ -111,16 +114,18 @@ Rules: `OPTED_OUT` contacts are always skipped; MARKETING templates also require
 
 Error codes: `feature_not_available` (409, activating a keyword rule when the plan lacks `keyword_automations`), `invalid` (400).
 
-## Billing — `/api/v1/billing/` and `/webhooks/razorpay/`
+## Billing — `/api/v1/billing/`, `/webhooks/razorpay/` and `/webhooks/cashfree/billing/`
+
+Billing through Cashfree (prepaid plans, the default gateway for new checkouts) is specified in [`billing-cashfree.md`](billing-cashfree.md); this section follows it.
 
 ### Components
 - `PlanLimits`: `whatsapp_numbers`, `members`, `contacts` (int | null = unlimited).
 - `Plan`: `id` (slug `starter`/`growth`/`pro`), `name`, `monthly_price_paise`, `annual_price_paise`, `limits`, `features: str[]`.
-- `Subscription`: `plan` (`Plan`), `status`, `interval`, `trial_ends_at`, `current_period_start`, `current_period_end`, `cancel_at_period_end`.
-- `CheckoutRequest`: `plan_id`, `interval`. `CheckoutSession`: `key_id`, `subscription_id`, `name`, `description`, `prefill` (`CheckoutPrefill`: `name`, `email`).
-- `CheckoutVerifyRequest`: `razorpay_payment_id`, `razorpay_subscription_id`, `razorpay_signature`.
+- `Subscription`: `plan` (`Plan`), `status`, `interval`, `trial_ends_at`, `current_period_start`, `current_period_end`, `cancel_at_period_end`, `provider` (`razorpay` | `cashfree` | null on a trial), `auto_renews` (bool; true only for an active Razorpay subscription not cancelled at period end), `checkout_provider` (`razorpay` | `cashfree`, the gateway a new checkout uses).
+- `CheckoutRequest`: `plan_id`, `interval`. `CheckoutSession`: `provider`, `name`, `description`, `prefill` (`CheckoutPrefill`: `name`, `email`); Razorpay: `key_id`, `subscription_id`; Cashfree: `order_id`, `payment_session_id`, `mode` (`sandbox` | `production`), `amount_paise` (GST-inclusive). The other provider's fields are null.
+- `CheckoutVerifyRequest`: either `order_id` (Cashfree) or `razorpay_payment_id`, `razorpay_subscription_id`, `razorpay_signature` (all optional in the schema; anything else is 400 `invalid`).
 - `CancelSubscriptionRequest`: `at_period_end` (bool, default true).
-- `BillingProfile`: `legal_name`, `gstin` ("" allowed), `email`, `address_line1`, `address_line2`, `city`, `state_code` (2-digit GST state code), `postal_code`.
+- `BillingProfile`: `legal_name`, `gstin` ("" allowed), `email`, `address_line1`, `address_line2`, `city`, `state_code` (2-digit GST state code), `postal_code`, `phone` (optional; a 10-digit Indian number or E.164 in, E.164 out; required for a Cashfree checkout).
 - `Invoice`: `id`, `number`, `status`, `issued_at`, `period_start`, `period_end`, `subtotal_paise`, `cgst_paise`, `sgst_paise`, `igst_paise`, `total_paise`, `download_url` (null).
 - `UsageMetric`: `key`, `used`, `limit` (null). `Usage`: `metrics: UsageMetric[]`.
 
@@ -129,15 +134,16 @@ Error codes: `feature_not_available` (409, activating a keyword rule when the pl
 |---|---|---|
 | GET `plans/` | viewer | |
 | GET `subscription/` | viewer | |
-| POST `subscription/checkout/` | owner | → `CheckoutSession` |
-| POST `subscription/verify/` | owner | verifies signature → `Subscription` (may stay `pending` until the webhook) |
+| POST `subscription/checkout/` | owner | → `CheckoutSession` on `BILLING_PROVIDER`. Cashfree: a prepaid order, allowed while a Cashfree plan is active (renew or change plan); 409 `subscription_active` while a Razorpay subscription is active |
+| POST `subscription/verify/` | owner | Cashfree: fetches the order, fulfils it when `PAID` → `Subscription`, else 409 `payment_not_completed`. Razorpay: verifies the signature → `Subscription` (may stay `pending` until the webhook) |
 | POST `subscription/cancel/` | owner | → `Subscription` |
 | GET / PATCH `billing-profile/` | admin / owner | |
 | GET `invoices/` | admin | |
 | GET `usage/` | viewer | |
 | POST `/webhooks/razorpay/` | public | HMAC of raw body with `RAZORPAY_WEBHOOK_SECRET`; idempotent on `x-razorpay-event-id` |
+| POST `/webhooks/cashfree/billing/` | public | base64 HMAC-SHA256 of `x-webhook-timestamp` + raw body with `BILLING_CASHFREE_SECRET`; fulfilling an order is idempotent |
 
-Error codes: `quota_exceeded` (409), `billing_profile_required` (409), `payment_verification_failed` (400).
+Error codes: `quota_exceeded` (409), `billing_profile_required` (409), `subscription_active` (409), `payment_not_completed` (409), `payment_verification_failed` (400), `upstream_unavailable` (503).
 
 ### Entitlements (`apps/billing/entitlements.py`, signatures frozen)
 - Metrics: `whatsapp_numbers`, `members`, `contacts`. Features: `scheduled_campaigns`, `keyword_automations`, `api_access`.

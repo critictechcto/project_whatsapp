@@ -84,7 +84,9 @@ The other variables:
 | `META_APP_ID`, `META_APP_SECRET` | Meta App Dashboard → App settings → Basic |
 | `META_EMBEDDED_SIGNUP_CONFIG_ID` | Facebook Login for Business → Configurations |
 | `PLATFORM_WA_*` | UpChatz's own alerts number (WABA ID, phone number ID, display number, system-user token). Leave these empty to turn seller alerts off. |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_PLAN_IDS` | Razorpay Dashboard (live mode) |
+| `TEST_CASHFREE_API_APP_ID`, `TEST_CASHFREE_API_SECRET` | Cashfree Merchant Dashboard in **test mode** → Developers → API Keys. Used while `CASHFREE_ENV=sandbox` (the spec's default) |
+| `CASHFREE_API_APP_ID`, `CASHFREE_API_SECRET` | The same page in **production** mode, once Cashfree has activated the account. Used only when `CASHFREE_ENV=production` |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_PLAN_IDS` | Razorpay Dashboard (live mode). Needed only for existing Razorpay subscriptions or with `BILLING_PROVIDER=razorpay` |
 | `BILLING_SELLER_*` | UpChatz's legal name, GSTIN, state code and address, as printed on invoices |
 | `RESEND_API_KEY` | Resend → API Keys, **Sending access** limited to `upchatz.com` (verify the domain first: DKIM `resend._domainkey` plus the `send` MX/TXT records, and a `_dmarc` TXT, in DigitalOcean DNS). `DEFAULT_FROM_EMAIL` and `EMAIL_REPLY_TO` are set in the spec. Without a key the API falls back to SMTP with `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` |
 | `SENTRY_DSN` | Optional; leave it empty to turn Sentry off |
@@ -107,7 +109,7 @@ Never run `doctl apps update --spec .do/app.yaml` against the live app, because 
 
 Before DNS is live, the default `*.ondigitalocean.app` URL returns 400, because `DJANGO_ALLOWED_HOSTS` only lists `app.upchatz.com`. To test on that URL anyway, temporarily add its host to `DJANGO_ALLOWED_HOSTS`, and its origin to the `CSRF`, `CORS` and `WS` origin lists. Remove them afterwards.
 
-## 5. Meta and Razorpay settings
+## 5. Meta, Cashfree and Razorpay settings
 
 **Meta App Dashboard → WhatsApp → Configuration**
 - Callback URL: `https://app.upchatz.com/webhooks/meta/`
@@ -124,9 +126,15 @@ Before DNS is live, the default `*.ondigitalocean.app` URL returns 400, because 
 - Add `https://app.upchatz.com` to *Allowed Domains for the JavaScript SDK* and to *Valid OAuth Redirect URIs*.
 - Add `upchatz.com` to *App Domains* under App settings → Basic.
 
+**Cashfree (UpChatz prepaid plans)**
+- `BILLING_PROVIDER=cashfree` sends new checkouts to Cashfree. Plans are paid a month or a year at a time and never charged automatically; owners get a renewal email 7 days and 1 day before the plan ends.
+- In the Cashfree Merchant Dashboard (Developers → Webhooks), add `https://app.upchatz.com/webhooks/cashfree/billing/` for payment events, in test mode now and again in production later. Cashfree signs webhooks with the API secret key, so there is no separate webhook secret. Each order also sends this URL as its `notify_url`, and the dashboard verifies every payment with Cashfree itself, so a missed webhook doesn't lose a payment.
+- **Going live:** fill in `CASHFREE_API_APP_ID` and `CASHFREE_API_SECRET`, change `CASHFREE_ENV` to `production`, add the webhook URL in production mode, and redeploy.
+
 **Razorpay (UpChatz subscriptions)**
 - Webhook URL: `https://app.upchatz.com/webhooks/razorpay/`
 - Secret: the value of `RAZORPAY_WEBHOOK_SECRET`
+- Keep this configured while any workspace still has a Razorpay subscription, even after switching new checkouts to Cashfree.
 
 Sellers' own payment webhooks are shown to them in the dashboard. Those URLs are built from `PUBLIC_API_BASE_URL`.
 
