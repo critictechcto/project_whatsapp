@@ -79,6 +79,7 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
       legal_name: profile.legal_name,
       gstin: profile.gstin,
       email: profile.email || me.data?.email || '',
+      phone: profile.phone ?? '',
       address_line1: profile.address_line1,
       address_line2: profile.address_line2,
       city: profile.city,
@@ -99,11 +100,11 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
         const next = new URLSearchParams({ plan: params.get('plan') ?? '', interval: params.get('interval') ?? 'monthly', resume: '1' })
         navigate(`/app/w/${workspaceId}/billing/plans?${next}`)
       } else {
-        reset({ ...saved })
+        reset({ ...saved, phone: saved.phone ?? '' })
       }
     } catch (error) {
       applyApiErrorToForm(error, setError, {
-        fields: ['legal_name', 'gstin', 'email', 'address_line1', 'address_line2', 'city', 'state_code', 'postal_code'],
+        fields: ['legal_name', 'gstin', 'email', 'phone', 'address_line1', 'address_line2', 'city', 'state_code', 'postal_code'],
       })
       if (!Object.keys(errors).length) {
         const message = actionErrorMessage(error)
@@ -116,7 +117,7 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
     <>
       {resumeCheckout && canEdit && (
         <Notice tone="info" title="Add your billing details to continue">
-          Razorpay checkout opens after you save. Invoices include these details and the GST charged.
+          Checkout opens after you save. Invoices include these details and the GST charged.
         </Notice>
       )}
       {!canEdit && <Notice title="View only">Only the workspace owner can change billing details.</Notice>}
@@ -148,6 +149,9 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
             </Field>
             <Field label="Invoice email" hint="Invoices and payment receipts go here." error={errors.email?.message} required>
               <Input type="email" autoComplete="email" {...register('email')} />
+            </Field>
+            <Field label="Phone" hint="Cashfree needs a phone number for payment receipts." error={errors.phone?.message} required>
+              <Input type="tel" inputMode="tel" autoComplete="tel" placeholder="98765 43210" {...register('phone')} />
             </Field>
           </fieldset>
         </SectionCard>

@@ -36,7 +36,9 @@ export function CancelSubscriptionDialog({ subscription, onClose }: { subscripti
     {
       value: true,
       title: 'At the end of the billing period',
-      description: `Keep using ${subscription.plan.name} until ${periodEnd}. You won't be charged again.`,
+      description: `Keep using ${subscription.plan.name} until ${periodEnd}. ${
+        subscription.provider === 'cashfree' ? "We won't send renewal reminders." : "You won't be charged again."
+      }`,
     },
     {
       value: false,

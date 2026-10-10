@@ -5,11 +5,15 @@ import { daysAgo, ids } from '../../../mocks/seed'
 import { authorize, errorResponse, http, mockDelay, nowIso, paginate, uuid, validationError } from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
 import { phoneNumbersFor } from '../whatsapp/mockState'
-import { GST_STATES, GSTIN_PATTERN } from './gst'
+import { GST_STATES, GSTIN_PATTERN, normalizePhone, PHONE_PATTERN } from './gst'
 
 /**
- * Billing handlers. Checkout returns a Razorpay-style session; verify marks the subscription
- * `pending` and it turns `active` a few seconds later (like the Razorpay webhook), adding a GST invoice.
+ * Billing handlers. New checkouts use `checkoutProvider` (Cashfree by default, like the backend's
+ * `BILLING_PROVIDER`):
+ * - Cashfree: checkout returns an order session; verify with `order_id` pays it at once (the mock
+ *   Cashfree checkout always "pays"), starting or extending a prepaid period and adding a GST invoice.
+ * - Razorpay: checkout returns a subscription session; verify marks the subscription `pending` and it
+ *   turns `active` a few seconds later (like the Razorpay webhook), adding a GST invoice.
  */
 
 type Plan = Schemas['Plan']
@@ -17,10 +21,19 @@ type Subscription = Schemas['Subscription']
 type Profile = Schemas['BillingProfile']
 type Invoice = Schemas['Invoice']
 type Interval = Schemas['BillingIntervalEnum']
+type Provider = Schemas['PaymentProviderEnum']
 
 /** Mock supplier state (Karnataka): same-state customers get CGST + SGST, others IGST. */
 const SUPPLIER_STATE = '29'
 const ACTIVATION_DELAY_MS = 6000
+const DAY_MS = 86_400_000
+
+let checkoutProvider: Provider = 'cashfree'
+
+/** Test hook: which gateway new checkouts use (the backend's `BILLING_PROVIDER`). */
+export function setMockCheckoutProvider(provider: Provider) {
+  checkoutProvider = provider
+}
 
 const planLimits: Record<string, Plan['limits']> = {
   starter: { whatsapp_numbers: 1, members: 2, contacts: 5000 },
@@ -39,11 +52,15 @@ const apiPlans: Plan[] = sitePlans.map((plan) => ({
 
 const planById = (id: string) => apiPlans.find((plan) => plan.id === id)
 
+type RazorpayCheckout = { provider: 'razorpay'; subscriptionId: string; plan: Plan; interval: Interval }
+type CashfreeOrder = { provider: 'cashfree'; orderId: string; plan: Plan; interval: Interval; paid: boolean }
+
 type BillingRecord = {
   subscription: Subscription
   profile: Profile
   invoices: Invoice[]
-  checkout: { subscriptionId: string; plan: Plan; interval: Interval } | null
+  checkout: RazorpayCheckout | null
+  orders: Map<string, CashfreeOrder>
   activateAt: number | null
 }
 
@@ -51,6 +68,7 @@ const emptyProfile: Profile = {
   legal_name: '',
   gstin: '',
   email: '',
+  phone: '',
   address_line1: '',
   address_line2: '',
   city: '',
@@ -67,14 +85,23 @@ function trial(endsAt: string): Subscription {
     current_period_start: null,
     current_period_end: null,
     cancel_at_period_end: false,
+    provider: null,
+    auto_renews: false,
+    checkout_provider: checkoutProvider,
   }
 }
 
+/** Razorpay subscriptions bill by calendar month or year. */
 function addPeriod(start: Date, interval: Interval): Date {
   const end = new Date(start)
   if (interval === 'annual') end.setFullYear(end.getFullYear() + 1)
   else end.setMonth(end.getMonth() + 1)
   return end
+}
+
+/** Cashfree prepaid periods are 30 or 365 days (docs/contracts/billing-cashfree.md). */
+function addPrepaidPeriod(start: Date, interval: Interval): Date {
+  return new Date(start.getTime() + (interval === 'annual' ? 365 : 30) * DAY_MS)
 }
 
 function taxes(subtotal: number, stateCode: string) {
@@ -86,15 +113,17 @@ function taxes(subtotal: number, stateCode: string) {
   return { cgst_paise: 0, sgst_paise: 0, igst_paise: igst, total_paise: subtotal + igst }
 }
 
+const subtotalFor = (plan: Plan, interval: Interval) => (interval === 'annual' ? plan.annual_price_paise : plan.monthly_price_paise)
+
 let invoiceSequence = 142
 
-function makeInvoice(number: number, subtotal: number, stateCode: string, issuedAt: string, periodEnd: string): Invoice {
+function makeInvoice(number: number, subtotal: number, stateCode: string, issuedAt: string, periodStart: string, periodEnd: string): Invoice {
   return {
     id: uuid(),
     number: `UPC/2026-27/${String(number).padStart(6, '0')}`,
     status: 'paid',
     issued_at: issuedAt,
-    period_start: issuedAt,
+    period_start: periodStart,
     period_end: periodEnd,
     subtotal_paise: subtotal,
     ...taxes(subtotal, stateCode),
@@ -106,10 +135,11 @@ function build(): Map<string, BillingRecord> {
   invoiceSequence = 142
   const records = new Map<string, BillingRecord>()
   records.set(ids.sharmaSweets, {
-    subscription: trial(new Date(Date.now() + 9 * 86_400_000).toISOString()),
+    subscription: trial(new Date(Date.now() + 9 * DAY_MS).toISOString()),
     profile: { ...emptyProfile },
     invoices: [],
     checkout: null,
+    orders: new Map(),
     activateAt: null,
   })
   const starter = planById('starter')!
@@ -122,11 +152,15 @@ function build(): Map<string, BillingRecord> {
       current_period_start: daysAgo(40),
       current_period_end: daysAgo(-325),
       cancel_at_period_end: false,
+      provider: 'cashfree',
+      auto_renews: false,
+      checkout_provider: checkoutProvider,
     },
     profile: {
       legal_name: 'Kaveri Dental Clinic LLP',
       gstin: '29AAKFK4821M1Z3',
       email: 'accounts@kaveridental.in',
+      phone: '+919845012345',
       address_line1: '14, 2nd Cross, 80 Feet Road',
       address_line2: 'Indiranagar',
       city: 'Bengaluru',
@@ -134,10 +168,11 @@ function build(): Map<string, BillingRecord> {
       postal_code: '560038',
     },
     invoices: [
-      makeInvoice(142, starter.annual_price_paise, '29', daysAgo(40), daysAgo(-325)),
-      makeInvoice(87, starter.monthly_price_paise, '29', daysAgo(71), daysAgo(41)),
+      makeInvoice(142, starter.annual_price_paise, '29', daysAgo(40), daysAgo(40), daysAgo(-325)),
+      makeInvoice(87, starter.monthly_price_paise, '29', daysAgo(71), daysAgo(71), daysAgo(41)),
     ],
     checkout: null,
+    orders: new Map(),
     activateAt: null,
   })
   return records
@@ -156,15 +191,25 @@ function recordFor(workspaceId: string): BillingRecord {
     const workspace = db.workspaces.find((candidate) => candidate.id === workspaceId)
     const created = workspace ? new Date(workspace.created_at).getTime() : Date.now()
     record = {
-      subscription: trial(new Date(created + site.trialDays * 86_400_000).toISOString()),
+      subscription: trial(new Date(created + site.trialDays * DAY_MS).toISOString()),
       profile: { ...emptyProfile },
       invoices: [],
       checkout: null,
+      orders: new Map(),
       activateAt: null,
     }
     records.set(workspaceId, record)
   }
   return record
+}
+
+/** The subscription as the API returns it: derived fields follow the current state. */
+function present(subscription: Subscription): Subscription {
+  return {
+    ...subscription,
+    auto_renews: subscription.provider === 'razorpay' && subscription.status === 'active' && !subscription.cancel_at_period_end,
+    checkout_provider: checkoutProvider,
+  }
 }
 
 /** Simulates the Razorpay `subscription.charged` webhook arriving after verify. */
@@ -174,6 +219,7 @@ function settle(record: BillingRecord) {
   const start = new Date()
   const end = addPeriod(start, interval)
   record.subscription = {
+    ...record.subscription,
     plan,
     status: 'active',
     interval,
@@ -181,12 +227,58 @@ function settle(record: BillingRecord) {
     current_period_start: start.toISOString(),
     current_period_end: end.toISOString(),
     cancel_at_period_end: false,
+    provider: 'razorpay',
   }
   invoiceSequence += 1
-  const subtotal = interval === 'annual' ? plan.annual_price_paise : plan.monthly_price_paise
-  record.invoices.unshift(makeInvoice(invoiceSequence, subtotal, record.profile.state_code, start.toISOString(), end.toISOString()))
+  record.invoices.unshift(
+    makeInvoice(invoiceSequence, subtotalFor(plan, interval), record.profile.state_code, start.toISOString(), start.toISOString(), end.toISOString()),
+  )
   record.checkout = null
   record.activateAt = null
+}
+
+/** Fulfils a paid Cashfree order: same plan while active extends from the current end, anything else starts now. */
+function fulfil(record: BillingRecord, order: CashfreeOrder) {
+  const now = new Date()
+  const current = record.subscription
+  const extend =
+    current.status === 'active' &&
+    current.provider === 'cashfree' &&
+    current.plan.id === order.plan.id &&
+    current.interval === order.interval &&
+    current.current_period_end !== null &&
+    new Date(current.current_period_end).getTime() > now.getTime()
+  const periodStart = extend ? new Date(current.current_period_end!) : now
+  const periodEnd = addPrepaidPeriod(periodStart, order.interval)
+  record.subscription = {
+    ...current,
+    plan: order.plan,
+    interval: order.interval,
+    status: 'active',
+    trial_ends_at: current.trial_ends_at,
+    current_period_start: extend ? current.current_period_start : now.toISOString(),
+    current_period_end: periodEnd.toISOString(),
+    cancel_at_period_end: false,
+    provider: 'cashfree',
+  }
+  invoiceSequence += 1
+  record.invoices.unshift(
+    makeInvoice(
+      invoiceSequence,
+      subtotalFor(order.plan, order.interval),
+      record.profile.state_code,
+      now.toISOString(),
+      periodStart.toISOString(),
+      periodEnd.toISOString(),
+    ),
+  )
+  order.paid = true
+}
+
+/** Stores phone numbers as E.164; Indian 10-digit numbers get +91. */
+function toE164(value: string): string {
+  const phone = normalizePhone(value)
+  return /^\d{10}$/.test(phone) ? `+91${phone}` : phone
 }
 
 function profileErrors(profile: Profile): Record<string, string[]> {
@@ -194,6 +286,7 @@ function profileErrors(profile: Profile): Record<string, string[]> {
   const required = ['legal_name', 'email', 'address_line1', 'city', 'state_code', 'postal_code'] as const
   for (const key of required) if (!profile[key].trim()) errors[key] = ['This field may not be blank.']
   if (profile.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) errors.email = ['Enter a valid email address.']
+  if (profile.phone && !PHONE_PATTERN.test(profile.phone)) errors.phone = ['Enter a 10-digit Indian mobile number or an E.164 number.']
   if (profile.state_code && !GST_STATES.some((state) => state.code === profile.state_code)) {
     errors.state_code = [`"${profile.state_code}" is not a valid choice.`]
   }
@@ -210,6 +303,9 @@ function isComplete(profile: Profile) {
   return Object.keys(profileErrors(profile)).length === 0
 }
 
+const verificationFailed = () =>
+  errorResponse(400, 'payment_verification_failed', `We couldn't verify this payment. If money was deducted, contact ${site.email.support}.`)
+
 export const handlers: AreaMockHandlers = [
   http.get('/api/v1/billing/plans/', ({ request, response }) => {
     const ctx = authorize(request)
@@ -222,7 +318,7 @@ export const handlers: AreaMockHandlers = [
     if (ctx instanceof Response) return response.untyped(ctx)
     const record = recordFor(ctx.workspace.id)
     settle(record)
-    return response(200).json(record.subscription)
+    return response(200).json(present(record.subscription))
   }),
 
   http.post('/api/v1/billing/subscription/checkout/', async ({ request, response }) => {
@@ -236,23 +332,52 @@ export const handlers: AreaMockHandlers = [
     if (!plan) errors.plan_id = ['Unknown plan.']
     if (body.interval !== 'monthly' && body.interval !== 'annual') errors.interval = [`"${String(body.interval)}" is not a valid choice.`]
     if (Object.keys(errors).length || !plan || !body.interval) return response.untyped(validationError(errors))
-    if (!isComplete(record.profile)) {
+    const cashfree = checkoutProvider === 'cashfree'
+    if (!isComplete(record.profile) || (cashfree && !record.profile.phone)) {
       return response.untyped(
-        errorResponse(409, 'billing_profile_required', 'Add your billing details before subscribing.'),
+        errorResponse(
+          409,
+          'billing_profile_required',
+          cashfree
+            ? 'Add your billing details, including a phone number, before subscribing.'
+            : 'Add your billing details before subscribing.',
+        ),
       )
     }
     const { subscription } = record
-    if (subscription.status === 'active' && subscription.plan.id === plan.id && subscription.interval === body.interval) {
-      return response.untyped(errorResponse(409, 'conflict', "You're already on this plan."))
+    if (subscription.status === 'active' && subscription.provider !== 'cashfree') {
+      return response.untyped(errorResponse(409, 'subscription_active', 'You already have an active subscription.'))
     }
-    const subscriptionId = `sub_mock${uuid().replace(/-/g, '').slice(0, 14)}`
-    record.checkout = { subscriptionId, plan, interval: body.interval }
-    return response(200).json({
-      key_id: 'rzp_test_mock',
-      subscription_id: subscriptionId,
+    const common = {
       name: site.name,
       description: `${plan.name} plan, billed ${body.interval}`,
       prefill: { name: ctx.user.full_name ?? '', email: record.profile.email || ctx.user.email },
+    }
+    if (cashfree) {
+      const orderId = `upc_${uuid().replace(/-/g, '')}`
+      record.orders.set(orderId, { provider: 'cashfree', orderId, plan, interval: body.interval, paid: false })
+      return response(200).json({
+        provider: 'cashfree',
+        ...common,
+        key_id: null,
+        subscription_id: null,
+        order_id: orderId,
+        payment_session_id: `session_mock${uuid().replace(/-/g, '')}`,
+        mode: 'sandbox',
+        amount_paise: taxes(subtotalFor(plan, body.interval), record.profile.state_code).total_paise,
+      })
+    }
+    const subscriptionId = `sub_mock${uuid().replace(/-/g, '').slice(0, 14)}`
+    record.checkout = { provider: 'razorpay', subscriptionId, plan, interval: body.interval }
+    return response(200).json({
+      provider: 'razorpay',
+      ...common,
+      key_id: 'rzp_test_mock',
+      subscription_id: subscriptionId,
+      order_id: null,
+      payment_session_id: null,
+      mode: null,
+      amount_paise: null,
     })
   }),
 
@@ -262,23 +387,24 @@ export const handlers: AreaMockHandlers = [
     if (ctx instanceof Response) return response.untyped(ctx)
     const record = recordFor(ctx.workspace.id)
     const body = (await request.json()) as Partial<Schemas['CheckoutVerifyRequest']>
+    if (body.order_id !== undefined) {
+      const order = record.orders.get(body.order_id)
+      if (!order) return response.untyped(verificationFailed())
+      // Verify is idempotent: an order that was already paid returns the subscription unchanged.
+      if (!order.paid) fulfil(record, order)
+      return response(200).json(present(record.subscription))
+    }
     if (
       !record.checkout ||
       body.razorpay_subscription_id !== record.checkout.subscriptionId ||
       !body.razorpay_payment_id ||
       !body.razorpay_signature
     ) {
-      return response.untyped(
-        errorResponse(
-          400,
-          'payment_verification_failed',
-          `We couldn't verify this payment. If money was deducted, contact ${site.email.support}.`,
-        ),
-      )
+      return response.untyped(verificationFailed())
     }
     record.subscription = { ...record.subscription, plan: record.checkout.plan, interval: record.checkout.interval, status: 'pending' }
     record.activateAt = Date.now() + ACTIVATION_DELAY_MS
-    return response(200).json(record.subscription)
+    return response(200).json(present(record.subscription))
   }),
 
   http.post('/api/v1/billing/subscription/cancel/', async ({ request, response }) => {
@@ -295,7 +421,7 @@ export const handlers: AreaMockHandlers = [
       body.at_period_end === false
         ? { ...subscription, status: 'cancelled', cancel_at_period_end: false, current_period_end: nowIso() }
         : { ...subscription, cancel_at_period_end: true }
-    return response(200).json(record.subscription)
+    return response(200).json(present(record.subscription))
   }),
 
   http.get('/api/v1/billing/billing-profile/', ({ request, response }) => {
@@ -316,6 +442,7 @@ export const handlers: AreaMockHandlers = [
       if (typeof value === 'string') next[key] = value.trim()
     }
     next.gstin = next.gstin.replace(/\s+/g, '').toUpperCase()
+    next.phone = next.phone ? toE164(next.phone) : ''
     const errors = profileErrors(next)
     if (Object.keys(errors).length) return response.untyped(validationError(errors))
     record.profile = next

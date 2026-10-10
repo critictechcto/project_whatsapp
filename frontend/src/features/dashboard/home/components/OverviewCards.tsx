@@ -258,7 +258,8 @@ export function SubscriptionCard() {
           )}
           {data.status !== 'trialing' && data.current_period_end && (
             <p className="text-[13px] text-muted">
-              {data.cancel_at_period_end ? 'Ends' : 'Renews'} on {formatDate(data.current_period_end, timeZone)}
+              {data.cancel_at_period_end ? 'Ends on' : data.provider === 'cashfree' ? 'Paid until' : 'Renews on'}{' '}
+              {formatDate(data.current_period_end, timeZone)}
             </p>
           )}
         </div>

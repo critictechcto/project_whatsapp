@@ -35,6 +35,34 @@ export const THIRD_PARTY = {
     connect: ['https://api.razorpay.com', 'https://lumberjack.razorpay.com'],
     img: ['https://cdn.razorpay.com'],
   },
+  // Cashfree Checkout for prepaid UpChatz plans (lib/integrations/cashfree.ts), JS SDK v3. Hosts come
+  // from the SDK itself (https://sdk.cashfree.com/js/v3/cashfree.js, its per-mode `_config`; read
+  // 2026-10) and https://www.cashfree.com/docs/payments/online/element/overview (CDN-only loading):
+  // - script: the SDK must load from sdk.cashfree.com (no bundling, for PCI compliance).
+  // - `redirectTarget: "_modal"` makes an iframe and POSTs a hidden <form> into it, to
+  //   sandbox.cashfree.com/pg/view/sessions/checkout (sandbox) or api.cashfree.com/pg/view/... (production),
+  //   so both hosts need frame-src and form-action. The mode is picked at runtime, so allow both.
+  // - The SDK's card/UPI "atom" and ping iframes load from sdk.cashfree.com; its config also names
+  //   api/sandbox (sdk, ping, card BIN) and payments(-test).cashfree.com (thank-you, interface data)
+  //   endpoints, allowed for connect and frame in case the SDK calls them from the page.
+  cashfree: {
+    script: ['https://sdk.cashfree.com'],
+    frame: [
+      'https://sdk.cashfree.com',
+      'https://api.cashfree.com',
+      'https://sandbox.cashfree.com',
+      'https://payments.cashfree.com',
+      'https://payments-test.cashfree.com',
+    ],
+    connect: [
+      'https://sdk.cashfree.com',
+      'https://api.cashfree.com',
+      'https://sandbox.cashfree.com',
+      'https://payments.cashfree.com',
+      'https://payments-test.cashfree.com',
+    ],
+    form: ['https://api.cashfree.com', 'https://sandbox.cashfree.com'],
+  },
 }
 
 /** Splits a space- or comma-separated env value into CSP sources, rejecting anything but origins. */
@@ -96,7 +124,8 @@ export function buildDirectives(env, scriptHashes) {
     'frame-src': pick('frame').length ? unique(pick('frame')) : ["'none'"],
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
-    'form-action': ["'self'"],
+    // Cashfree's modal checkout submits a form into its iframe (see THIRD_PARTY.cashfree).
+    'form-action': unique(["'self'", ...pick('form')]),
   }
 }
 

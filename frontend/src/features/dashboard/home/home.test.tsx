@@ -167,6 +167,9 @@ function useHomeMocks({
         current_period_start: null,
         current_period_end: null,
         cancel_at_period_end: false,
+        provider: null,
+        auto_renews: false,
+        checkout_provider: 'cashfree',
       } as Schemas['Subscription'])
     }),
     http.get('/api/v1/workspaces/invitations/', ({ response }) =>
