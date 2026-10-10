@@ -113,11 +113,14 @@ function CampaignWizard({ campaign }: { campaign: Campaign | null }) {
 
   function showError(error: unknown) {
     if (isApiError(error, 'invalid')) {
-      const paths = Object.keys(flattenDetails(error.details)).map((path) => apiFieldMap[path] ?? path)
+      const details = flattenDetails(error.details)
+      const paths = Object.keys(details).map((path) => apiFieldMap[path] ?? path)
       const known = paths.filter((path) => stepIndexForPath(path) >= 0)
       applyApiErrorToForm(error, setError, { fieldMap: apiFieldMap, fields: known })
       const first = Math.min(...known.map(stepIndexForPath))
-      if (Number.isFinite(first) && first !== current) showStep(first)
+      // Before the draft exists there is no later step to open, so say what's wrong here.
+      if (Number.isFinite(first) && first !== current && campaignId) showStep(first)
+      else if (!Number.isFinite(first) || first !== current) setAlert({ message: Object.values(details)[0] ?? errorMessage(error) })
       return
     }
     setAlert(campaignError(error))

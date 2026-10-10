@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import type { RoleEnum } from '../../../api/types'
 import { dispatch } from '../../../lib/realtime/registry'
 import { db } from '../../../mocks/db'
+import { server } from '../../../mocks/node'
 import { ids } from '../../../mocks/seed'
+import { apiUrl, errorResponse, http } from '../../../mocks/utils'
 import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { campaignIds, campaignRecords, findCampaign, toCampaign } from './mockState'
 import { actionCopy } from './status'
@@ -65,6 +67,24 @@ describe('campaign wizard', () => {
     expect(created?.campaign.consent_attested).toBe(true)
     expect(created?.campaign.variable_mapping.body?.[1]).toEqual({ source: 'static', value: '20 Oct', fallback: '' })
     expect(router.state.location.pathname).toBe(`${base}/${created?.campaign.id}`)
+  })
+
+  it('explains an error for a later step when the first save fails', async () => {
+    server.use(
+      http.untyped.post(apiUrl('/api/v1/campaigns/'), () =>
+        errorResponse(400, 'invalid', 'Invalid input.', { variable_mapping: { header: ['Fill in the header value.'] } }),
+      ),
+    )
+    signIn()
+    const { user } = renderDashboard(`${base}/new`)
+
+    await user.type(await screen.findByLabelText(/^Campaign name/, {}, { timeout: 5000 }), 'Festive offer')
+    await user.click(screen.getByRole('combobox', { name: /^Template/ }))
+    await user.click(await screen.findByRole('option', { name: /diwali_early_access/ }))
+    await user.click(screen.getByRole('button', { name: 'Save and continue' }))
+
+    expect(await screen.findByText('Fill in the header value.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Choose a template' })).toBeInTheDocument()
   })
 
   it('updates the audience preview when tags change', async () => {

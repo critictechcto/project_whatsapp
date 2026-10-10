@@ -26,7 +26,11 @@ class VariableSourceSerializer(serializers.Serializer):
     source = serializers.ChoiceField(choices=VARIABLE_SOURCE_TYPES)
     value = serializers.CharField(
         max_length=1024,
-        help_text="Contact field (name, phone_e164, email), attribute key, or static text.",
+        allow_blank=True,
+        help_text=(
+            "Contact field (name, phone_e164, email), attribute key, or static text. A draft may "
+            "leave it blank; launch requires it."
+        ),
     )
     fallback = serializers.CharField(
         max_length=1024, allow_blank=True, default="", help_text="Used when the value is empty."

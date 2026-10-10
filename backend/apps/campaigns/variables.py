@@ -103,6 +103,37 @@ def mapping_errors(template: MessageTemplate, mapping: Mapping[str, Any]) -> dic
     return errors
 
 
+def blank_value_errors(mapping: Mapping[str, Any]) -> dict[str, list[str]]:
+    """Field errors for fixed-text or attribute sources left blank. Drafts may hold them (the
+    wizard saves before the variables step); launching and resuming may not."""
+
+    def blank(source: Any) -> bool:
+        return (
+            isinstance(source, Mapping)
+            and source.get("source") != "contact_field"
+            and not str(source.get("value") or "").strip()
+        )
+
+    errors: dict[str, list[str]] = {}
+    if blank(mapping.get("header")):
+        errors["header"] = ["Fill in the header value."]
+    body = [
+        f"Fill in variable {{{{{position}}}}}."
+        for position, source in enumerate(mapping.get("body") or [], start=1)
+        if blank(source)
+    ]
+    if body:
+        errors["body"] = body
+    buttons = [
+        f"Fill in the value for button {index}."
+        for index, source in (mapping.get("buttons") or {}).items()
+        if blank(source)
+    ]
+    if buttons:
+        errors["buttons"] = buttons
+    return errors
+
+
 def resolve_value(source: Mapping[str, Any], contact) -> str:
     """The source's value for ``contact``, else its fallback; whitespace is collapsed because
     Meta rejects parameters with newlines, tabs or long runs of spaces."""

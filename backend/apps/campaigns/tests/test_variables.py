@@ -65,6 +65,21 @@ def test_header_rules():
     assert "location" in variables.mapping_errors(location, mapping)["header"][0]
 
 
+def test_blank_value_errors():
+    mapping = {
+        "header": source(""),
+        "body": [source("name", "contact_field"), source(" "), source("", "attribute")],
+        "buttons": {"0": source(""), "3": source("SAVE10")},
+    }
+
+    assert variables.blank_value_errors(mapping) == {
+        "header": ["Fill in the header value."],
+        "body": ["Fill in variable {{2}}.", "Fill in variable {{3}}."],
+        "buttons": ["Fill in the value for button 0."],
+    }
+    assert variables.blank_value_errors({"header": None, "body": [source()], "buttons": {}}) == {}
+
+
 def test_media_header_value_is_sent_as_a_link():
     image = template(
         [{"type": "HEADER", "format": "IMAGE"}, {"type": "BODY", "text": "Hi {{1}}, new arrivals."}]

@@ -367,6 +367,25 @@ def test_launch_requires_consent(auth_client, number, template, tag, make_contac
     assert not CampaignRecipient.objects.exists()
 
 
+def test_draft_may_leave_variables_blank_but_launch_may_not(
+    auth_client, number, template, tag, make_contact
+):
+    make_contact()
+    blank = {**MAPPING, "body": [MAPPING["body"][0], {"source": "static", "value": " "}]}
+    client = auth_client()
+
+    created = client.post(url(), body(template, tag, variable_mapping=blank), format="json")
+    assert created.status_code == 201, created.content
+    campaign = Campaign.objects.get(pk=created.json()["id"])
+
+    response = client.post(url(campaign, "launch/"), {"consent_attested": True}, format="json")
+
+    assert response.status_code == 400
+    assert error(response)["details"] == {"variable_mapping": {"body": ["Fill in variable {{2}}."]}}
+    campaign.refresh_from_db()
+    assert campaign.status == Campaign.Status.DRAFT
+
+
 def test_launch_requires_approved_template(auth_client, number, template, tag, make_contact):
     make_contact()
     campaign = draft(number, template, tag)

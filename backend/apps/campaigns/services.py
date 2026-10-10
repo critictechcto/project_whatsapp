@@ -478,7 +478,10 @@ def _check_sendable(campaign: Campaign) -> MessageTemplate:
     if template is None or template.status != MessageTemplate.Status.APPROVED:
         raise sending.TemplateNotApproved()
     sending.check_phone_number(campaign.phone_number)
-    if problems := variables.mapping_errors(template, campaign.variable_mapping or {}):
+    mapping = campaign.variable_mapping or {}
+    if problems := variables.mapping_errors(template, mapping) or variables.blank_value_errors(
+        mapping
+    ):
         raise ValidationError({"variable_mapping": problems})
     return template
 

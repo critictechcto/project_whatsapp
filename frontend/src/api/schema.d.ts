@@ -4533,7 +4533,7 @@ export interface components {
         };
         VariableSource: {
             source: components["schemas"]["VariableSourceTypeEnum"];
-            /** @description Contact field (name, phone_e164, email), attribute key, or static text. */
+            /** @description Contact field (name, phone_e164, email), attribute key, or static text. A draft may leave it blank; launch requires it. */
             value: string;
             /**
              * @description Used when the value is empty.
@@ -4543,7 +4543,7 @@ export interface components {
         };
         VariableSourceRequest: {
             source: components["schemas"]["VariableSourceTypeEnum"];
-            /** @description Contact field (name, phone_e164, email), attribute key, or static text. */
+            /** @description Contact field (name, phone_e164, email), attribute key, or static text. A draft may leave it blank; launch requires it. */
             value: string;
             /**
              * @description Used when the value is empty.
