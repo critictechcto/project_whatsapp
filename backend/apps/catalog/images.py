@@ -7,17 +7,26 @@ show a stale cached image. Old files are kept: past order items snapshot their i
 """
 
 import hashlib
+import logging
 import warnings
 
 from PIL import Image, UnidentifiedImageError
 from rest_framework import serializers
 
+from common.exceptions import UpstreamUnavailable
+
 from .models import Product
+
+logger = logging.getLogger(__name__)
 
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MIN_IMAGE_SIDE = 500
 SUFFIXES = {"JPEG": ".jpg", "PNG": ".png"}
 INVALID_IMAGE = "Upload a JPEG or PNG image."
+
+
+class ImageStorageUnavailable(UpstreamUnavailable):
+    default_detail = "We couldn't store the image right now. Try again in a few minutes."
 
 
 def _invalid(message: str) -> serializers.ValidationError:
@@ -73,11 +82,21 @@ def content_sha256(upload) -> str:
 
 
 def store_image(product: Product, upload, suffix: str) -> str:
-    """Save ``upload`` through the image field's storage and return the stored name."""
+    """Save ``upload`` through the image field's storage and return the stored name.
+
+    A storage failure (for example object storage refusing the access key) is logged and
+    raised as a 503 ``upstream_unavailable`` instead of a 500.
+    """
     digest = content_sha256(upload)
     name = f"catalog/products/{product.workspace_id}/{digest[:2]}/{digest}{suffix}"
     storage = product.image.storage
-    if storage.exists(name):
-        return name
-    upload.seek(0)
-    return storage.save(name, upload)
+    try:
+        if storage.exists(name):
+            return name
+        upload.seek(0)
+        return storage.save(name, upload)
+    except Exception:
+        logger.exception(
+            "Storing product image failed", extra={"workspace_id": str(product.workspace_id)}
+        )
+        raise ImageStorageUnavailable() from None

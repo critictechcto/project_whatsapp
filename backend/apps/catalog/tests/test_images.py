@@ -137,6 +137,26 @@ def test_delete_image(admin, workspace):
     assert not product.image
 
 
+def test_storage_failure_is_a_friendly_503(admin, workspace, monkeypatch, caplog):
+    product = ProductFactory(workspace=workspace)
+    storage = product.image.storage
+
+    def forbidden(name):
+        raise PermissionError("403 Forbidden from object storage")
+
+    monkeypatch.setattr(storage, "exists", forbidden)
+
+    response = post_image(admin, product, upload(image_bytes(500, 500)))
+
+    assert response.status_code == 503, response.content
+    error = response.json()["error"]
+    assert error["code"] == "upstream_unavailable"
+    assert "couldn't store the image" in error["message"]
+    assert "Storing product image failed" in caplog.text
+    product.refresh_from_db()
+    assert not product.image
+
+
 def test_image_changes_queue_a_catalog_sync(admin, workspace, django_capture_on_commit_callbacks):
     MetaCatalogFactory(waba__workspace=workspace)
     product = ProductFactory(workspace=workspace)
