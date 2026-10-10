@@ -41,8 +41,20 @@ describe('build CSP', () => {
     expect(policy['script-src']).toEqual(["'self'"])
     expect(policy['connect-src']).toEqual(["'self'"])
     expect(policy['frame-src']).toEqual(["'none'"])
+    expect(policy['form-action']).toEqual(["'self'"])
     expect(policy['worker-src']).toEqual(["'self'"])
     expect(policy['object-src']).toEqual(["'none'"])
+  })
+
+  it('allows the Cashfree SDK and its sandbox and production checkout frames in live builds', () => {
+    const policy = buildDirectives({ VITE_API_MODE: 'live' }, [])
+    expect(policy['script-src']).toContain('https://sdk.cashfree.com')
+    expect(policy['frame-src']).toEqual(
+      expect.arrayContaining(['https://sdk.cashfree.com', 'https://api.cashfree.com', 'https://sandbox.cashfree.com']),
+    )
+    expect(policy['connect-src']).toEqual(expect.arrayContaining(['https://api.cashfree.com', 'https://sandbox.cashfree.com']))
+    // The modal checkout POSTs a form into its iframe.
+    expect(policy['form-action']).toEqual(["'self'", 'https://api.cashfree.com', 'https://sandbox.cashfree.com'])
   })
 
   it('allows Meta, Razorpay, the API, sockets and media hosts in live builds', () => {
@@ -54,7 +66,7 @@ describe('build CSP', () => {
       },
       ["'sha256-abc'"],
     )
-    expect(policy['script-src']).toEqual(["'self'", "'sha256-abc'", 'https://connect.facebook.net', 'https://checkout.razorpay.com', 'https://cdn.razorpay.com'])
+    expect(policy['script-src']).toEqual(["'self'", "'sha256-abc'", 'https://connect.facebook.net', 'https://checkout.razorpay.com', 'https://cdn.razorpay.com', 'https://sdk.cashfree.com'])
     expect(policy['connect-src']).toEqual(expect.arrayContaining(['https://api.example.com', 'wss://api.example.com', 'https://graph.facebook.com']))
     expect(policy['img-src']).toEqual(expect.arrayContaining(['https://*.digitaloceanspaces.com', 'https://cdn.example.com']))
     expect(policy['frame-src']).toEqual(expect.arrayContaining(['https://www.facebook.com', 'https://api.razorpay.com']))

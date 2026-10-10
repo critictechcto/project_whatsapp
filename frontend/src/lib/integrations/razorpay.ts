@@ -57,7 +57,7 @@ export const mockCheckout: RazorpayCheckout = (session) =>
       () =>
         resolve({
           razorpay_payment_id: `pay_mock${Date.now()}`,
-          razorpay_subscription_id: session.subscription_id,
+          razorpay_subscription_id: session.subscription_id ?? '',
           razorpay_signature: 'mock_signature',
         }),
       900,

@@ -2445,6 +2445,8 @@ export interface components {
             state_code: string;
             /** @description 6-digit PIN code. */
             postal_code: string;
+            /** @description Indian 10-digit mobile number or E.164; stored as E.164. Required for a Cashfree checkout. */
+            phone?: string;
         };
         /** @enum {unknown} */
         BlankEnum: "";
@@ -2619,18 +2621,37 @@ export interface components {
             plan_id: string;
             interval: components["schemas"]["BillingIntervalEnum"];
         };
-        /** @description Options for Razorpay Checkout in subscription mode. */
+        /**
+         * @description * `sandbox` - sandbox
+         *     * `production` - production
+         * @enum {string}
+         */
+        CheckoutModeEnum: "sandbox" | "production";
+        /** @description Options for Razorpay Checkout (subscription mode) or Cashfree Checkout (an order). */
         CheckoutSession: {
-            readonly key_id: string;
-            readonly subscription_id: string;
+            readonly provider: components["schemas"]["PaymentProviderEnum"];
             readonly name: string;
             readonly description: string;
             readonly prefill: components["schemas"]["CheckoutPrefill"];
+            /** @description Razorpay key id; null for Cashfree. */
+            readonly key_id: string | null;
+            /** @description Razorpay subscription id; null for Cashfree. */
+            readonly subscription_id: string | null;
+            /** @description Cashfree order id; null for Razorpay. */
+            readonly order_id: string | null;
+            /** @description Cashfree payment session id; null for Razorpay. */
+            readonly payment_session_id: string | null;
+            /** @description Cashfree environment; null for Razorpay. */
+            readonly mode: (components["schemas"]["CheckoutModeEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description GST-inclusive amount in paise; null for Razorpay. */
+            readonly amount_paise: number | null;
         };
         CheckoutVerifyRequest: {
-            razorpay_payment_id: string;
-            razorpay_subscription_id: string;
-            razorpay_signature: string;
+            /** @description Cashfree order id. */
+            order_id?: string;
+            razorpay_payment_id?: string;
+            razorpay_subscription_id?: string;
+            razorpay_signature?: string;
         };
         Collection: {
             /** Format: uuid */
@@ -3908,6 +3929,8 @@ export interface components {
             state_code?: string;
             /** @description 6-digit PIN code. */
             postal_code?: string;
+            /** @description Indian 10-digit mobile number or E.164; stored as E.164. Required for a Cashfree checkout. */
+            phone?: string;
         };
         PatchedBusinessHoursRequest: {
             enabled?: boolean;
@@ -4442,6 +4465,12 @@ export interface components {
             /** Format: date-time */
             readonly current_period_end: string | null;
             readonly cancel_at_period_end: boolean;
+            /** @description Gateway of the paid plan; null on a trial. */
+            readonly provider: (components["schemas"]["PaymentProviderEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description True for an active Razorpay subscription that renews; always false for Cashfree. */
+            readonly auto_renews: boolean;
+            /** @description Gateway used for new checkouts. */
+            readonly checkout_provider: components["schemas"]["PaymentProviderEnum"];
         };
         /**
          * @description * `trialing` - trialing

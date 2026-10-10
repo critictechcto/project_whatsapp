@@ -11,6 +11,10 @@ import { CancelSubscriptionDialog } from './CancelSubscriptionDialog'
 import { formatPlanPrice } from './money'
 import { daysUntil, intervalLabels, isFutureDate, planPricePaise, type Subscription } from './plans'
 import { useSubscription } from './queries'
+import { checkoutStageText, providerNames, useCheckout } from './useCheckout'
+
+/** A prepaid plan shows a renewal notice this many days before it ends. */
+const RENEWAL_NOTICE_DAYS = 7
 
 export function SubscriptionCard() {
   const subscription = useSubscription()
@@ -55,6 +59,11 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
   const periodEnd = formatDate(subscription.current_period_end, timeZone)
   const canCancel = isOwner && (status === 'active' || status === 'halted') && !subscription.cancel_at_period_end
   const isPaid = status === 'active' || status === 'halted' || (status === 'cancelled' && isFutureDate(subscription.current_period_end))
+  const prepaid = subscription.provider === 'cashfree'
+  const providerName = providerNames[subscription.provider ?? subscription.checkout_provider ?? 'razorpay']
+  const { checkout, stage, provider: checkoutProvider } = useCheckout()
+  const canRenew = isOwner && prepaid && status === 'active'
+  const daysLeft = prepaid && status === 'active' && !subscription.cancel_at_period_end ? daysUntil(subscription.current_period_end) : null
 
   return (
     <SectionCard
@@ -71,12 +80,17 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
           <>
             {canCancel && (
               <Button variant="ghost" onClick={() => setCancelOpen(true)}>
-                Cancel subscription
+                {prepaid ? 'Cancel plan' : 'Cancel subscription'}
               </Button>
             )}
             <Link to={`/app/w/${workspaceId}/billing/plans?interval=${interval}`} className={buttonClasses(status === 'active' ? 'secondary' : 'primary', 'md')}>
               {status === 'active' ? 'Change plan' : 'Choose a plan'}
             </Link>
+            {canRenew && (
+              <Button loading={stage !== 'idle'} onClick={() => void checkout(plan, interval)}>
+                Renew
+              </Button>
+            )}
           </>
         ) : (
           <p className="text-[13px] text-muted">Only the workspace owner can change the plan or cancel.</p>
@@ -104,16 +118,40 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
             <Spinner size="sm" label="Confirming payment" />
             <div>
               <p className="font-medium text-ink">Confirming your payment…</p>
-              <p className="text-[13px] text-muted">Razorpay is confirming the payment. This usually takes under a minute and this page updates on its own.</p>
+              <p className="text-[13px] text-muted">
+                {providerName} is confirming the payment. This usually takes under a minute and this page updates on its own.
+              </p>
             </div>
           </div>
         )}
-        {status === 'active' && (
-          <p className="text-sm text-ink-2">
-            {subscription.cancel_at_period_end
-              ? `Your subscription ends on ${periodEnd}. You keep access until then.`
-              : `Renews automatically on ${periodEnd}.`}
-          </p>
+        {stage !== 'idle' && (
+          <div role="status" className="flex items-center gap-3 rounded-lg border border-line bg-paper px-4 py-3 text-sm text-ink">
+            <Spinner size="sm" label="Checkout in progress" />
+            {checkoutStageText(stage, checkoutProvider)}
+          </div>
+        )}
+        {status === 'active' &&
+          (prepaid ? (
+            <p className="text-sm text-ink-2">
+              {subscription.cancel_at_period_end
+                ? `Your plan ends on ${periodEnd}. You keep access until then.`
+                : `Paid until ${periodEnd}. Nothing is charged automatically; renew before then to keep your plan.`}
+            </p>
+          ) : (
+            <p className="text-sm text-ink-2">
+              {subscription.cancel_at_period_end
+                ? `Your subscription ends on ${periodEnd}. You keep access until then.`
+                : `Renews automatically on ${periodEnd}.`}
+            </p>
+          ))}
+        {daysLeft !== null && daysLeft <= RENEWAL_NOTICE_DAYS && (
+          <Notice
+            tone={daysLeft <= 1 ? 'warning' : 'info'}
+            title={daysLeft === 0 ? 'Your plan ends today' : `Your plan ends in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}`}
+          >
+            Renew before {periodEnd} to keep using {site.name} without a break.
+            {!isOwner && ' Ask the workspace owner to renew.'}
+          </Notice>
         )}
         {status === 'halted' && (
           <Notice tone="danger" title="Razorpay couldn't collect your last payment">
@@ -148,7 +186,7 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
             </div>
             <div>
               <dt className="text-[12.5px] text-muted">Payments</dt>
-              <dd className="text-ink">Razorpay</dd>
+              <dd className="text-ink">{prepaid ? 'Cashfree, prepaid' : providerName}</dd>
             </div>
           </dl>
         )}

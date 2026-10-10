@@ -80,11 +80,24 @@ export function stateFromGstin(value: string): string | null {
   return !gstinError(gstin) && gstin ? gstin.slice(0, 2) : null
 }
 
+/** An Indian 10-digit number, or E.164 (`+` and 8–15 digits). The server stores E.164. */
+export const PHONE_PATTERN = /^(\d{10}|\+[1-9]\d{7,14})$/
+
+/** Drops spaces, dashes, dots and brackets people type in phone numbers. */
+export function normalizePhone(value: string): string {
+  return value.replace(/[\s\-().]/g, '')
+}
+
 export const billingProfileSchema = z
   .object({
     legal_name: z.string().trim().min(1, 'Enter the legal name for invoices.').max(200, 'Use 200 characters or fewer.'),
     gstin: z.string(),
     email: z.email('Enter a valid email address.'),
+    phone: z
+      .string()
+      .transform(normalizePhone)
+      .refine((value) => value.length > 0, 'Enter a phone number.')
+      .refine((value) => !value || PHONE_PATTERN.test(value), 'Enter a 10-digit mobile number, or an international number starting with +.'),
     address_line1: z.string().trim().min(1, 'Enter the address.').max(200, 'Use 200 characters or fewer.'),
     address_line2: z.string().trim().max(200, 'Use 200 characters or fewer.'),
     city: z.string().trim().min(1, 'Enter the city.').max(100, 'Use 100 characters or fewer.'),

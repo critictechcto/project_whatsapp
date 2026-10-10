@@ -69,6 +69,10 @@ export function BillingProfileSummary() {
             <dt className="text-[12.5px] text-muted">Invoice email</dt>
             <dd className="text-ink">{profile.data.email}</dd>
           </div>
+          <div>
+            <dt className="text-[12.5px] text-muted">Phone</dt>
+            <dd className="text-ink">{profile.data.phone || <span className="text-muted">Not added. Cashfree checkout needs one.</span>}</dd>
+          </div>
         </dl>
       ) : (
         <div className="flex flex-col items-start gap-3 text-sm">

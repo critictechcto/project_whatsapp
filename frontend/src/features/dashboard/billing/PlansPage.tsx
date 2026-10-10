@@ -20,13 +20,16 @@ export function PlansPage() {
   const [interval, setBillingInterval] = useState<BillingInterval>(params.get('interval') === 'annual' ? 'annual' : 'monthly')
   const plans = usePlans()
   const subscription = useSubscription()
-  const { checkout, stage, planId } = useCheckout()
+  const { checkout, stage, planId, provider } = useCheckout()
   const resumePlan = params.get('resume') === '1' ? plans.data?.find((plan) => plan.id === params.get('plan')) : undefined
 
   const isCurrent = (plan: Plan) =>
     subscription.data?.plan.id === plan.id &&
     subscription.data.interval === interval &&
     (subscription.data.status === 'active' || subscription.data.status === 'pending')
+  // A prepaid (Cashfree) plan is renewed or changed by paying again, so its current plan stays choosable.
+  const prepaidActive = subscription.data?.status === 'active' && subscription.data.provider === 'cashfree'
+  const checkoutProvider = subscription.data?.checkout_provider
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -57,8 +60,15 @@ export function PlansPage() {
       {stage !== 'idle' && (
         <div role="status" className="flex items-center gap-3 rounded-lg border border-line bg-card px-4 py-3 text-sm text-ink">
           <Spinner size="sm" label="Checkout in progress" />
-          {checkoutStageText[stage]}
+          {checkoutStageText(stage, provider)}
         </div>
+      )}
+
+      {isOwner && prepaidActive && (
+        <Notice tone="warning" title="Your current plan is still active">
+          Your new plan starts now. Unused days on the current plan aren't refunded. Renewing the same plan and billing cycle
+          adds the new period after the current one ends.
+        </Notice>
       )}
 
       <SegmentedControl
@@ -133,11 +143,11 @@ export function PlansPage() {
                   <Button
                     className="mt-5 w-full"
                     variant={copy?.recommended ? 'primary' : 'secondary'}
-                    disabled={current || stage !== 'idle'}
+                    disabled={(current && !prepaidActive) || stage !== 'idle'}
                     loading={planId === plan.id}
                     onClick={() => void checkout(plan, interval)}
                   >
-                    {current ? 'Current plan' : `Choose ${plan.name}`}
+                    {current ? (prepaidActive ? `Renew ${plan.name}` : 'Current plan') : `Choose ${plan.name}`}
                   </Button>
                 )}
               </li>
@@ -147,8 +157,10 @@ export function PlansPage() {
       )}
 
       <p className="text-[13px] text-muted">
-        Payments are processed by Razorpay as a recurring subscription. Available payment methods depend on what Razorpay
-        supports for recurring payments. Meta's WhatsApp message charges, where they apply, are billed separately by Meta.
+        {checkoutProvider === 'cashfree'
+          ? "Payments are processed by Cashfree. You pay for a month or a year at a time; nothing is charged automatically. We'll email you before your plan ends."
+          : 'Payments are processed by Razorpay as a recurring subscription. Available payment methods depend on what Razorpay supports for recurring payments.'}{' '}
+        Meta's WhatsApp message charges, where they apply, are billed separately by Meta.
       </p>
     </div>
   )

@@ -35,6 +35,7 @@ describe('GSTIN validation', () => {
       legal_name: 'Kaveri Dental Clinic LLP',
       gstin: '29AAKFK4821M1Z3',
       email: 'accounts@kaveridental.in',
+      phone: '98450 12345',
       address_line1: '14, 2nd Cross',
       address_line2: '',
       city: 'Bengaluru',

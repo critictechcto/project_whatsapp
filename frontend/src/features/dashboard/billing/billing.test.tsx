@@ -1,9 +1,14 @@
 import { screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ids } from '../../../mocks/seed'
+import type { Schemas } from '../../../api/types'
+import { formatDate } from '../../../lib/datetime'
+import { server } from '../../../mocks/node'
+import { daysAgo, ids } from '../../../mocks/seed'
+import { apiUrl, errorResponse, http } from '../../../mocks/utils'
 import { fill, renderDashboard, signIn } from '../../../test/render'
+import { setMockCheckoutProvider } from './mocks'
 
-// Tests run in live API mode; pay instantly instead of loading Razorpay Checkout.
+// Tests run in live API mode; pay instantly instead of loading Razorpay or Cashfree Checkout.
 vi.mock('../../../lib/integrations/razorpay', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../lib/integrations/razorpay')>()
   return {
@@ -16,12 +21,29 @@ vi.mock('../../../lib/integrations/razorpay', async (importOriginal) => {
   }
 })
 
-afterEach(() => {
-  vi.useRealTimers()
+const cashfreeOpened = vi.fn()
+vi.mock('../../../lib/integrations/cashfree', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../lib/integrations/cashfree')>()
+  return {
+    ...actual,
+    openCashfreeCheckout: async (session: unknown) => {
+      cashfreeOpened(session)
+      return 'finished'
+    },
+  }
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+  cashfreeOpened.mockReset()
+  setMockCheckoutProvider('cashfree')
+})
+
+const kaveriPeriodEnd = () => daysAgo(-325)
+
 describe('billing', () => {
-  it('collects billing details, pays, and waits for the subscription to activate', async () => {
+  it('collects billing details, pays with Razorpay, and waits for the subscription to activate', async () => {
+    setMockCheckoutProvider('razorpay')
     signIn()
     const { user, router } = renderDashboard(`/app/w/${ids.sharmaSweets}/billing/plans`)
 
@@ -38,6 +60,7 @@ describe('billing', () => {
     const email = screen.getByLabelText(/^Invoice email/)
     await user.clear(email)
     await fill(user, email, 'accounts@sharmasweets.in')
+    await user.type(screen.getByLabelText(/^Phone/), '9829012345')
     await fill(user, screen.getByLabelText(/^Address line 1/), 'Shop 12, Johari Bazar')
     await user.type(screen.getByLabelText(/^City/), 'Jaipur')
     await user.type(screen.getByLabelText(/^PIN code/), '302003')
@@ -49,6 +72,7 @@ describe('billing', () => {
     // Verified, but Razorpay hasn't confirmed the charge yet
     expect(await screen.findByRole('heading', { level: 1, name: 'Billing' })).toBeInTheDocument()
     expect(await screen.findByText('Confirming your payment…')).toBeInTheDocument()
+    expect(cashfreeOpened).not.toHaveBeenCalled()
 
     // Move the clock past the (mock) confirmation time; the page's subscription poll picks it up.
     vi.useFakeTimers({ toFake: ['Date'] })
@@ -59,6 +83,125 @@ describe('billing', () => {
     expect(screen.getAllByText('Active').length).toBeGreaterThan(0)
   }, 30_000)
 
+  it('requires a valid phone, pays with Cashfree and activates the plan at once', async () => {
+    signIn()
+    const { user, router } = renderDashboard(`/app/w/${ids.sharmaSweets}/billing/plans`)
+
+    expect(await screen.findByText(/Payments are processed by Cashfree\. You pay for a month or a year at a time/)).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Choose Growth' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Billing details' })).toBeInTheDocument()
+    expect(await screen.findByText('Cashfree needs a phone number for payment receipts.')).toBeInTheDocument()
+    await fill(user, await screen.findByLabelText(/^Legal name/), 'Sharma Sweets')
+    const email = screen.getByLabelText(/^Invoice email/)
+    await user.clear(email)
+    await fill(user, email, 'accounts@sharmasweets.in')
+    await fill(user, screen.getByLabelText(/^Address line 1/), 'Shop 12, Johari Bazar')
+    await user.type(screen.getByLabelText(/^City/), 'Jaipur')
+    await user.selectOptions(screen.getByLabelText(/^State/), '08')
+    await user.type(screen.getByLabelText(/^PIN code/), '302003')
+
+    // Missing, then malformed, phone numbers are caught before saving.
+    await user.click(screen.getByRole('button', { name: 'Save and continue' }))
+    expect(await screen.findByText('Enter a phone number.')).toBeInTheDocument()
+    const phone = screen.getByLabelText(/^Phone/)
+    await user.type(phone, '12345')
+    await user.click(screen.getByRole('button', { name: 'Save and continue' }))
+    expect(await screen.findByText(/Enter a 10-digit mobile number/)).toBeInTheDocument()
+    expect(phone).toHaveAttribute('aria-invalid', 'true')
+    await user.clear(phone)
+    await user.type(phone, '98290 12345')
+    await user.click(screen.getByRole('button', { name: 'Save and continue' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Continue to payment' }))
+
+    expect(await screen.findByText("You're on the Growth plan")).toBeInTheDocument()
+    expect(cashfreeOpened).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'cashfree', mode: 'sandbox', order_id: expect.stringMatching(/^upc_/) }),
+    )
+    expect(router.state.location.pathname).toBe(`/app/w/${ids.sharmaSweets}/billing`)
+    expect(await screen.findByText(/^Paid until .*Nothing is charged automatically/)).toBeInTheDocument()
+    expect(screen.queryByText(/Renews automatically/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('Active').length).toBeGreaterThan(0)
+    expect(screen.getByText('+919829012345')).toBeInTheDocument()
+  }, 30_000)
+
+  it("tells the owner they weren't charged when the Cashfree payment wasn't completed", async () => {
+    server.use(
+      http.untyped.post(apiUrl('/api/v1/billing/subscription/verify/'), () =>
+        errorResponse(409, 'payment_not_completed', "The payment wasn't completed. You haven't been charged."),
+      ),
+    )
+    signIn(ids.farhan)
+    const { user, router } = renderDashboard(`/app/w/${ids.kaveriClinic}/billing/plans`)
+
+    expect(await screen.findByText("Your new plan starts now. Unused days on the current plan aren't refunded.", { exact: false })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Choose Growth' }))
+
+    expect(await screen.findByText('Payment not completed')).toBeInTheDocument()
+    expect(screen.getByText("You haven't been charged.")).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe(`/app/w/${ids.kaveriClinic}/billing/plans`)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Choose Growth' })).toBeEnabled())
+    // The prepaid plan is still current and can be renewed from here.
+    expect(screen.getByRole('button', { name: 'Choose Starter' })).toBeInTheDocument()
+  })
+
+  it('renews a Cashfree plan from the end of the paid period', async () => {
+    signIn(ids.farhan)
+    const { user } = renderDashboard(`/app/w/${ids.kaveriClinic}/billing`)
+
+    const periodEnd = formatDate(kaveriPeriodEnd(), 'Asia/Kolkata')
+    expect(await screen.findByText(new RegExp(`^Paid until ${periodEnd}`))).toBeInTheDocument()
+    expect(screen.queryByText(/Your plan ends in/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Renew' }))
+
+    const renewedEnd = formatDate(new Date(new Date(kaveriPeriodEnd()).getTime() + 365 * 86_400_000).toISOString(), 'Asia/Kolkata')
+    expect(await screen.findByText(`Your Starter plan is paid until ${renewedEnd}.`)).toBeInTheDocument()
+    expect(cashfreeOpened).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText(new RegExp(`^Paid until ${renewedEnd}`))).toBeInTheDocument()
+  })
+
+  it('warns in the last 7 days of a prepaid plan', async () => {
+    server.use(
+      http.untyped.get(apiUrl('/api/v1/billing/subscription/'), () =>
+        Response.json({
+          plan: { id: 'starter', name: 'Starter', monthly_price_paise: 99900, annual_price_paise: 999000, limits: { whatsapp_numbers: 1, members: 2, contacts: 5000 }, features: [] },
+          status: 'active',
+          interval: 'monthly',
+          trial_ends_at: null,
+          current_period_start: daysAgo(27),
+          current_period_end: new Date(Date.now() + 2.5 * 86_400_000).toISOString(),
+          cancel_at_period_end: false,
+          provider: 'cashfree',
+          auto_renews: false,
+          checkout_provider: 'cashfree',
+        } satisfies Schemas['Subscription']),
+      ),
+    )
+    signIn(ids.farhan)
+    renderDashboard(`/app/w/${ids.kaveriClinic}/billing`)
+
+    expect(await screen.findByText('Your plan ends in 3 days')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Renew' })).toBeInTheDocument()
+  })
+
+  it('verifies a Cashfree order when the browser returns with cf_order_id', async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.untyped.post(apiUrl('/api/v1/billing/subscription/verify/'), async ({ request }) => {
+        bodies.push(await request.json())
+        return errorResponse(409, 'payment_not_completed', "The payment wasn't completed. You haven't been charged.")
+      }),
+    )
+    signIn(ids.farhan)
+    const { router } = renderDashboard(`/app/w/${ids.kaveriClinic}/billing?cf_order_id=upc_0123456789abcdef0123456789abcdef`)
+
+    expect(await screen.findByText('Payment not completed')).toBeInTheDocument()
+    expect(bodies).toEqual([{ order_id: 'upc_0123456789abcdef0123456789abcdef' }])
+    expect(new URLSearchParams(router.state.location.search).has('cf_order_id')).toBe(false)
+  })
+
   it('requires the state to match the GSTIN', async () => {
     signIn()
     const { user } = renderDashboard(`/app/w/${ids.sharmaSweets}/billing/profile`)
@@ -66,6 +209,7 @@ describe('billing', () => {
     await fill(user, await screen.findByLabelText(/^Legal name/), 'Sharma Sweets Private Limited')
     await user.type(screen.getByLabelText(/^GSTIN/), '08AABCS1429B1ZX')
     await user.selectOptions(screen.getByLabelText(/^State/), '27')
+    await user.type(screen.getByLabelText(/^Phone/), '9829012345')
     await fill(user, screen.getByLabelText(/^Address line 1/), 'Shop 12, Johari Bazar')
     await user.type(screen.getByLabelText(/^City/), 'Jaipur')
     await user.type(screen.getByLabelText(/^PIN code/), '302003')
@@ -83,6 +227,7 @@ describe('billing', () => {
     expect(screen.getAllByText('₹11,788.20').length).toBeGreaterThan(0)
     expect(screen.getAllByText('CGST ₹899.10').length).toBeGreaterThan(0)
     expect(screen.getByText('Only the workspace owner can change the plan or cancel.')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Cancel subscription' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel plan' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument()
   })
 })
