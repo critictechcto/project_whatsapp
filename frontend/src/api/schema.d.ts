@@ -479,7 +479,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Create a Razorpay subscription and return options for Razorpay Checkout. */
+        /** @description Start a checkout on the configured gateway: a prepaid Cashfree order (options for Cashfree Checkout) or a Razorpay subscription (options for Razorpay Checkout). */
         post: operations["billing_subscription_checkout_create"];
         delete?: never;
         options?: never;
@@ -496,7 +496,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Verify the Checkout signature. Status may stay pending until the webhook. */
+        /** @description Cashfree (order_id): ask Cashfree for the order and activate the plan once it is paid; 409 payment_not_completed otherwise. Razorpay: verify the Checkout signature; the status may stay pending until the webhook. */
         post: operations["billing_subscription_verify_create"];
         delete?: never;
         options?: never;
@@ -2445,7 +2445,7 @@ export interface components {
             state_code: string;
             /** @description 6-digit PIN code. */
             postal_code: string;
-            /** @description Indian 10-digit mobile number or E.164; stored as E.164. Required for a Cashfree checkout. */
+            /** @description E.164 (a 10-digit Indian number is accepted). Needed for Cashfree checkout. */
             phone?: string;
         };
         /** @enum {unknown} */
@@ -2604,6 +2604,12 @@ export interface components {
             at_period_end: boolean;
         };
         /**
+         * @description * `sandbox` - sandbox
+         *     * `production` - production
+         * @enum {string}
+         */
+        CashfreeModeEnum: "sandbox" | "production";
+        /**
          * @description * `not_synced` - not_synced
          *     * `pending` - pending
          *     * `synced` - synced
@@ -2622,32 +2628,35 @@ export interface components {
             interval: components["schemas"]["BillingIntervalEnum"];
         };
         /**
-         * @description * `sandbox` - sandbox
-         *     * `production` - production
-         * @enum {string}
+         * @description Options for Cashfree Checkout (a prepaid order) or Razorpay Checkout (subscription
+         *     mode); the other provider's fields are null.
          */
-        CheckoutModeEnum: "sandbox" | "production";
-        /** @description Options for Razorpay Checkout (subscription mode) or Cashfree Checkout (an order). */
         CheckoutSession: {
             readonly provider: components["schemas"]["PaymentProviderEnum"];
             readonly name: string;
             readonly description: string;
             readonly prefill: components["schemas"]["CheckoutPrefill"];
-            /** @description Razorpay key id; null for Cashfree. */
+            /** @description Razorpay only. */
             readonly key_id: string | null;
-            /** @description Razorpay subscription id; null for Cashfree. */
+            /** @description Razorpay only. */
             readonly subscription_id: string | null;
-            /** @description Cashfree order id; null for Razorpay. */
+            /** @description Cashfree only. */
             readonly order_id: string | null;
-            /** @description Cashfree payment session id; null for Razorpay. */
+            /** @description Cashfree only. */
             readonly payment_session_id: string | null;
-            /** @description Cashfree environment; null for Razorpay. */
-            readonly mode: (components["schemas"]["CheckoutModeEnum"] | components["schemas"]["NullEnum"]) | null;
-            /** @description GST-inclusive amount in paise; null for Razorpay. */
+            /**
+             * @description Cashfree only.
+             *
+             *     * `sandbox` - sandbox
+             *     * `production` - production
+             */
+            readonly mode: (components["schemas"]["CashfreeModeEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description GST-inclusive amount charged; Cashfree only. */
             readonly amount_paise: number | null;
         };
+        /** @description Either ``order_id`` (Cashfree) or the three ``razorpay_*`` fields. */
         CheckoutVerifyRequest: {
-            /** @description Cashfree order id. */
+            /** @description Cashfree. */
             order_id?: string;
             razorpay_payment_id?: string;
             razorpay_subscription_id?: string;
@@ -3929,7 +3938,7 @@ export interface components {
             state_code?: string;
             /** @description 6-digit PIN code. */
             postal_code?: string;
-            /** @description Indian 10-digit mobile number or E.164; stored as E.164. Required for a Cashfree checkout. */
+            /** @description E.164 (a 10-digit Indian number is accepted). Needed for Cashfree checkout. */
             phone?: string;
         };
         PatchedBusinessHoursRequest: {
@@ -4465,11 +4474,16 @@ export interface components {
             /** Format: date-time */
             readonly current_period_end: string | null;
             readonly cancel_at_period_end: boolean;
-            /** @description Gateway of the paid plan; null on a trial. */
+            /**
+             * @description Gateway of the paid plan; null on a trial.
+             *
+             *     * `razorpay` - razorpay
+             *     * `cashfree` - cashfree
+             */
             readonly provider: (components["schemas"]["PaymentProviderEnum"] | components["schemas"]["NullEnum"]) | null;
-            /** @description True for an active Razorpay subscription that renews; always false for Cashfree. */
+            /** @description True for an active Razorpay subscription; Cashfree plans are prepaid. */
             readonly auto_renews: boolean;
-            /** @description Gateway used for new checkouts. */
+            /** @description The gateway a new checkout uses. */
             readonly checkout_provider: components["schemas"]["PaymentProviderEnum"];
         };
         /**
@@ -5691,7 +5705,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["CheckoutVerifyRequest"];
                 "application/x-www-form-urlencoded": components["schemas"]["CheckoutVerifyRequest"];
