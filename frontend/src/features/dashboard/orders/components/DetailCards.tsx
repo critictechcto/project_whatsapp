@@ -145,10 +145,18 @@ export function PaymentCard({ order }: { order: Order }) {
 
 export function TrackingCard({ order }: { order: Order }) {
   const { timeZone } = useWorkspace()
-  const shipped = Boolean(order.courier_name || order.awb_number)
+  const hasTracking = Boolean(order.courier_name || order.awb_number)
   return (
     <SectionCard title="Tracking">
-      {shipped ? (
+      {!hasTracking && order.shipped_at ? (
+        <DetailList
+          items={[
+            { label: 'Tracking', value: 'Shipped without tracking details' },
+            { label: 'Shipped', value: formatDateTime(order.shipped_at, timeZone) },
+            ...(order.delivered_at ? [{ label: 'Delivered', value: formatDateTime(order.delivered_at, timeZone) }] : []),
+          ]}
+        />
+      ) : hasTracking ? (
         <DetailList
           items={[
             { label: 'Courier', value: order.courier_name || '—' },
@@ -172,7 +180,7 @@ export function TrackingCard({ order }: { order: Order }) {
         <p className="text-sm text-muted">
           {isCheckoutStatus(order.status) || order.status === 'expired'
             ? 'Tracking details are added once the order is confirmed and shipped.'
-            : 'Add the courier and AWB number when you mark the order shipped.'}
+            : 'Add the courier and AWB number when you mark the order shipped, if you have them.'}
         </p>
       )}
     </SectionCard>

@@ -119,8 +119,6 @@ export const handlers: AreaMockHandlers = [
 
     if (to === 'shipped') {
       const errors: Record<string, string[]> = {}
-      if (!body.courier_name?.trim()) errors.courier_name = ['Enter the courier name.']
-      if (!body.awb_number?.trim()) errors.awb_number = ['Enter the AWB number.']
       if (body.tracking_url && !isHttps(body.tracking_url)) errors.tracking_url = ['Enter an https:// link.']
       if (Object.keys(errors).length) return response.untyped(validationError(errors))
     }
@@ -132,11 +130,14 @@ export const handlers: AreaMockHandlers = [
     if (to === 'packed') order.packed_at = now
     if (to === 'delivered') order.delivered_at = now
     if (to === 'shipped') {
-      order.courier_name = body.courier_name!.trim()
-      order.awb_number = body.awb_number!.trim()
+      order.courier_name = body.courier_name?.trim() ?? ''
+      order.awb_number = body.awb_number?.trim() ?? ''
       order.tracking_url = body.tracking_url?.trim() ?? ''
       order.shipped_at = now
-      detail = `${order.courier_name}, AWB ${order.awb_number}`
+      detail =
+        order.courier_name || order.awb_number
+          ? `${order.courier_name || '—'}, AWB ${order.awb_number || '—'}`
+          : 'No tracking details'
     }
     order.status = to
     addEvent(record, 'status_changed', 'dashboard', { from, to, detail, userId })

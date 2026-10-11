@@ -168,17 +168,6 @@ class OrderTransitionSerializer(serializers.Serializer):
             raise serializers.ValidationError("Use an https:// link.")
         return value
 
-    def validate(self, attrs: dict) -> dict:
-        if attrs.get("to_status") == "shipped":
-            errors = {
-                field: ["Required when marking an order shipped."]
-                for field in ("courier_name", "awb_number")
-                if not (attrs.get(field) or "").strip()
-            }
-            if errors:
-                raise serializers.ValidationError(errors)
-        return attrs
-
 
 class CancelOrderSerializer(serializers.Serializer):
     reason = serializers.CharField(

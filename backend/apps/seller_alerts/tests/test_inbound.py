@@ -201,13 +201,13 @@ def test_another_workspaces_order_is_refused(
 ):
     foreign = OrderFactory(workspace=other_workspace)
 
-    for action in ("pack", "ship", "cancel", "cancel_yes", "cancel_no"):
+    for action in ("pack", "ship", "ship_now", "cancel", "cancel_yes", "cancel_no"):
         receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:{action}:{foreign.pk}")
     receive(recipient.wa_id, type="interactive", reply_id=f"upc:alerts:orders:{foreign.pk}")
 
     assert orders_stub.calls == []
     assert not PendingSellerReply.objects.exists()
-    assert len(fake_graph.sent_messages) == 6
+    assert len(fake_graph.sent_messages) == 7
     assert all(
         body_of(reply).startswith("This option is no longer available.")
         for reply in fake_graph.sent_messages
@@ -226,6 +226,8 @@ def test_ship_asks_for_courier_and_awb_then_ships(
     [prompt] = fake_graph.sent_messages
     assert pending.prompt_wamid == prompt["wamid"]
     assert "courier and AWB number for order SS-1001" in body_of(prompt)
+    [button] = prompt["interactive"]["action"]["buttons"]
+    assert button["reply"] == {"id": f"upc:alerts:ship_now:{order.pk}", "title": "Skip tracking"}
     assert orders_stub.calls == []
 
     receive(recipient.wa_id, text="Blue Dart, 1234567890 https://bluedart.com/track/1234567890")
@@ -244,6 +246,24 @@ def test_ship_asks_for_courier_and_awb_then_ships(
     assert not PendingSellerReply.objects.exists()
     assert body_of(fake_graph.sent_messages[-1]) == (
         "Order SS-1001 is marked as shipped with Blue Dart (AWB 1234567890)."
+    )
+
+
+def test_skip_tracking_ships_without_courier_details(
+    recipient, order, orders_stub, receive, fake_graph
+):
+    receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:ship:{order.pk}")
+    receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:ship_now:{order.pk}")
+
+    assert orders_stub.calls == [("transition", order.pk, "shipped", "seller_whatsapp", "", "", "")]
+    assert not PendingSellerReply.objects.exists()
+    assert body_of(fake_graph.sent_messages[-1]) == "Order SS-1001 is marked as shipped."
+
+    receive(recipient.wa_id, type="button", reply_id=f"upc:alerts:ship_now:{order.pk}")
+
+    assert len(orders_stub.calls) == 2
+    assert "can't be marked as shipped because it is shipped" in body_of(
+        fake_graph.sent_messages[-1]
     )
 
 

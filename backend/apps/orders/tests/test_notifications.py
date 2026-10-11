@@ -109,8 +109,33 @@ def test_template_params_follow_the_contract(workspace):
         "Cash on delivery",
     ]
     assert notifications.template_params(order, "packed") == ["Asha", order.number]
-    assert notifications.template_params(order, "shipped") == ["Asha", order.number, "—", "—", "—"]
+    assert notifications.template_params(order, "shipped") == [
+        "Asha",
+        order.number,
+        "our delivery partner",
+        "—",
+        "—",
+    ]
     assert notifications.template_params(order, "cancelled") == ["Asha", order.number, "—"]
     assert notifications.template_params(
         order, "payment_reminder", payment_url="https://rzp.io/i/x"
     ) == ["Asha", order.number, "₹1,450.00", "https://rzp.io/i/x"]
+
+
+@pytest.mark.parametrize(
+    ("fields", "text"),
+    [
+        ({}, "Hi Asha, your order SS-1 has shipped and is on its way to you."),
+        ({"courier_name": "India Post"}, "Hi Asha, your order SS-1 has shipped with India Post."),
+        (
+            {"courier_name": "Delhivery", "awb_number": "DL1"},
+            "Hi Asha, your order SS-1 has shipped with Delhivery. AWB: DL1.",
+        ),
+        ({"awb_number": "DL1"}, "Hi Asha, your order SS-1 has shipped. AWB: DL1."),
+    ],
+    ids=["no-tracking", "courier-only", "courier-and-awb", "awb-only"],
+)
+def test_shipped_text_mentions_only_the_details_given(workspace, fields, text):
+    order = OrderFactory(workspace=workspace, number="SS-1", **fields)
+
+    assert notifications.shipped_text("Asha", order) == text

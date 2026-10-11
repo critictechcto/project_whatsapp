@@ -109,6 +109,22 @@ describe('order detail', () => {
     expect(await screen.findByRole('button', { name: 'Mark delivered' })).toBeInTheDocument()
   })
 
+  it('ships without tracking details when the switch is turned off', async () => {
+    const { user, record } = await openOrder('confirmedCod')
+
+    await user.click(screen.getByRole('button', { name: 'Mark shipped' }))
+    const dialog = await findDialog()
+    const tracking = within(dialog).getByRole('switch', { name: 'Add tracking details' })
+    expect(tracking).toHaveAttribute('aria-checked', 'true')
+    await user.click(tracking)
+    expect(within(dialog).queryByLabelText(/^Courier/)).not.toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: 'Mark shipped' }))
+
+    expect(await screen.findByText('Marked shipped')).toBeInTheDocument()
+    expect(record.order).toMatchObject({ status: 'shipped', courier_name: '', awb_number: '', tracking_url: '' })
+    expect(await within(region('Tracking')).findByText('Shipped without tracking details')).toBeInTheDocument()
+  })
+
   it('cancels with a reason and the restock and notify options', async () => {
     const { user, record } = await openOrder('pendingPayment')
     expect(record.order.payment_link?.status).toBe('created')

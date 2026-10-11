@@ -265,16 +265,13 @@ def transition(
         return cancel_order(order, actor=actor, user=user, notify_buyer=notify_buyer)
     courier_name, awb_number = (courier_name or "").strip(), (awb_number or "").strip()
     tracking_url = (tracking_url or "").strip()
-    if to_status == Status.SHIPPED:
-        errors = {
-            field: ["Required when marking an order shipped."]
-            for field, value in (("courier_name", courier_name), ("awb_number", awb_number))
-            if not value
-        }
-        if tracking_url and not tracking_url.lower().startswith("https://"):
-            errors["tracking_url"] = ["Use an https:// link."]
-        if errors:
-            raise ValidationError(errors)
+    # Tracking details are optional: small sellers often deliver themselves or have no AWB.
+    if (
+        to_status == Status.SHIPPED
+        and tracking_url
+        and not tracking_url.lower().startswith("https://")
+    ):
+        raise ValidationError({"tracking_url": ["Use an https:// link."]})
     with transaction.atomic():
         order = _locked(order)
         transitions.check_transition(order.status, to_status)

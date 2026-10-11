@@ -11,7 +11,7 @@ A seller's buyers browse, order, pay and track orders inside WhatsApp on the sel
 
 Checkout: re-price from the database → confirm when the price changed → address (`address_message`, or text as a fallback) → payment choice. Buyers pay online through a payment link created on the **seller's own** payment gateway account (Razorpay or Cashfree: the seller pastes API keys and sets up nothing else), or choose cash on delivery (COD). UpChatz never holds buyer money. The seller moves orders forward by hand (packed, shipped with courier and AWB, delivered); each change notifies the buyer.
 
-Sellers get alerts on their personal WhatsApp from the **UpChatz alerts number** (`PLATFORM_WA_*`) and can act from there: *Mark packed*, *Mark shipped* (then send the courier and AWB), *Cancel*, and the commands `ORDERS` and `HELP`.
+Sellers get alerts on their personal WhatsApp from the **UpChatz alerts number** (`PLATFORM_WA_*`) and can act from there: *Mark packed*, *Mark shipped* (then send the courier and AWB, or tap *Skip tracking*), *Cancel*, and the commands `ORDERS` and `HELP`.
 
 Money is integer **paise**, prices include GST, and the currency is `INR`.
 
@@ -165,7 +165,7 @@ Sync rules:
 - `OrderItem`: `id`, `product_id` (null once the product is deleted), `sku`, `name`, `image_url` (null), `unit_price_paise`, `quantity`, `line_total_paise`.
 - `OrderAddress`: `name`, `phone_e164`, `line1`, `line2`, `landmark`, `city`, `state`, `pincode` (6 digits), `country` (`IN`).
 - `OrderEvent`: `id`, `type`, `from_status` (""), `to_status` (""), `actor`, `user` (`UserSummary` | null), `detail`, `message_id` (null), `message_status` (`MessageStatusEnum` | null: the current delivery status of that message, so a `notification_sent` whose message later failed can be shown as a warning), `message_error_code` (the Meta error code when that message failed, else ""), `created_at`.
-- `OrderTransitionRequest`: `to_status` (`packed` | `shipped` | `delivered` | `confirmed`, the last only from `needs_attention`), `courier_name?`, `awb_number?`, `tracking_url?` (https URL), `notify_buyer?` (default true). `shipped` requires `courier_name` and `awb_number`.
+- `OrderTransitionRequest`: `to_status` (`packed` | `shipped` | `delivered` | `confirmed`, the last only from `needs_attention`), `courier_name?`, `awb_number?`, `tracking_url?` (https URL), `notify_buyer?` (default true). `shipped` takes optional tracking: `courier_name`, `awb_number` and `tracking_url` may all be left out (the dashboard's *Add tracking details* switch, on by default).
 - `CancelOrderRequest`: `reason?` (≤ 200, default ""), `restock?` (default true), `notify_buyer?` (default true).
 - `OrderNotesRequest`: `notes` (≤ 2000).
 - `OrderSummary`: `today_count`, `today_revenue_paise` (confirmed-or-later orders created today in the workspace time zone, excluding cancelled and expired), `open_count`, `needs_attention_count`, `awaiting_payment_count`.
@@ -239,7 +239,7 @@ WhatsApp message charges: under Meta's current pricing, Meta bills the seller's 
 |---|---|---|
 | `upc_order_confirmed` | 4 | name, order number, total (₹ formatted), payment ("Paid online" / "Cash on delivery") |
 | `upc_order_packed` | 2 | name, order number |
-| `upc_order_shipped` | 5 | name, order number, courier, AWB, tracking URL or "—" |
+| `upc_order_shipped` | 5 | name, order number, courier (or "our delivery partner"), AWB, tracking URL (each "—" when not given) |
 | `upc_order_delivered` | 2 | name, order number |
 | `upc_order_cancelled` | 3 | name, order number, reason |
 | `upc_payment_reminder` | 4 | name, order number, total, payment link |
@@ -332,7 +332,7 @@ Seller actions:
 | Tap | Result |
 |---|---|
 | *Mark packed* | `transition(order, "packed", actor="seller_whatsapp")` |
-| *Mark shipped* | asks for "courier AWB [tracking URL]", then `transition(..., "shipped")` |
+| *Mark shipped* | asks for "courier AWB [tracking URL]", then `transition(..., "shipped")`. The question has a *Skip tracking* button (`upc:alerts:ship_now:<order_id>`) that ships without courier or AWB |
 | *Cancel* | asks "Cancel order SS-1001? The buyer will be told and items go back to stock." with *Yes, cancel* (`upc:alerts:cancel_yes:<order_id>`) and *Keep order* (`upc:alerts:cancel_no:<order_id>`). The question is a free-form message: the seller's window is open because they just tapped |
 | *Yes, cancel* | re-checks the recipient, workspace and order state under a lock, then `cancel_order(order, actor="seller_whatsapp", reason="Cancelled by the seller on WhatsApp")` |
 | *Keep order* | "Okay, order SS-1001 is unchanged." |
@@ -352,7 +352,7 @@ Every commerce reply id has the form `upc:<scope>:<action>[:<arg>...]`. It is at
 | `chk` | `confirm` (order_id), `edit` (order_id), `pay` (order_id, `online`/`cod`), `retry` (order_id), `cancel` (order_id) | orders |
 | `ord` | `view` (order_id), `list` | orders |
 | `nfm` | `address_message` (set by the webhook parser for `nfm_reply`) | orders |
-| `alerts` | `verify` (recipient_id), `pack` / `ship` / `cancel` / `cancel_yes` / `cancel_no` (order_id), `orders` (no args: the open orders list; order_id: one order's actions) | seller_alerts |
+| `alerts` | `verify` (recipient_id), `pack` / `ship` / `ship_now` / `cancel` / `cancel_yes` / `cancel_no` (order_id), `orders` (no args: the open orders list; order_id: one order's actions) | seller_alerts |
 | `consent` | `yes` / `no` (rule_id, action_index): the opt-in buttons of the automations action `send_opt_in_request`. Not commerce, but it shares the grammar so the tap is claimed and never re-triggers rules | automations |
 
 **Claiming:**

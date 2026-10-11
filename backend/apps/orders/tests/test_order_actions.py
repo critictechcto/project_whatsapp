@@ -1,6 +1,5 @@
 """Merchant order actions over the API: transitions, cancel, COD collected, refunded, notes."""
 
-import json
 from datetime import timedelta
 
 import pytest
@@ -85,18 +84,17 @@ def test_notify_buyer_false_sends_nothing(auth_client, workspace):
     assert not order.events.filter(type__startswith="notification").exists()
 
 
-def test_shipping_needs_courier_and_awb(auth_client, workspace):
+def test_shipping_without_tracking_details(auth_client, workspace):
     order = OrderFactory(workspace=workspace)
 
     response = auth_client(Role.AGENT).post(
         url(order, "transition/"), {"to_status": "shipped"}, format="json"
     )
 
-    assert response.status_code == 400, response.content
-    details = json.dumps(error(response)["details"])
-    assert "courier_name" in details
-    assert "awb_number" in details
-    assert Order.objects.get(pk=order.pk).status == "confirmed"
+    assert response.status_code == 200, response.content
+    data = response.json()
+    assert data["status"] == "shipped"
+    assert (data["courier_name"], data["awb_number"], data["tracking_url"]) == ("", "", "")
 
 
 def test_shipping_records_tracking(auth_client, workspace):

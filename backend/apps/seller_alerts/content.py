@@ -368,9 +368,11 @@ def cancel_confirmation(order: Order) -> Outbound:
 
 
 def awb_prompt(order: Order) -> Outbound:
-    return text(
+    return _reply(
         f"Send the courier and AWB number for order {order.number}, for example:\n"
-        f"{AWB_EXAMPLE}\n\nThe tracking link is optional."
+        f"{AWB_EXAMPLE}\n\nThe tracking link is optional. No courier or AWB? Tap Skip tracking "
+        "to mark it shipped without them.",
+        [(build_reply_id("alerts", "ship_now", order.pk), "Skip tracking")],
     )
 
 

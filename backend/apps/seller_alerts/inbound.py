@@ -45,7 +45,8 @@ _validate_https_url = URLValidator(schemes=["https"])
 RecipientStatus = AlertRecipient.Status
 # *Cancel* only asks for confirmation; *Yes, cancel* (``cancel_yes``) cancels and *Keep order*
 # (``cancel_no``) leaves the order alone.
-ORDER_ACTIONS = ("pack", "ship", "cancel", "cancel_yes", "cancel_no")
+# *Skip tracking* (``ship_now``) on the courier question ships without courier or AWB.
+ORDER_ACTIONS = ("pack", "ship", "ship_now", "cancel", "cancel_yes", "cancel_no")
 DONE_TEXT = {"packed": "marked as packed", "shipped": "marked as shipped", "cancelled": "cancelled"}
 
 
@@ -261,6 +262,8 @@ def _handle_reply(ctx: _Context, verified: list[AlertRecipient], reply: ReplyId)
             _pack(ctx, recipient, order)
         elif reply.action == "ship":
             _ask_for_shipment(ctx, recipient, order)
+        elif reply.action == "ship_now":
+            _ship_without_tracking(ctx, recipient, order)
         elif reply.action == "cancel":
             _confirm_cancel(ctx, recipient, order)
         elif reply.action == "cancel_yes":
@@ -353,6 +356,15 @@ def _ask_for_shipment(ctx: _Context, recipient: AlertRecipient, order: Order) ->
         expires_at=ctx.now + AWB_REPLY_TTL,
     )
     ctx.reply(recipient, content.awb_prompt(order), pending)
+
+
+def _ship_without_tracking(ctx: _Context, recipient: AlertRecipient, order: Order) -> None:
+    PendingSellerReply.objects.filter(recipient__in=ctx.recipients, order=order).delete()
+    error = _run(lambda: order_services.transition(order, "shipped", actor=SELLER_ACTOR))
+    if error is None:
+        ctx.reply(recipient, content.text(f"Order {order.number} is marked as shipped."))
+    else:
+        ctx.reply(recipient, content.text(_failure_text(order, "shipped", error)))
 
 
 def _handle_awaited_shipment(ctx: _Context, verified: list[AlertRecipient]) -> bool:

@@ -17,6 +17,8 @@ from .money import format_inr
 from .store import footer_for, get_store_settings
 
 EMPTY_PARAM = "—"
+# The shipped template names a courier; without one the parcel goes "with our delivery partner".
+NO_COURIER = "our delivery partner"
 NOTIFIED_STATUSES = ("confirmed", "packed", "shipped", "delivered", "cancelled")
 
 
@@ -29,7 +31,7 @@ def template_params(order: Order, notification: str, *, payment_url: str = "") -
         return [
             name,
             number,
-            order.courier_name or EMPTY_PARAM,
+            order.courier_name or NO_COURIER,
             order.awb_number or EMPTY_PARAM,
             order.tracking_url or EMPTY_PARAM,
         ]
@@ -38,6 +40,15 @@ def template_params(order: Order, notification: str, *, payment_url: str = "") -
     if notification == "payment_reminder":
         return [name, number, format_inr(order.total_paise), payment_url or EMPTY_PARAM]
     return [name, number]
+
+
+def shipped_text(name: str, order: Order) -> str:
+    """The in-window shipped update, mentioning only the tracking details the seller gave."""
+    courier = f" with {order.courier_name}" if order.courier_name else ""
+    if not (order.courier_name or order.awb_number or order.tracking_url):
+        return f"Hi {name}, your order {order.number} has shipped and is on its way to you."
+    awb = f" AWB: {order.awb_number}." if order.awb_number else ""
+    return f"Hi {name}, your order {order.number} has shipped{courier}.{awb}"
 
 
 def payment_phrase(order: Order) -> str:
@@ -67,10 +78,7 @@ def session_content(order: Order, notification: str):
         body = f"Hi {name}, your order {order.number} is packed and will be shipped soon."
         return interactive.reply_buttons(body, view, footer=footer)
     if notification == "shipped":
-        body = (
-            f"Hi {name}, your order {order.number} has shipped with "
-            f"{order.courier_name or 'our courier'}. AWB: {order.awb_number or EMPTY_PARAM}."
-        )
+        body = shipped_text(name, order)
         if order.tracking_url:
             return interactive.cta_url(body, "Track order", order.tracking_url, footer=footer)
         return interactive.reply_buttons(body, view, footer=footer)
