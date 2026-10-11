@@ -130,6 +130,32 @@ def test_checkout_amount_matches_the_intra_state_invoice(auth_client, workspace,
     assert fake_cashfree.calls_to("create_order")[0]["body"]["order_amount"] == expected / 100
 
 
+def test_without_gst_the_plan_price_is_charged_and_invoiced(
+    auth_client, workspace, profile, fake_cashfree, settings
+):
+    settings.BILLING_GST_ENABLED = False
+    assert auth_client().get(SUBSCRIPTION).json()["gst_rate_percent"] == 0
+
+    session = checkout(auth_client)
+
+    assert session["description"] == "Growth plan: ₹2,499 per month"
+    assert session["amount_paise"] == GROWTH_MONTHLY_PAISE
+    assert fake_cashfree.calls_to("create_order")[0]["body"]["order_amount"] == 2499.0
+    fake_cashfree.pay(session["order_id"], cf_payment_id="885000777")
+    assert auth_client().post(VERIFY, {"order_id": session["order_id"]}).status_code == 200
+    invoice = Invoice.objects.get(workspace=workspace)
+    assert (invoice.gst_rate_percent, invoice.subtotal_paise, invoice.total_paise) == (
+        0,
+        GROWTH_MONTHLY_PAISE,
+        GROWTH_MONTHLY_PAISE,
+    )
+    assert invoice.cgst_paise == invoice.sgst_paise == invoice.igst_paise == 0
+
+
+def test_subscription_reports_the_gst_rate(auth_client):
+    assert auth_client().get(SUBSCRIPTION).json()["gst_rate_percent"] == 18
+
+
 def test_checkout_needs_a_phone_on_the_billing_profile(auth_client, workspace, fake_cashfree):
     BillingProfile.objects.create(workspace=workspace, **MAHARASHTRA_PROFILE)
 

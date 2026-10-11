@@ -414,6 +414,10 @@ BILLING_SELLER_ADDRESS = env("BILLING_SELLER_ADDRESS", default="")
 # SAC 998314: information technology design and development services (SaaS subscriptions).
 BILLING_SAC_CODE = env("BILLING_SAC_CODE", default="998314")
 BILLING_GST_RATE_PERCENT = env.int("BILLING_GST_RATE_PERCENT", default=18)
+# Off until UpChatz is GST-registered: checkout charges the plan price and invoices record no
+# GST. Turn on (with the BILLING_SELLER_* details) once registered; the dashboard follows the
+# Subscription's gst_rate_percent, the landing page follows site.gstRate.
+BILLING_GST_ENABLED = env.bool("BILLING_GST_ENABLED", default=False)
 # Seconds before a Razorpay API call (checkout, cancel, fetch) times out.
 RAZORPAY_TIMEOUT = env.float("RAZORPAY_TIMEOUT", default=20.0)
 

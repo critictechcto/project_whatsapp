@@ -117,7 +117,7 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
     <>
       {resumeCheckout && canEdit && (
         <Notice tone="info" title="Add your billing details to continue">
-          Checkout opens after you save. Invoices include these details and the GST charged.
+          Checkout opens after you save. Invoices include these details.
         </Notice>
       )}
       {!canEdit && <Notice title="View only">Only the workspace owner can change billing details.</Notice>}

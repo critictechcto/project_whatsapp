@@ -39,7 +39,9 @@ export const site = {
     support: 'support@upchatz.com',
   },
   trialDays: 14,
-  gstRate: 18,
+  // GST on plan prices: 0 while UpChatz isn't GST-registered (the backend's BILLING_GST_ENABLED is
+  // off). The dashboard follows the API's gst_rate_percent; this drives the landing and legal pages.
+  gstRate: 0,
   links: {
     // Dashboard routes: on the dashboard host (VITE_APP_URL) or under this site's deploy base.
     login: `${APP_BASE}app/login`,

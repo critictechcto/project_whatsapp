@@ -169,6 +169,7 @@ function useHomeMocks({
         cancel_at_period_end: false,
         provider: null,
         auto_renews: false,
+        gst_rate_percent: 0,
         checkout_provider: 'cashfree',
       } as Schemas['Subscription'])
     }),

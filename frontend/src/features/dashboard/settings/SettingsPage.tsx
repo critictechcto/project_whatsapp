@@ -13,7 +13,7 @@ const links: readonly SettingsLink[] = [
   { to: 'settings/workspace', icon: Building2, title: 'Workspace', description: 'Workspace name, time zone and deletion.' },
   { to: 'team', icon: UsersRound, title: 'Team', description: 'Members, roles and invitations.' },
   { to: 'whatsapp', icon: Smartphone, title: 'WhatsApp', description: 'Connected numbers, quality rating and messaging limits.' },
-  { to: 'billing', icon: CreditCard, title: 'Billing', description: 'Plan, usage, GST details and invoices.', minRole: 'admin' },
+  { to: 'billing', icon: CreditCard, title: 'Billing', description: 'Plan, usage, billing details and invoices.', minRole: 'admin' },
 ]
 
 export function SettingsPage() {

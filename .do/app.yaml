@@ -320,6 +320,10 @@ envs:
   - key: BILLING_SELLER_ADDRESS
     value: CHANGE_ME
     scope: RUN_AND_BUILD_TIME
+  # true only once UpChatz is GST-registered; until then plans are charged without GST.
+  - key: BILLING_GST_ENABLED
+    value: "false"
+    scope: RUN_AND_BUILD_TIME
 
   # --- Billing (Cashfree prepaid plans; the gateway for new checkouts) ----------------------
   - key: BILLING_PROVIDER

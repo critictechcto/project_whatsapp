@@ -2,13 +2,13 @@ import { ArrowLeft, Check } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button, PageHeader, Skeleton, Spinner, StatusBadge } from '../../../components/app'
-import { ANNUAL_MONTHS_CHARGED, site } from '../../../config/site'
+import { ANNUAL_MONTHS_CHARGED } from '../../../config/site'
 import { cn } from '../../../lib/cn'
 import { useWorkspace } from '../../../lib/workspace'
 import { actionErrorMessage } from '../settings/ui/hooks'
 import { Notice } from '../settings/ui/Notice'
 import { SegmentedControl } from '../settings/ui/SegmentedControl'
-import { formatPlanPrice } from './money'
+import { formatPlanPrice, gstRateOf } from './money'
 import { freeMonthsLabel, intervalLabels, limitLabel, planCopy, planPricePaise, type BillingInterval, type Plan } from './plans'
 import { usePlans, useSubscription } from './queries'
 import { checkoutStageText, useCheckout } from './useCheckout'
@@ -30,6 +30,8 @@ export function PlansPage() {
   // A prepaid (Cashfree) plan is renewed or changed by paying again, so its current plan stays choosable.
   const prepaidActive = subscription.data?.status === 'active' && subscription.data.provider === 'cashfree'
   const checkoutProvider = subscription.data?.checkout_provider
+  const gstRate = gstRateOf(subscription.data)
+  const monthlyNote = (price: number) => `works out to ${formatPlanPrice(Math.round(price / 12))} a month`
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -40,7 +42,7 @@ export function PlansPage() {
           </Link>
         }
         title="Plans"
-        description={`Prices are in rupees and don't include ${site.gstRate}% GST. Annual billing charges ${ANNUAL_MONTHS_CHARGED} months for a full year.`}
+        description={`${gstRate > 0 ? `Prices are in rupees and don't include ${gstRate}% GST.` : 'Prices are in rupees, with no GST added.'} Annual billing charges ${ANNUAL_MONTHS_CHARGED} months for a full year.`}
       />
 
       {!isOwner && (
@@ -120,10 +122,11 @@ export function PlansPage() {
                   <span className="font-display text-3xl font-semibold tracking-[-0.02em] text-ink">{formatPlanPrice(price)}</span>
                   <span className="text-sm text-muted"> / {interval === 'annual' ? 'year' : 'month'}</span>
                 </p>
-                <p className="text-[13px] text-muted">
-                  + {site.gstRate}% GST
-                  {interval === 'annual' && ` · works out to ${formatPlanPrice(Math.round(price / 12))} a month`}
-                </p>
+                {(gstRate > 0 || interval === 'annual') && (
+                  <p className="text-[13px] text-muted">
+                    {[gstRate > 0 && `+ ${gstRate}% GST`, interval === 'annual' && monthlyNote(price)].filter(Boolean).join(' · ')}
+                  </p>
+                )}
                 <ul className="mt-4 flex flex-col gap-1.5 border-t border-line-2 pt-4 text-sm">
                   {(['whatsapp_numbers', 'members', 'contacts'] as const).map((key) => (
                     <li key={key} className="font-medium text-ink">

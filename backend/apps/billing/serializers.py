@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from common.phone import InvalidPhoneNumber, normalize_e164
 
-from . import gst
+from . import gst, services
 from .schema_enums import (
     BILLING_INTERVALS,
     BILLING_PROVIDERS,
@@ -60,9 +60,15 @@ class SubscriptionSerializer(serializers.Serializer):
         read_only=True,
         help_text="True for an active Razorpay subscription; Cashfree plans are prepaid.",
     )
+    gst_rate_percent = serializers.SerializerMethodField(
+        help_text="GST added to plan prices at checkout; 0 while UpChatz doesn't charge GST."
+    )
     checkout_provider = serializers.SerializerMethodField(
         help_text="The gateway a new checkout uses."
     )
+
+    def get_gst_rate_percent(self, obj) -> int:
+        return services.gst_rate_percent()
 
     @extend_schema_field(serializers.ChoiceField(choices=BILLING_PROVIDERS))
     def get_checkout_provider(self, obj) -> str:

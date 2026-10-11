@@ -48,6 +48,8 @@ BILLING_SELLER_LEGAL_NAME = "UpChatz Test Seller Private Limited"
 BILLING_SELLER_GSTIN = "29ABCDE1234F1ZW"
 BILLING_SELLER_STATE_CODE = "29"
 BILLING_SELLER_ADDRESS = "1 Test Road, Bengaluru, Karnataka 560001"
+# Most billing tests check GST arithmetic; GST-off behaviour is tested with an override.
+BILLING_GST_ENABLED = True
 BILLING_PROVIDER = "cashfree"
 CASHFREE_ENV = "sandbox"
 BILLING_CASHFREE_APP_ID = "cf_test_app_id"

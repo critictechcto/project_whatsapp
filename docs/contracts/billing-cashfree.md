@@ -10,6 +10,7 @@ UpChatz's own subscription billing can run on **Cashfree Payment Gateway orders*
 | `CASHFREE_ENV` | `CASHFREE_ENV`, default `sandbox` | `sandbox` or `production`; anything else raises `ImproperlyConfigured` |
 | `BILLING_CASHFREE_APP_ID`, `BILLING_CASHFREE_SECRET` | sandbox: `TEST_CASHFREE_API_APP_ID`, `TEST_CASHFREE_API_SECRET`; production: `CASHFREE_API_APP_ID`, `CASHFREE_API_SECRET` | chosen by `CASHFREE_ENV` |
 | `CASHFREE_TIMEOUT` | `CASHFREE_TIMEOUT`, default `20` | seconds |
+| `BILLING_GST_ENABLED` | `BILLING_GST_ENABLED`, default `false` | Off while UpChatz isn't GST-registered: the rate is 0, so the order amount and invoice total are the plan price and the checkout description has no "+ GST". On: `BILLING_GST_RATE_PERCENT` applies. |
 
 Use the **sandbox (test) keys until the owner says otherwise**. Missing keys never stop settings from loading; checkout returns 503 `upstream_unavailable` instead.
 
@@ -88,6 +89,7 @@ Use the **sandbox (test) keys until the owner says otherwise**. Missing keys nev
 - **`Subscription`** adds:
   - `provider`: `razorpay` | `cashfree` | null (null on a trial).
   - `auto_renews`: bool. True for an active Razorpay subscription without `cancel_at_period_end`; always false for Cashfree.
+  - `gst_rate_percent`: int, the GST rate added at checkout (0 when `BILLING_GST_ENABLED` is off). The dashboard shows "+ N% GST" only when it is above 0, and hides the invoice tax columns when no listed invoice has tax.
   - `checkout_provider`: `razorpay` | `cashfree`, the current `BILLING_PROVIDER`.
 - **`CheckoutSession`** becomes:
   - `provider` (`razorpay` | `cashfree`), `name`, `description`, `prefill`.

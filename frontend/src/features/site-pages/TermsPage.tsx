@@ -105,9 +105,12 @@ export function TermsPage() {
           ))}
         </BulletList>
         <p>
-          Prices are in Indian rupees and exclude GST, which is added at {site.gstRate}% or the rate that applies at the
-          time. Annual billing charges {ANNUAL_MONTHS_CHARGED} months for a full year ({freeMonths} months free).
-          Subscriptions are billed in advance through Razorpay and renew until cancelled. Plan limits (such as numbers,
+          Prices are in Indian rupees.{' '}
+          {site.gstRate > 0
+            ? `GST is added at ${site.gstRate}% or the rate that applies at the time.`
+            : "We don't charge GST while we aren't GST-registered; if that changes, GST will be added at the rate that applies and shown at checkout before you pay."}{' '}
+          Annual billing charges {ANNUAL_MONTHS_CHARGED} months for a full year ({freeMonths} months free). Plans are paid
+          in advance for a month or a year at a time and don't renew automatically; we email you before your plan ends. Plan limits (such as numbers,
           team members and contacts) are shown on the pricing page and in the dashboard. We may change prices or plans
           with notice before your next billing period.
         </p>

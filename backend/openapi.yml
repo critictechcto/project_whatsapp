@@ -11140,6 +11140,11 @@ components:
           readOnly: true
           description: True for an active Razorpay subscription; Cashfree plans are
             prepaid.
+        gst_rate_percent:
+          type: integer
+          readOnly: true
+          description: GST added to plan prices at checkout; 0 while UpChatz doesn't
+            charge GST.
         checkout_provider:
           allOf:
           - $ref: '#/components/schemas/PaymentProviderEnum'
@@ -11151,6 +11156,7 @@ components:
       - checkout_provider
       - current_period_end
       - current_period_start
+      - gst_rate_percent
       - interval
       - plan
       - provider

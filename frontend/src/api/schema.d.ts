@@ -4483,6 +4483,8 @@ export interface components {
             readonly provider: (components["schemas"]["PaymentProviderEnum"] | components["schemas"]["NullEnum"]) | null;
             /** @description True for an active Razorpay subscription; Cashfree plans are prepaid. */
             readonly auto_renews: boolean;
+            /** @description GST added to plan prices at checkout; 0 while UpChatz doesn't charge GST. */
+            readonly gst_rate_percent: number;
             /** @description The gateway a new checkout uses. */
             readonly checkout_provider: components["schemas"]["PaymentProviderEnum"];
         };

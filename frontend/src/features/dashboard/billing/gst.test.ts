@@ -56,6 +56,7 @@ describe('money', () => {
   })
 
   it('adds GST', () => {
-    expect(withGst(99900)).toBe(117882)
+    expect(withGst(99900, 18)).toBe(117882)
+    expect(withGst(99900, 0)).toBe(99900)
   })
 })

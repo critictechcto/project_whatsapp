@@ -8,7 +8,7 @@ import { actionErrorMessage } from '../settings/ui/hooks'
 import { Notice } from '../settings/ui/Notice'
 import { SectionCard } from '../settings/ui/SectionCard'
 import { CancelSubscriptionDialog } from './CancelSubscriptionDialog'
-import { formatPlanPrice } from './money'
+import { formatPlanPrice, gstSuffix } from './money'
 import { daysUntil, intervalLabels, isFutureDate, planPricePaise, type Subscription } from './plans'
 import { useSubscription } from './queries'
 import { checkoutStageText, providerNames, useCheckout } from './useCheckout'
@@ -103,7 +103,7 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
           <p className="text-sm text-muted">
             {status === 'trialing'
               ? `Free trial of the ${plan.name} plan`
-              : `${formatPlanPrice(planPricePaise(plan, interval))} / ${interval === 'annual' ? 'year' : 'month'} + ${site.gstRate}% GST`}
+              : `${formatPlanPrice(planPricePaise(plan, interval))} / ${interval === 'annual' ? 'year' : 'month'}${gstSuffix(subscription.gst_rate_percent)}`}
           </p>
         </div>
 

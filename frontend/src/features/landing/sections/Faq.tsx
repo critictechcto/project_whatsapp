@@ -22,7 +22,7 @@ const faqs: AccordionItem[] = [
   },
   {
     question: 'What will I pay in total?',
-    answer: `Your ${site.name} plan, plus Meta’s charges for template messages, which depend on the category (marketing, utility or authentication). Meta’s charges are passed on at cost, and replies inside the 24-hour window are free under Meta’s current pricing. Plan prices exclude ${site.gstRate}% GST.`,
+    answer: `Your ${site.name} plan, plus Meta’s charges for template messages, which depend on the category (marketing, utility or authentication). Meta’s charges are passed on at cost, and replies inside the 24-hour window are free under Meta’s current pricing. ${site.gstRate > 0 ? `Plan prices exclude ${site.gstRate}% GST.` : 'No GST is added to plan prices.'}`,
   },
   {
     question: 'Will my number get banned?',

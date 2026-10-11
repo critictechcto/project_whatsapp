@@ -93,8 +93,8 @@ export function PrivacyPage() {
             bank details.
           </li>
           <li>
-            Our own subscription fees are billed through Razorpay. We receive billing details and payment status from
-            Razorpay, not full card or bank details.
+            Our own plan fees are paid through Cashfree (earlier subscriptions through Razorpay). We receive billing
+            details and payment status from them, not full card or bank details.
           </li>
         </BulletList>
       </ProseSection>
@@ -126,9 +126,9 @@ export function PrivacyPage() {
             the WhatsApp Business Platform. Meta’s own terms and privacy policy apply to data on WhatsApp.
           </li>
           <li>
-            <strong className="font-semibold">Razorpay</strong> — subscription billing, and payment links when a
-            business connects its own Razorpay account. <strong className="font-semibold">Cashfree</strong> — payment
-            links when a business connects its own Cashfree account.
+            <strong className="font-semibold">Cashfree</strong> — plan billing, and payment links when a business
+            connects its own Cashfree account. <strong className="font-semibold">Razorpay</strong> — earlier plan
+            subscriptions, and payment links when a business connects its own Razorpay account.
           </li>
           <li>
             <strong className="font-semibold">Resend</strong> — to deliver service emails such as sign-up

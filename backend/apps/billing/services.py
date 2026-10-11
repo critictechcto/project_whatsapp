@@ -203,10 +203,17 @@ def abandon_checkout(subscription: Subscription, *, keep_trial: bool, now: datet
         subscription.status = Status.CANCELLED
 
 
+def gst_rate_percent() -> int:
+    """The GST rate charged on plans: 0 while ``BILLING_GST_ENABLED`` is off (not registered)."""
+    return settings.BILLING_GST_RATE_PERCENT if settings.BILLING_GST_ENABLED else 0
+
+
 def _checkout_description(plan: Plan, interval: str) -> str:
     period = "year" if interval == Interval.ANNUAL else "month"
     price = invoices.format_inr(plan.price_paise(interval))
-    return f"{plan.name} plan: {price} + {settings.BILLING_GST_RATE_PERCENT}% GST per {period}"
+    rate = gst_rate_percent()
+    gst = f" + {rate}% GST" if rate else ""
+    return f"{plan.name} plan: {price}{gst} per {period}"
 
 
 def _cancel_quietly(razorpay_subscription_id: str) -> None:
@@ -303,12 +310,12 @@ def start_razorpay_checkout(*, workspace, plan: Plan, interval: str) -> dict:
 
 
 def checkout_total_paise(plan: Plan, interval: str, buyer_state_code: str) -> int:
-    """GST-inclusive price: exactly the total of the invoice issued for it."""
+    """The amount charged (GST-inclusive when GST is on): exactly the invoice total."""
     return invoices.compute_gst(
         plan.price_paise(interval),
         buyer_state_code=buyer_state_code,
         seller_state_code=settings.BILLING_SELLER_STATE_CODE,
-        rate_percent=settings.BILLING_GST_RATE_PERCENT,
+        rate_percent=gst_rate_percent(),
     ).total_paise
 
 
@@ -820,7 +827,7 @@ def create_paid_invoice(
         plan.price_paise(interval),
         buyer_state_code=buyer.get("state_code", ""),
         seller_state_code=settings.BILLING_SELLER_STATE_CODE,
-        rate_percent=settings.BILLING_GST_RATE_PERCENT,
+        rate_percent=gst_rate_percent(),
     )
     if amount_paid_paise is not None and amount_paid_paise != gst.total_paise:
         logger.warning(

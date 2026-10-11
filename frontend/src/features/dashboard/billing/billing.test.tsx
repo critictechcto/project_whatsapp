@@ -175,6 +175,7 @@ describe('billing', () => {
           cancel_at_period_end: false,
           provider: 'cashfree',
           auto_renews: false,
+          gst_rate_percent: 0,
           checkout_provider: 'cashfree',
         } satisfies Schemas['Subscription']),
       ),
@@ -219,15 +220,48 @@ describe('billing', () => {
     expect(screen.getByLabelText(/^State/)).toHaveAttribute('aria-invalid', 'true')
   })
 
-  it('shows GST invoices in rupees and hides owner actions from admins', async () => {
+  it('shows invoices in rupees without GST columns and hides owner actions from admins', async () => {
     signIn()
     renderDashboard(`/app/w/${ids.kaveriClinic}/billing`)
 
     expect((await screen.findAllByText('UPC/2026-27/000142')).length).toBeGreaterThan(0)
-    expect(screen.getAllByText('₹11,788.20').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('CGST ₹899.10').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('₹9,990.00').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('columnheader', { name: 'GST' })).not.toBeInTheDocument()
+    expect(screen.getByText('₹9,990 / year')).toBeInTheDocument()
     expect(screen.getByText('Only the workspace owner can change the plan or cancel.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel plan' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument()
+  })
+
+  it('shows the GST breakdown on invoices that charged GST', async () => {
+    server.use(
+      http.untyped.get(apiUrl('/api/v1/billing/invoices/'), () =>
+        Response.json({
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: '7b3c0d64-5f1e-4c55-9a0b-2b7f1c9e0a11',
+              number: 'UPC/2026-27/000150',
+              status: 'paid',
+              issued_at: daysAgo(10),
+              period_start: daysAgo(10),
+              period_end: daysAgo(-355),
+              subtotal_paise: 999000,
+              cgst_paise: 89910,
+              sgst_paise: 89910,
+              igst_paise: 0,
+              total_paise: 1178820,
+              download_url: null,
+            },
+          ] satisfies Schemas['Invoice'][],
+        }),
+      ),
+    )
+    signIn()
+    renderDashboard(`/app/w/${ids.kaveriClinic}/billing`)
+
+    expect((await screen.findAllByText('CGST ₹899.10')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('₹11,788.20').length).toBeGreaterThan(0)
   })
 })

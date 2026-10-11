@@ -18,7 +18,7 @@ export function BillingProfileSummary() {
     <SectionCard
       id="billing-profile"
       title="Billing details"
-      description="Shown on your GST invoices."
+      description="Shown on your invoices."
       actions={
         profile.isSuccess &&
         complete && (

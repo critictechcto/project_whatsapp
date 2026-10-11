@@ -26,8 +26,10 @@ function TaxLines({ invoice }: { invoice: Invoice }) {
 export function InvoicesCard() {
   const { timeZone } = useWorkspace()
   const invoices = useInvoices()
+  // Invoices issued while GST isn't charged have no tax; drop the tax columns unless one has some.
+  const anyTax = invoices.items.some((invoice) => invoice.total_paise !== invoice.subtotal_paise)
 
-  const columns: Column<Invoice>[] = [
+  const allColumns: Column<Invoice>[] = [
     {
       id: 'number',
       header: 'Invoice',
@@ -87,9 +89,10 @@ export function InvoicesCard() {
         ),
     },
   ]
+  const columns = anyTax ? allColumns : allColumns.filter((column) => column.id !== 'subtotal' && column.id !== 'tax')
 
   return (
-    <SectionCard id="billing-invoices" title="Invoices" description="Tax invoices with GST for each payment.">
+    <SectionCard id="billing-invoices" title="Invoices" description="An invoice for each payment, with GST shown where it was charged.">
       {invoices.isError ? (
         <Notice
           tone="danger"

@@ -102,7 +102,7 @@ export function Pricing() {
             index="09"
             eyebrow="Pricing"
             title="Simple plans. Meta’s fees at cost."
-            description={`Every plan includes a ${site.trialDays}-day free trial with no card required. Prices are in INR and exclude ${site.gstRate}% GST.`}
+            description={`Every plan includes a ${site.trialDays}-day free trial with no card required. Prices are in INR${site.gstRate > 0 ? ` and exclude ${site.gstRate}% GST` : ', with no GST added'}.`}
           />
           <div
             role="group"

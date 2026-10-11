@@ -87,6 +87,7 @@ function trial(endsAt: string): Subscription {
     cancel_at_period_end: false,
     provider: null,
     auto_renews: false,
+    gst_rate_percent: site.gstRate,
     checkout_provider: checkoutProvider,
   }
 }
@@ -154,6 +155,7 @@ function build(): Map<string, BillingRecord> {
       cancel_at_period_end: false,
       provider: 'cashfree',
       auto_renews: false,
+      gst_rate_percent: site.gstRate,
       checkout_provider: checkoutProvider,
     },
     profile: {
@@ -208,6 +210,7 @@ function present(subscription: Subscription): Subscription {
   return {
     ...subscription,
     auto_renews: subscription.provider === 'razorpay' && subscription.status === 'active' && !subscription.cancel_at_period_end,
+    gst_rate_percent: site.gstRate,
     checkout_provider: checkoutProvider,
   }
 }

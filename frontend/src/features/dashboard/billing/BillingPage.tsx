@@ -15,7 +15,7 @@ export function BillingPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <PageHeader
         title="Billing"
-        description="Your plan, usage, GST details and invoices."
+        description="Your plan, usage, billing details and invoices."
         actions={
           can('owner') && (
             <Link to={`/app/w/${workspaceId}/billing/plans`} className={buttonClasses('secondary', 'md')}>
