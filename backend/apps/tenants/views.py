@@ -5,15 +5,17 @@ from rest_framework.response import Response
 
 from common.roles import Role, role_at_least
 from common.routers import UUID_LOOKUP_REGEX
-from common.tenancy import InsufficientRole, WorkspaceScopedMixin
+from common.tenancy import InsufficientRole, WorkspaceScopedGenericViewSet, WorkspaceScopedMixin
 
 from . import services
 from .models import Invitation, Membership, Workspace
+from .onboarding import update_onboarding
 from .serializers import (
     AcceptedInvitationSerializer,
     InvitationAcceptSerializer,
     InvitationSerializer,
     MembershipSerializer,
+    OnboardingSerializer,
     WorkspaceSerializer,
 )
 
@@ -134,3 +136,33 @@ class AcceptInvitationView(generics.GenericAPIView):
             {"workspace": membership.workspace, "role": membership.role}
         ).data
         return Response(body)
+
+
+class OnboardingViewSet(WorkspaceScopedGenericViewSet):
+    """The caller's onboarding in this workspace. Any member updates their own flags; only
+    admins and owners set the workspace goal."""
+
+    serializer_class = OnboardingSerializer
+    filter_backends: list = []
+    read_role = Role.VIEWER
+    write_role = Role.VIEWER
+
+    @extend_schema(operation_id="workspaces_onboarding_retrieve", responses=OnboardingSerializer)
+    def retrieve(self, request):
+        return Response(self.get_serializer(self.membership).data)
+
+    @extend_schema(
+        operation_id="workspaces_onboarding_partial_update",
+        request=OnboardingSerializer,
+        responses=OnboardingSerializer,
+    )
+    def partial_update(self, request):
+        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        goal = data.pop("goal", None)
+        membership = self.membership
+        if goal is not None and not role_at_least(membership.role, Role.ADMIN):
+            raise InsufficientRole("Only admins and owners can set the workspace goal.")
+        update_onboarding(membership, goal=goal, **data)
+        return Response(self.get_serializer(membership).data)

@@ -3,7 +3,7 @@ import zoneinfo
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from common.roles import Role
+from common.roles import Role, role_at_least
 
 from .models import Invitation, Membership, Workspace
 
@@ -60,3 +60,27 @@ class InvitationAcceptSerializer(serializers.Serializer):
 class AcceptedInvitationSerializer(serializers.Serializer):
     workspace = WorkspaceSummarySerializer()
     role = serializers.ChoiceField(choices=Role.choices)
+
+
+class OnboardingSerializer(serializers.Serializer):
+    """The caller's onboarding in the workspace of the ``X-Workspace-ID`` header."""
+
+    goal = serializers.ChoiceField(
+        choices=Workspace.Goal.choices,
+        allow_blank=True,
+        required=False,
+        help_text='The workspace\'s first goal; "" until chosen. Admins and owners may set it.',
+    )
+    welcome_completed = serializers.BooleanField(required=False)
+    tour_completed = serializers.BooleanField(required=False)
+    checklist_dismissed = serializers.BooleanField(required=False)
+    can_set_goal = serializers.BooleanField(read_only=True)
+
+    def to_representation(self, membership: Membership) -> dict:
+        return {
+            "goal": membership.workspace.business_goal,
+            "welcome_completed": membership.welcome_completed_at is not None,
+            "tour_completed": membership.tour_completed_at is not None,
+            "checklist_dismissed": membership.checklist_dismissed_at is not None,
+            "can_set_goal": role_at_least(membership.role, Role.ADMIN),
+        }

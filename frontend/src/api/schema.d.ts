@@ -2018,6 +2018,30 @@ export interface paths {
         patch: operations["workspaces_members_partial_update"];
         trace?: never;
     };
+    "/api/v1/workspaces/onboarding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The caller's onboarding in this workspace. Any member updates their own flags; only
+         *     admins and owners set the workspace goal.
+         */
+        get: operations["workspaces_onboarding_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The caller's onboarding in this workspace. Any member updates their own flags; only
+         *     admins and owners set the workspace goal.
+         */
+        patch: operations["workspaces_onboarding_partial_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3312,6 +3336,21 @@ export interface components {
         MetaReviewStatusEnum: "none" | "pending" | "approved" | "rejected" | "outdated";
         /** @enum {unknown} */
         NullEnum: null;
+        /** @description The caller's onboarding in the workspace of the ``X-Workspace-ID`` header. */
+        Onboarding: {
+            /**
+             * @description The workspace's first goal; "" until chosen. Admins and owners may set it.
+             *
+             *     * `sell` - Sell products on WhatsApp
+             *     * `marketing` - Send offers and updates
+             *     * `support` - Reply to customers faster
+             */
+            goal?: components["schemas"]["WorkspaceGoalEnum"] | components["schemas"]["BlankEnum"];
+            welcome_completed?: boolean;
+            tour_completed?: boolean;
+            checklist_dismissed?: boolean;
+            readonly can_set_goal: boolean;
+        };
         OptInRequestRequest: {
             /** @default manual */
             source: components["schemas"]["ConsentRequestSourceEnum"];
@@ -4011,6 +4050,20 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** @description The caller's onboarding in the workspace of the ``X-Workspace-ID`` header. */
+        PatchedOnboardingRequest: {
+            /**
+             * @description The workspace's first goal; "" until chosen. Admins and owners may set it.
+             *
+             *     * `sell` - Sell products on WhatsApp
+             *     * `marketing` - Send offers and updates
+             *     * `support` - Reply to customers faster
+             */
+            goal?: components["schemas"]["WorkspaceGoalEnum"] | components["schemas"]["BlankEnum"];
+            welcome_completed?: boolean;
+            tour_completed?: boolean;
+            checklist_dismissed?: boolean;
+        };
         PatchedOrderNotesRequest: {
             notes?: string;
         };
@@ -4656,6 +4709,13 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
         };
+        /**
+         * @description * `sell` - Sell products on WhatsApp
+         *     * `marketing` - Send offers and updates
+         *     * `support` - Reply to customers faster
+         * @enum {string}
+         */
+        WorkspaceGoalEnum: "sell" | "marketing" | "support";
         WorkspaceMembershipSummary: {
             /** Format: uuid */
             workspace_id: string;
@@ -9085,6 +9145,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Membership"];
+                };
+            };
+        };
+    };
+    workspaces_onboarding_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+        };
+    };
+    workspaces_onboarding_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOnboardingRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOnboardingRequest"];
+                "multipart/form-data": components["schemas"]["PatchedOnboardingRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
                 };
             };
         };

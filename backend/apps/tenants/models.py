@@ -13,10 +13,18 @@ from common.roles import Role
 class Workspace(UUIDTimeStampedModel):
     """A tenant: one business account on the platform. Every tenant-owned row points here."""
 
+    class Goal(models.TextChoices):
+        """What the business wants to do first; orders the onboarding checklist."""
+
+        SELL = "sell", "Sell products on WhatsApp"
+        MARKETING = "marketing", "Send offers and updates"
+        SUPPORT = "support", "Reply to customers faster"
+
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=64, unique=True)
     time_zone = models.CharField(max_length=64, default="Asia/Kolkata")
     is_active = models.BooleanField(default=True)
+    business_goal = models.CharField(max_length=16, choices=Goal.choices, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -38,6 +46,10 @@ class Membership(UUIDTimeStampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"
     )
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.AGENT)
+    # Per-person onboarding (docs/contracts/onboarding.md): null means not done yet.
+    welcome_completed_at = models.DateTimeField(null=True, blank=True)
+    tour_completed_at = models.DateTimeField(null=True, blank=True)
+    checklist_dismissed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta(UUIDTimeStampedModel.Meta):
         constraints = [

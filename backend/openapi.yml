@@ -5504,6 +5504,66 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/workspaces/onboarding/:
+    get:
+      operationId: workspaces_onboarding_retrieve
+      description: |-
+        The caller's onboarding in this workspace. Any member updates their own flags; only
+        admins and owners set the workspace goal.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - workspaces
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Onboarding'
+          description: ''
+    patch:
+      operationId: workspaces_onboarding_partial_update
+      description: |-
+        The caller's onboarding in this workspace. Any member updates their own flags; only
+        admins and owners set the workspace goal.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - workspaces
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOnboardingRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Onboarding'
+          description: ''
 components:
   schemas:
     AcceptedInvitation:
@@ -8613,6 +8673,32 @@ components:
     NullEnum:
       enum:
       - null
+    Onboarding:
+      type: object
+      description: The caller's onboarding in the workspace of the ``X-Workspace-ID``
+        header.
+      properties:
+        goal:
+          description: |-
+            The workspace's first goal; "" until chosen. Admins and owners may set it.
+
+            * `sell` - Sell products on WhatsApp
+            * `marketing` - Send offers and updates
+            * `support` - Reply to customers faster
+          oneOf:
+          - $ref: '#/components/schemas/WorkspaceGoalEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        welcome_completed:
+          type: boolean
+        tour_completed:
+          type: boolean
+        checklist_dismissed:
+          type: boolean
+        can_set_goal:
+          type: boolean
+          readOnly: true
+      required:
+      - can_set_goal
     OptInRequestRequest:
       type: object
       properties:
@@ -9993,6 +10079,27 @@ components:
             additionalProperties: true
           description: Template components in Meta's format (HEADER, BODY, FOOTER,
             BUTTONS).
+    PatchedOnboardingRequest:
+      type: object
+      description: The caller's onboarding in the workspace of the ``X-Workspace-ID``
+        header.
+      properties:
+        goal:
+          description: |-
+            The workspace's first goal; "" until chosen. Admins and owners may set it.
+
+            * `sell` - Sell products on WhatsApp
+            * `marketing` - Send offers and updates
+            * `support` - Reply to customers faster
+          oneOf:
+          - $ref: '#/components/schemas/WorkspaceGoalEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        welcome_completed:
+          type: boolean
+        tour_completed:
+          type: boolean
+        checklist_dismissed:
+          type: boolean
     PatchedOrderNotesRequest:
       type: object
       properties:
@@ -11558,6 +11665,16 @@ components:
       - my_role
       - name
       - slug
+    WorkspaceGoalEnum:
+      enum:
+      - sell
+      - marketing
+      - support
+      type: string
+      description: |-
+        * `sell` - Sell products on WhatsApp
+        * `marketing` - Send offers and updates
+        * `support` - Reply to customers faster
     WorkspaceMembershipSummary:
       type: object
       properties:
