@@ -1,4 +1,5 @@
 import type { Schemas } from '../../../api/types'
+import type { WorkspaceGoal } from './api'
 import { hasRole } from '../../../lib/roles'
 import type { MockMembership } from '../../../mocks/db'
 import { authorize, errorResponse, http, mockDelay, validationError } from '../../../mocks/utils'
@@ -12,8 +13,8 @@ type Flags = { welcome_completed: boolean; tour_completed: boolean; checklist_di
 
 const sessionStart = Date.now()
 const flags = new Map<string, Flags>()
-const goals = new Map<string, Schemas['Onboarding']['goal']>()
-const GOALS = ['sell', 'marketing', 'support', '']
+const goals = new Map<string, WorkspaceGoal[]>()
+const GOALS: readonly WorkspaceGoal[] = ['sell', 'marketing', 'support']
 
 function flagsOf(membership: MockMembership): Flags {
   let state = flags.get(membership.id)
@@ -27,7 +28,7 @@ function flagsOf(membership: MockMembership): Flags {
 
 function onboardingOf(membership: MockMembership): Schemas['Onboarding'] {
   return {
-    goal: goals.get(membership.workspace_id) ?? '',
+    goals: goals.get(membership.workspace_id) ?? [],
     ...flagsOf(membership),
     can_set_goal: hasRole(membership.role, 'admin'),
   }
@@ -39,9 +40,9 @@ export function resetOnboardingMocks() {
   goals.clear()
 }
 
-/** Test helper: set a workspace's goal as if an admin had chosen it. */
-export function setMockWorkspaceGoal(workspaceId: string, goal: Schemas['Onboarding']['goal']) {
-  goals.set(workspaceId, goal)
+/** Test helper: set a workspace's goals as if an admin had chosen them. */
+export function setMockWorkspaceGoals(workspaceId: string, chosen: WorkspaceGoal[]) {
+  goals.set(workspaceId, GOALS.filter((goal) => chosen.includes(goal)))
 }
 
 /** Test helper: the stored flags of a membership (as the next GET would return them). */
@@ -61,14 +62,16 @@ export const handlers: AreaMockHandlers = [
     const ctx = authorize(request)
     if (ctx instanceof Response) return response.untyped(ctx)
     const body = (await request.json()) as Schemas['PatchedOnboardingRequest']
-    if (body.goal !== undefined) {
-      if (!GOALS.includes(body.goal)) {
-        return response.untyped(validationError({ goal: [`"${body.goal}" is not a valid choice.`] }))
+    if (body.goals !== undefined) {
+      const chosen = body.goals
+      const invalid = chosen.find((goal) => !GOALS.includes(goal))
+      if (invalid !== undefined) {
+        return response.untyped(validationError({ goals: { 0: [`"${invalid}" is not a valid choice.`] } }))
       }
       if (!hasRole(ctx.membership.role, 'admin')) {
-        return response.untyped(errorResponse(403, 'insufficient_role', 'Only admins and owners can set the workspace goal.'))
+        return response.untyped(errorResponse(403, 'insufficient_role', 'Only admins and owners can set the workspace goals.'))
       }
-      goals.set(ctx.workspace.id, body.goal)
+      goals.set(ctx.workspace.id, GOALS.filter((goal) => chosen.includes(goal)))
     }
     const state = flagsOf(ctx.membership)
     for (const flag of ['welcome_completed', 'tour_completed', 'checklist_dismissed'] as const) {

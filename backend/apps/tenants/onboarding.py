@@ -2,7 +2,7 @@
 
 from django.utils import timezone
 
-from .models import Membership
+from .models import Membership, Workspace
 
 # API flag -> Membership timestamp field.
 FLAG_FIELDS = {
@@ -12,8 +12,10 @@ FLAG_FIELDS = {
 }
 
 
-def update_onboarding(membership: Membership, *, goal: str | None = None, **flags: bool) -> None:
-    """Set the workspace goal and the caller's flags: true stamps now, false clears."""
+def update_onboarding(
+    membership: Membership, *, goals: list[str] | None = None, **flags: bool
+) -> None:
+    """Set the workspace goals and the caller's flags: true stamps now, false clears."""
     now = timezone.now()
     changed = []
     for flag, value in flags.items():
@@ -28,6 +30,8 @@ def update_onboarding(membership: Membership, *, goal: str | None = None, **flag
     if changed:
         membership.save(update_fields=[*changed, "updated_at"])
     workspace = membership.workspace
-    if goal is not None and goal != workspace.business_goal:
-        workspace.business_goal = goal
-        workspace.save(update_fields=["business_goal", "updated_at"])
+    if goals is not None:
+        ordered = [goal for goal in Workspace.Goal.values if goal in goals]
+        if ordered != workspace.business_goals:
+            workspace.business_goals = ordered
+            workspace.save(update_fields=["business_goals", "updated_at"])

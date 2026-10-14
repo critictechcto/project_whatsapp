@@ -1,7 +1,6 @@
 import { FloatingFocusManager, FloatingOverlay, FloatingPortal, useDismiss, useFloating, useInteractions, useRole } from '@floating-ui/react'
 import { ArrowLeft, Check, Megaphone, MessagesSquare, ShoppingBag, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
 import { Button } from '../../../components/app'
 import { PreviewBubble } from '../../../components/app/whatsapp/PreviewBubble'
 import { site } from '../../../config/site'
@@ -11,7 +10,7 @@ import { roleLabels, type Role } from '../../../lib/roles'
 import { useWorkspace } from '../../../lib/workspace'
 import { useMe } from '../auth/session'
 import { useUpdateOnboarding, type Onboarding, type WorkspaceGoal } from './api'
-import { goalOptions, goalSteps, type GoalKey } from './goalSteps'
+import { goalOptions, goalSteps, normalizeGoals } from './goalSteps'
 import { useTour } from './tour/useTour'
 import './welcome.css'
 
@@ -68,14 +67,13 @@ function StepDots({ index, total }: { index: number; total: number }) {
 
 /**
  * Full-screen welcome shown once per person per workspace (docs/contracts/onboarding.md).
- * Owners and admins choose the workspace goal; invited teammates get a shorter version.
+ * Owners and admins choose the workspace goals (one or more); invited teammates get a shorter version.
  * Skipping (Esc or "Skip") counts as seen.
  */
 export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
-  const { workspace, workspaceId, role } = useWorkspace()
+  const { workspace, role } = useWorkspace()
   const me = useMe()
   const tour = useTour()
-  const navigate = useNavigate()
   const update = useUpdateOnboarding()
   const saveGoal = useUpdateOnboarding()
   const reducedMotion = usePrefersReducedMotion()
@@ -83,7 +81,7 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
 
   const steps: StepKind[] = onboarding.can_set_goal ? ['welcome', 'goal', 'plan'] : ['welcome', 'role']
   const [index, setIndex] = useState(0)
-  const [goal, setGoal] = useState<GoalKey>(onboarding.goal ?? '')
+  const [goals, setGoals] = useState<WorkspaceGoal[]>(() => normalizeGoals(onboarding.goals ?? []))
   const [goalError, setGoalError] = useState<string | null>(null)
   const step = steps[index]
 
@@ -112,9 +110,9 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
 
   const continueFromGoal = async () => {
     setGoalError(null)
-    if (goal && goal !== (onboarding.goal ?? '')) {
+    if (goals.join() !== normalizeGoals(onboarding.goals ?? []).join()) {
       try {
-        await saveGoal.mutateAsync({ goal })
+        await saveGoal.mutateAsync({ goals })
       } catch {
         setGoalError("Couldn't save your choice. You can continue and set it later in Settings.")
         return
@@ -123,10 +121,8 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
     setIndex(index + 1)
   }
 
-  const connect = () => {
-    finish()
-    navigate(`/app/w/${workspaceId}/whatsapp`)
-  }
+  const toggleGoal = (value: WorkspaceGoal) =>
+    setGoals((current) => normalizeGoals(current.includes(value) ? current.filter((goal) => goal !== value) : [...current, value]))
   const takeTour = () => {
     finish()
     tour.start()
@@ -173,12 +169,12 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
                     What do you want to do first?
                   </h1>
                   <p id="welcome-goal-hint" className="text-sm text-muted">
-                    We'll order your setup steps around it. You can change it later in Settings.
+                    Choose one or more. We'll order your setup steps around them. You can change this later in Settings.
                   </p>
-                  <div role="radiogroup" aria-labelledby={headingId} aria-describedby="welcome-goal-hint" className="mt-1 flex flex-col gap-3">
+                  <div role="group" aria-labelledby={headingId} aria-describedby="welcome-goal-hint" className="mt-1 flex flex-col gap-3">
                     {goalOptions.map((option) => {
                       const Icon = goalIcons[option.value]
-                      const selected = goal === option.value
+                      const selected = goals.includes(option.value)
                       return (
                         <label
                           key={option.value}
@@ -188,11 +184,11 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
                           )}
                         >
                           <input
-                            type="radio"
+                            type="checkbox"
                             name="welcome-goal"
                             value={option.value}
                             checked={selected}
-                            onChange={() => setGoal(option.value)}
+                            onChange={() => toggleGoal(option.value)}
                             className="sr-only"
                           />
                           <span
@@ -205,7 +201,7 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
                             <span className="block font-medium text-ink">{option.title}</span>
                             <span className="mt-0.5 block text-[13px] text-muted">{option.description}</span>
                           </span>
-                          <span aria-hidden="true" className={cn('grid size-5 shrink-0 place-items-center rounded-full border', selected ? 'border-accent bg-accent text-paper' : 'border-line')}>
+                          <span aria-hidden="true" className={cn('grid size-5 shrink-0 place-items-center rounded-md border', selected ? 'border-accent bg-accent text-paper' : 'border-line')}>
                             {selected && <Check className="size-3.5" />}
                           </span>
                         </label>
@@ -229,7 +225,7 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
                     <p className="mt-2 text-sm text-muted">These steps wait for you on Home, in this order.</p>
                   </div>
                   <ol aria-label="Setup steps" className="flex flex-col gap-2">
-                    {goalSteps(goal).map((item, i) => (
+                    {goalSteps(goals).map((item, i) => (
                       <li key={item.id} className={cn('flex gap-3 rounded-lg border border-line-2 bg-card px-3.5 py-2.5', animate && 'chat-pop')} style={animate ? { animationDelay: `${i * 0.06}s` } : undefined}>
                         <span className="mt-0.5 font-mono text-[12px] text-muted">{i + 1}</span>
                         <span className="min-w-0">
@@ -285,28 +281,10 @@ export function WelcomeFlow({ onboarding }: { onboarding: Onboarding }) {
                       Continue
                     </Button>
                   )}
-                  {step === 'plan' && (
-                    <>
-                      <Button variant="ghost" size="lg" onClick={finish}>
-                        Go to dashboard
-                      </Button>
-                      <Button variant="secondary" size="lg" onClick={takeTour}>
-                        Take a quick tour
-                      </Button>
-                      <Button size="lg" onClick={connect}>
-                        Connect WhatsApp
-                      </Button>
-                    </>
-                  )}
-                  {step === 'role' && (
-                    <>
-                      <Button variant="secondary" size="lg" onClick={finish}>
-                        Go to dashboard
-                      </Button>
-                      <Button size="lg" onClick={takeTour}>
-                        Take a quick tour
-                      </Button>
-                    </>
+                  {(step === 'plan' || step === 'role') && (
+                    <Button size="lg" onClick={takeTour}>
+                      Take a quick tour
+                    </Button>
                   )}
                 </div>
               </div>

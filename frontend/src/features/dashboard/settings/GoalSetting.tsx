@@ -1,11 +1,9 @@
-import { Field, Select, Skeleton, useToast } from '../../../components/app'
+import { Checkbox, Skeleton, useToast } from '../../../components/app'
 import { useOnboarding, useUpdateOnboarding, type WorkspaceGoal } from '../onboarding/api'
-import { goalLabel, goalOptions } from '../onboarding/goalSteps'
+import { goalLabel, goalOptions, normalizeGoals } from '../onboarding/goalSteps'
 import { SectionCard } from './ui/SectionCard'
 
-const options = goalOptions.map((option) => ({ value: option.value, label: option.title }))
-
-/** Settings → General: the workspace's main goal, which orders the Home checklist for everyone. */
+/** Settings → General: the workspace's goals, which order the Home checklist for everyone. */
 export function GoalSetting() {
   const onboarding = useOnboarding()
   const update = useUpdateOnboarding()
@@ -13,34 +11,40 @@ export function GoalSetting() {
   const data = onboarding.data
   if (onboarding.isError) return null
 
-  const onChange = (value: string) => {
+  const toggle = (value: WorkspaceGoal, checked: boolean) => {
+    const current = data?.goals ?? []
+    const goals = normalizeGoals(checked ? [...current, value] : current.filter((goal) => goal !== value))
     update.mutate(
-      { goal: value as WorkspaceGoal | '' },
+      { goals },
       {
-        onSuccess: () => toast({ title: 'Main goal saved', tone: 'success' }),
-        onError: () => toast({ title: "Couldn't save the main goal", tone: 'error' }),
+        onSuccess: () => toast({ title: 'Goals saved', tone: 'success' }),
+        onError: () => toast({ title: "Couldn't save the goals", tone: 'error' }),
       },
     )
   }
 
   return (
-    <SectionCard id="settings-general" title="General" description="The main goal orders the setup steps on Home for everyone in this workspace.">
+    <SectionCard id="settings-general" title="General" description="Your goals order the setup steps on Home for everyone in this workspace.">
       {!data ? (
         <Skeleton className="h-10 w-full" />
       ) : data.can_set_goal ? (
-        <Field label="Main goal">
-          <Select
-            value={data.goal ?? ''}
-            onChange={(event) => onChange(event.target.value)}
-            disabled={update.isPending}
-            placeholder="Not chosen yet"
-            options={options}
-          />
-        </Field>
+        <fieldset className="flex flex-col gap-3">
+          <legend className="mb-1 text-sm font-medium text-ink">Goals</legend>
+          {goalOptions.map((option) => (
+            <Checkbox
+              key={option.value}
+              label={option.title}
+              description={option.description}
+              checked={data.goals?.includes(option.value) ?? false}
+              disabled={update.isPending}
+              onChange={(event) => toggle(option.value, event.target.checked)}
+            />
+          ))}
+        </fieldset>
       ) : (
         <dl className="text-sm">
-          <dt className="text-[12.5px] text-muted">Main goal</dt>
-          <dd className="mt-0.5 text-ink">{goalLabel(data.goal)}</dd>
+          <dt className="text-[12.5px] text-muted">Goals</dt>
+          <dd className="mt-0.5 text-ink">{goalLabel(data.goals)}</dd>
           <dd className="mt-1 text-[12.5px] text-muted">An admin or the owner can change it.</dd>
         </dl>
       )}

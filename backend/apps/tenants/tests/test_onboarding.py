@@ -19,7 +19,7 @@ def test_new_member_starts_with_nothing_done(auth_client):
 
     assert response.status_code == 200
     assert response.json() == {
-        "goal": "",
+        "goals": [],
         "welcome_completed": False,
         "tour_completed": False,
         "checklist_dismissed": False,
@@ -49,15 +49,16 @@ def test_flags_are_per_person_and_can_be_cleared(auth_client, user, workspace):
     assert agent.get(ONBOARDING).json()["welcome_completed"] is False
 
 
-def test_admin_sets_the_workspace_goal_for_everyone(auth_client, workspace):
-    response = auth_client(Role.ADMIN).patch(ONBOARDING, {"goal": "sell"}, format="json")
+def test_admin_sets_the_workspace_goals_for_everyone(auth_client, workspace):
+    admin = auth_client(Role.ADMIN)
+    response = admin.patch(ONBOARDING, {"goals": ["support", "sell", "sell"]}, format="json")
 
     assert response.status_code == 200
-    assert response.json()["goal"] == "sell"
+    assert response.json()["goals"] == ["sell", "support"]
     workspace.refresh_from_db()
-    assert workspace.business_goal == "sell"
+    assert workspace.business_goals == ["sell", "support"]
     viewer = auth_client(Role.VIEWER).get(ONBOARDING).json()
-    assert viewer["goal"] == "sell"
+    assert viewer["goals"] == ["sell", "support"]
     assert viewer["can_set_goal"] is False
 
 
@@ -66,21 +67,30 @@ def test_members_below_admin_cannot_set_the_goal(auth_client, workspace, role):
     client = auth_client(role)
 
     response = client.patch(
-        ONBOARDING, {"goal": "marketing", "welcome_completed": True}, format="json"
+        ONBOARDING, {"goals": ["marketing"], "welcome_completed": True}, format="json"
     )
 
     assert response.status_code == 403
     workspace.refresh_from_db()
-    assert workspace.business_goal == ""
+    assert workspace.business_goals == []
     # Their own flags still work on their own.
     assert client.patch(ONBOARDING, {"welcome_completed": True}, format="json").status_code == 200
 
 
+def test_goals_can_be_cleared(auth_client):
+    client = auth_client()
+    client.patch(ONBOARDING, {"goals": ["sell"]}, format="json")
+
+    response = client.patch(ONBOARDING, {"goals": []}, format="json")
+
+    assert response.json()["goals"] == []
+
+
 def test_invalid_goal_is_rejected(auth_client):
-    response = auth_client().patch(ONBOARDING, {"goal": "everything"}, format="json")
+    response = auth_client().patch(ONBOARDING, {"goals": ["everything"]}, format="json")
 
     assert response.status_code == 400
-    assert "goal" in response.json()["error"]["details"]
+    assert "goals" in response.json()["error"]["details"]
 
 
 def test_non_member_gets_404(user, other_workspace):

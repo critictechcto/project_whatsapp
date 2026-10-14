@@ -33,16 +33,8 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name="workspace",
-            name="business_goal",
-            field=models.CharField(
-                blank=True,
-                choices=[
-                    ("sell", "Sell products on WhatsApp"),
-                    ("marketing", "Send offers and updates"),
-                    ("support", "Reply to customers faster"),
-                ],
-                max_length=16,
-            ),
+            name="business_goals",
+            field=models.JSONField(blank=True, default=list),
         ),
         migrations.RunPython(mark_existing_members_welcomed, migrations.RunPython.noop),
     ]

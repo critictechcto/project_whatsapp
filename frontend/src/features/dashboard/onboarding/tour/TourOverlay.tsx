@@ -1,13 +1,8 @@
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import {
-  autoUpdate,
-  type ReferenceType,
-  flip,
   FloatingFocusManager,
   FloatingOverlay,
   FloatingPortal,
-  offset,
-  shift,
   useDismiss,
   useFloating,
   useInteractions,
@@ -33,6 +28,8 @@ function isLargeScreen() {
 type Rect = { top: number; left: number; width: number; height: number }
 
 const SPOTLIGHT_PADDING = 4
+const POPOVER_GAP = 14
+const VIEWPORT_MARGIN = 12
 
 /**
  * The tour popover. On large screens each step sits next to its sidebar item with a spotlight cut
@@ -44,7 +41,7 @@ export default function TourOverlay({ onFinish }: { onFinish: () => void }) {
   // Resolved once per run, so the step count stays stable while the tour is open.
   const [steps] = useState(() => resolveSteps(role, isLargeScreen()))
   const [index, setIndex] = useState(0)
-  const [spotlight, setSpotlight] = useState<Rect | null>(null)
+  const [measured, setMeasured] = useState<{ rect: Rect; popover: { top: number; left: number } } | null>(null)
   const reducedMotion = usePrefersReducedMotion()
   const nextRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
@@ -59,30 +56,45 @@ export default function TourOverlay({ onFinish }: { onFinish: () => void }) {
     if (steps.length === 0) onFinish()
   }, [steps.length, onFinish])
 
-  const whileElementsMounted = useCallback(
-    (reference: ReferenceType, floating: HTMLElement, update: () => void) =>
-      autoUpdate(reference, floating, () => {
-        update()
-        const rect = reference.getBoundingClientRect()
-        setSpotlight({
-          top: rect.top - SPOTLIGHT_PADDING,
-          left: rect.left - SPOTLIGHT_PADDING,
-          width: rect.width + SPOTLIGHT_PADDING * 2,
-          height: rect.height + SPOTLIGHT_PADDING * 2,
+  // The spotlight and the popover follow the current step's sidebar item. On large screens the
+  // sidebar is always on screen with room to its right, so the popover sits there, vertically
+  // centred on the item and kept inside the viewport.
+  useLayoutEffect(() => {
+    if (!target) return
+    target.scrollIntoView?.({ block: 'nearest' })
+    let frame = 0
+    const measure = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const rect = target.getBoundingClientRect()
+        const height = popoverRef.current?.offsetHeight ?? 0
+        const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - height - VIEWPORT_MARGIN)
+        setMeasured({
+          popover: {
+            top: Math.min(Math.max(rect.top + rect.height / 2 - height / 2, VIEWPORT_MARGIN), maxTop),
+            left: rect.right + SPOTLIGHT_PADDING + POPOVER_GAP,
+          },
+          rect: {
+            top: rect.top - SPOTLIGHT_PADDING,
+            left: rect.left - SPOTLIGHT_PADDING,
+            width: rect.width + SPOTLIGHT_PADDING * 2,
+            height: rect.height + SPOTLIGHT_PADDING * 2,
+          },
         })
-      }),
-    [],
-  )
+      })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [target, index])
+  // The previous step's rectangle until the new one is measured, so the spotlight glides over.
+  const spotlight = target && measured ? measured.rect : null
 
-  // Positioning next to the sidebar item.
-  const position = useFloating({
-    open: true,
-    placement: 'right',
-    strategy: 'fixed',
-    elements: { reference: target },
-    middleware: [offset(14), flip({ fallbackPlacements: ['bottom', 'top'] }), shift({ padding: 12 })],
-    whileElementsMounted,
-  })
   // Focus trap and Escape use a context without the reference: a modal focus manager keeps its
   // reference tabbable, and the nav link must stay behind the overlay.
   const { refs, context } = useFloating({
@@ -94,16 +106,14 @@ export default function TourOverlay({ onFinish }: { onFinish: () => void }) {
   const dismiss = useDismiss(context, { outsidePress: false })
   const dialogRole = useRole(context, { role: 'dialog' })
   const { getFloatingProps } = useInteractions([dismiss, dialogRole])
-  const setPositioned = position.refs.setFloating
   const setFocusTrapped = refs.setFloating
 
   const setPopover = useCallback(
     (node: HTMLDivElement | null) => {
       popoverRef.current = node
-      setPositioned(node)
       setFocusTrapped(node)
     },
-    [setPositioned, setFocusTrapped],
+    [setFocusTrapped],
   )
 
   // Back on the second step unmounts the Back button; keep focus inside the popover.
@@ -160,38 +170,39 @@ export default function TourOverlay({ onFinish }: { onFinish: () => void }) {
             data-tour-anchor={anchored ? step.target : undefined}
             {...getFloatingProps()}
             onKeyDown={onKeyDown}
-            style={anchored ? position.floatingStyles : undefined}
+            style={anchored ? { position: 'fixed', ...(measured?.popover ?? { top: 0, left: 0, visibility: 'hidden' }) } : undefined}
             className={cn(
               'w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-line bg-card p-5 shadow-2xl',
-              motion && 'fade-up',
-              motion && anchored && 'transition-transform duration-200 ease-out',
+              motion && anchored && 'transition-[top,left] duration-200 ease-out',
             )}
           >
-            <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-muted">
-              {index + 1} of {steps.length}
-            </p>
-            <h2 id={titleId} className="mt-1.5 font-display text-lg font-semibold tracking-[-0.01em] text-ink">
-              {step.title}
-            </h2>
-            <p id={bodyId} className="mt-1.5 text-sm leading-relaxed text-ink-2">
-              {step.body}
-            </p>
-            <span className="sr-only" aria-live="polite">
-              {`Step ${index + 1} of ${steps.length}: ${step.title}`}
-            </span>
-            <div className="mt-5 flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={onFinish}>
-                Skip tour
-              </Button>
-              <span className="flex-1" />
-              {index > 0 && (
-                <Button variant="secondary" size="sm" onClick={back}>
-                  Back
+            <div key={index} className={motion ? 'fade-up' : undefined}>
+              <p className="font-mono text-[12px] uppercase tracking-[0.12em] text-muted">
+                {index + 1} of {steps.length}
+              </p>
+              <h2 id={titleId} className="mt-1.5 font-display text-lg font-semibold tracking-[-0.01em] text-ink">
+                {step.title}
+              </h2>
+              <p id={bodyId} className="mt-1.5 text-sm leading-relaxed text-ink-2">
+                {step.body}
+              </p>
+              <span className="sr-only" aria-live="polite">
+                {`Step ${index + 1} of ${steps.length}: ${step.title}`}
+              </span>
+              <div className="mt-5 flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={onFinish}>
+                  Skip tour
                 </Button>
-              )}
-              <Button ref={nextRef} size="sm" onClick={next}>
-                {isLast ? 'Done' : 'Next'}
-              </Button>
+                <span className="flex-1" />
+                {index > 0 && (
+                  <Button variant="secondary" size="sm" onClick={back}>
+                    Back
+                  </Button>
+                )}
+                <Button ref={nextRef} size="sm" onClick={next}>
+                  {isLast ? 'Done' : 'Next'}
+                </Button>
+              </div>
             </div>
           </div>
         </FloatingFocusManager>

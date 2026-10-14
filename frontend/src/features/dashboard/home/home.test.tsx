@@ -7,7 +7,7 @@ import { server } from '../../../mocks/node'
 import { daysAgo, ids } from '../../../mocks/seed'
 import { errorResponse, http, paginate } from '../../../mocks/utils'
 import { renderDashboard, signIn } from '../../../test/render'
-import { mockOnboardingFlags, setMockWorkspaceGoal } from '../onboarding/mocks'
+import { mockOnboardingFlags, setMockWorkspaceGoals } from '../onboarding/mocks'
 import { campaignProgress, storeProgress, storeStepLabel, summarizeTemplates, tierLabel, trialDaysLeft } from './api'
 
 const home = `/app/w/${ids.sharmaSweets}`
@@ -235,7 +235,7 @@ describe('home checklist', () => {
   })
 
   it('orders steps for the sell goal with the store steps and why-lines', async () => {
-    setMockWorkspaceGoal(ids.sharmaSweets, 'sell')
+    setMockWorkspaceGoals(ids.sharmaSweets, ['sell'])
     useHomeMocks({ commerce: { checklist: checklistItems(2) } })
     signIn()
     renderDashboard(home)
@@ -251,7 +251,7 @@ describe('home checklist', () => {
   })
 
   it('drops the store steps when commerce is not available', async () => {
-    setMockWorkspaceGoal(ids.sharmaSweets, 'sell')
+    setMockWorkspaceGoals(ids.sharmaSweets, ['sell'])
     useHomeMocks({ commerce: { checklist: 409, summary: 409 } })
     signIn()
     renderDashboard(home)

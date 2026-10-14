@@ -2027,7 +2027,7 @@ export interface paths {
         };
         /**
          * @description The caller's onboarding in this workspace. Any member updates their own flags; only
-         *     admins and owners set the workspace goal.
+         *     admins and owners set the workspace goals.
          */
         get: operations["workspaces_onboarding_retrieve"];
         put?: never;
@@ -2037,7 +2037,7 @@ export interface paths {
         head?: never;
         /**
          * @description The caller's onboarding in this workspace. Any member updates their own flags; only
-         *     admins and owners set the workspace goal.
+         *     admins and owners set the workspace goals.
          */
         patch: operations["workspaces_onboarding_partial_update"];
         trace?: never;
@@ -3338,14 +3338,8 @@ export interface components {
         NullEnum: null;
         /** @description The caller's onboarding in the workspace of the ``X-Workspace-ID`` header. */
         Onboarding: {
-            /**
-             * @description The workspace's first goal; "" until chosen. Admins and owners may set it.
-             *
-             *     * `sell` - Sell products on WhatsApp
-             *     * `marketing` - Send offers and updates
-             *     * `support` - Reply to customers faster
-             */
-            goal?: components["schemas"]["WorkspaceGoalEnum"] | components["schemas"]["BlankEnum"];
+            /** @description What the workspace wants to do first, in the order sell, marketing, support; empty until chosen. Admins and owners may set it. */
+            goals?: components["schemas"]["WorkspaceGoalEnum"][];
             welcome_completed?: boolean;
             tour_completed?: boolean;
             checklist_dismissed?: boolean;
@@ -4052,14 +4046,8 @@ export interface components {
         };
         /** @description The caller's onboarding in the workspace of the ``X-Workspace-ID`` header. */
         PatchedOnboardingRequest: {
-            /**
-             * @description The workspace's first goal; "" until chosen. Admins and owners may set it.
-             *
-             *     * `sell` - Sell products on WhatsApp
-             *     * `marketing` - Send offers and updates
-             *     * `support` - Reply to customers faster
-             */
-            goal?: components["schemas"]["WorkspaceGoalEnum"] | components["schemas"]["BlankEnum"];
+            /** @description What the workspace wants to do first, in the order sell, marketing, support; empty until chosen. Admins and owners may set it. */
+            goals?: components["schemas"]["WorkspaceGoalEnum"][];
             welcome_completed?: boolean;
             tour_completed?: boolean;
             checklist_dismissed?: boolean;

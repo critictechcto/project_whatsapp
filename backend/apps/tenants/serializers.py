@@ -65,11 +65,13 @@ class AcceptedInvitationSerializer(serializers.Serializer):
 class OnboardingSerializer(serializers.Serializer):
     """The caller's onboarding in the workspace of the ``X-Workspace-ID`` header."""
 
-    goal = serializers.ChoiceField(
-        choices=Workspace.Goal.choices,
-        allow_blank=True,
+    goals = serializers.ListField(
+        child=serializers.ChoiceField(choices=Workspace.Goal.choices),
+        allow_empty=True,
+        max_length=len(Workspace.Goal.choices),
         required=False,
-        help_text='The workspace\'s first goal; "" until chosen. Admins and owners may set it.',
+        help_text="What the workspace wants to do first, in the order sell, marketing, support; "
+        "empty until chosen. Admins and owners may set it.",
     )
     welcome_completed = serializers.BooleanField(required=False)
     tour_completed = serializers.BooleanField(required=False)
@@ -78,7 +80,7 @@ class OnboardingSerializer(serializers.Serializer):
 
     def to_representation(self, membership: Membership) -> dict:
         return {
-            "goal": membership.workspace.business_goal,
+            "goals": membership.workspace.business_goals,
             "welcome_completed": membership.welcome_completed_at is not None,
             "tour_completed": membership.tour_completed_at is not None,
             "checklist_dismissed": membership.checklist_dismissed_at is not None,

@@ -14,7 +14,7 @@ class Workspace(UUIDTimeStampedModel):
     """A tenant: one business account on the platform. Every tenant-owned row points here."""
 
     class Goal(models.TextChoices):
-        """What the business wants to do first; orders the onboarding checklist."""
+        """What the business wants to do first (one or more); orders the onboarding checklist."""
 
         SELL = "sell", "Sell products on WhatsApp"
         MARKETING = "marketing", "Send offers and updates"
@@ -24,7 +24,8 @@ class Workspace(UUIDTimeStampedModel):
     slug = models.SlugField(max_length=64, unique=True)
     time_zone = models.CharField(max_length=64, default="Asia/Kolkata")
     is_active = models.BooleanField(default=True)
-    business_goal = models.CharField(max_length=16, choices=Goal.choices, blank=True)
+    # Goal values in Goal order, no repeats; empty until chosen.
+    business_goals = models.JSONField(default=list, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

@@ -75,7 +75,7 @@ export function HomePage() {
 
   // Store steps drop out when the workspace can't use commerce (or the checklist lacks the key).
   const commerceUnavailable = storeChecklist.isError && isCommerceUnavailable(storeChecklist.error)
-  const steps: SetupStep[] = goalSteps(onboarding.data?.goal ?? '').flatMap((step) => {
+  const steps: SetupStep[] = goalSteps(onboarding.data?.goals).flatMap((step) => {
     const state = stepStates[step.id]
     if (state === 'missing' || (commerceUnavailable && COMMERCE_STEPS.includes(step.id))) return []
     return [{ ...step, state }]

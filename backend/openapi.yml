@@ -5509,7 +5509,7 @@ paths:
       operationId: workspaces_onboarding_retrieve
       description: |-
         The caller's onboarding in this workspace. Any member updates their own flags; only
-        admins and owners set the workspace goal.
+        admins and owners set the workspace goals.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -5533,7 +5533,7 @@ paths:
       operationId: workspaces_onboarding_partial_update
       description: |-
         The caller's onboarding in this workspace. Any member updates their own flags; only
-        admins and owners set the workspace goal.
+        admins and owners set the workspace goals.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -8678,16 +8678,13 @@ components:
       description: The caller's onboarding in the workspace of the ``X-Workspace-ID``
         header.
       properties:
-        goal:
-          description: |-
-            The workspace's first goal; "" until chosen. Admins and owners may set it.
-
-            * `sell` - Sell products on WhatsApp
-            * `marketing` - Send offers and updates
-            * `support` - Reply to customers faster
-          oneOf:
-          - $ref: '#/components/schemas/WorkspaceGoalEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+        goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceGoalEnum'
+          description: What the workspace wants to do first, in the order sell, marketing,
+            support; empty until chosen. Admins and owners may set it.
+          maxItems: 3
         welcome_completed:
           type: boolean
         tour_completed:
@@ -10084,16 +10081,13 @@ components:
       description: The caller's onboarding in the workspace of the ``X-Workspace-ID``
         header.
       properties:
-        goal:
-          description: |-
-            The workspace's first goal; "" until chosen. Admins and owners may set it.
-
-            * `sell` - Sell products on WhatsApp
-            * `marketing` - Send offers and updates
-            * `support` - Reply to customers faster
-          oneOf:
-          - $ref: '#/components/schemas/WorkspaceGoalEnum'
-          - $ref: '#/components/schemas/BlankEnum'
+        goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceGoalEnum'
+          description: What the workspace wants to do first, in the order sell, marketing,
+            support; empty until chosen. Admins and owners may set it.
+          maxItems: 3
         welcome_completed:
           type: boolean
         tour_completed:

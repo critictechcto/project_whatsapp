@@ -1,10 +1,16 @@
 import type { WorkspaceGoal } from './api'
 
 /**
- * Getting-started steps and their order for each workspace goal (docs/contracts/onboarding.md).
- * Home renders them with live state; the welcome flow previews the order.
+ * Getting-started steps and their order for the workspace goals (docs/contracts/onboarding.md).
+ * A workspace may pick several goals; Home renders the steps with live state and the welcome flow
+ * previews the order.
  */
-export type GoalKey = WorkspaceGoal | ''
+export type Goals = readonly WorkspaceGoal[]
+
+/** Goals in their fixed order, without repeats (the order the API stores them in). */
+export function normalizeGoals(goals: Goals): WorkspaceGoal[] {
+  return goalOptions.map((option) => option.value).filter((goal) => goals.includes(goal))
+}
 
 export type ChecklistStepId = 'whatsapp' | 'products' | 'payments' | 'store' | 'contacts' | 'templates' | 'campaigns' | 'automations' | 'team'
 
@@ -86,19 +92,25 @@ export const stepDefinitions: Record<ChecklistStepId, StepDefinition> = {
   },
 }
 
-/** The order without a goal; goals list their own steps first, then the rest of this order. */
+/** The order without a goal. */
 export const DEFAULT_ORDER: readonly ChecklistStepId[] = ['whatsapp', 'contacts', 'templates', 'campaigns', 'automations', 'team']
 
-const goalOrders: Record<GoalKey, readonly ChecklistStepId[]> = {
-  '': DEFAULT_ORDER,
+/** Each goal's own first steps; with several goals these come first, in goal order. */
+const goalFirstSteps: Record<WorkspaceGoal, readonly ChecklistStepId[]> = {
+  sell: ['whatsapp', 'products', 'payments', 'store'],
+  marketing: ['whatsapp', 'contacts', 'templates', 'campaigns'],
+  support: ['whatsapp', 'team', 'automations', 'contacts'],
+}
+
+/** Each goal's full list; the rest of every chosen goal's list follows the first steps. */
+const goalOrders: Record<WorkspaceGoal, readonly ChecklistStepId[]> = {
   sell: ['whatsapp', 'products', 'payments', 'store', 'contacts', 'templates', 'team'],
   marketing: ['whatsapp', 'contacts', 'templates', 'campaigns', 'automations', 'team'],
   support: ['whatsapp', 'team', 'automations', 'contacts', 'templates', 'campaigns'],
 }
 
-/** One line per step on why it matters for this goal; steps without one use `defaultWhy`. */
-const goalWhy: Record<GoalKey, Partial<Record<ChecklistStepId, string>>> = {
-  '': {},
+/** One line per step on why it matters for a goal; steps without one use `defaultWhy`. */
+const goalWhy: Record<WorkspaceGoal, Partial<Record<ChecklistStepId, string>>> = {
   sell: {
     whatsapp: 'Buyers message this number to see your products and order.',
     products: 'Your menu in the chat: buyers pick from these.',
@@ -135,17 +147,24 @@ const defaultWhy: Record<ChecklistStepId, string> = {
   team: 'Share the work of replying.',
 }
 
-export function stepOrder(goal: GoalKey | undefined): readonly ChecklistStepId[] {
-  return goalOrders[goal ?? ''] ?? DEFAULT_ORDER
+export function stepOrder(goals: Goals | undefined): readonly ChecklistStepId[] {
+  const chosen = normalizeGoals(goals ?? [])
+  if (chosen.length === 0) return DEFAULT_ORDER
+  const order = [...chosen.flatMap((goal) => goalFirstSteps[goal]), ...chosen.flatMap((goal) => goalOrders[goal])]
+  return [...new Set(order)]
 }
 
-export function stepWhy(goal: GoalKey | undefined, id: ChecklistStepId): string {
-  return goalWhy[goal ?? '']?.[id] ?? defaultWhy[id]
+export function stepWhy(goals: Goals | undefined, id: ChecklistStepId): string {
+  for (const goal of normalizeGoals(goals ?? [])) {
+    const why = goalWhy[goal][id]
+    if (why) return why
+  }
+  return defaultWhy[id]
 }
 
-/** Step definitions in the goal's order, with the why-line. */
-export function goalSteps(goal: GoalKey | undefined): (StepDefinition & { why: string })[] {
-  return stepOrder(goal).map((id) => ({ ...stepDefinitions[id], why: stepWhy(goal, id) }))
+/** Step definitions in the goals' order, with the why-line. */
+export function goalSteps(goals: Goals | undefined): (StepDefinition & { why: string })[] {
+  return stepOrder(goals).map((id) => ({ ...stepDefinitions[id], why: stepWhy(goals, id) }))
 }
 
 export const goalOptions: readonly { value: WorkspaceGoal; title: string; description: string }[] = [
@@ -154,6 +173,7 @@ export const goalOptions: readonly { value: WorkspaceGoal; title: string; descri
   { value: 'support', title: 'Reply to customers faster', description: 'A shared inbox with automatic replies.' },
 ]
 
-export function goalLabel(goal: GoalKey | undefined): string {
-  return goalOptions.find((option) => option.value === goal)?.title ?? 'Not chosen'
+export function goalLabel(goals: Goals | undefined): string {
+  const titles = goalOptions.filter((option) => goals?.includes(option.value)).map((option) => option.title)
+  return titles.length > 0 ? titles.join(', ') : 'Not chosen'
 }
