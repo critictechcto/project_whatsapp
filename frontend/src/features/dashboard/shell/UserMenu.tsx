@@ -1,13 +1,19 @@
-import { ExternalLink, LogOut } from 'lucide-react'
+import { Compass, ExternalLink, ListChecks, LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { Avatar, DropdownMenu } from '../../../components/app'
 import { site } from '../../../config/site'
+import { useWorkspace } from '../../../lib/workspace'
 import { useLogout, useMe } from '../auth/session'
+import { useUpdateOnboarding } from '../onboarding/api'
+import { useTour } from '../onboarding/tour/useTour'
 
 export function UserMenu() {
   const me = useMe()
   const logout = useLogout()
   const navigate = useNavigate()
+  const { workspaceId } = useWorkspace()
+  const tour = useTour()
+  const updateOnboarding = useUpdateOnboarding()
   const name = me.data?.full_name || me.data?.email || 'Account'
 
   return (
@@ -32,6 +38,16 @@ export function UserMenu() {
         </>
       }
       items={[
+        { id: 'tour', label: 'Take the tour', icon: <Compass />, onSelect: () => tour.start() },
+        {
+          id: 'setup-guide',
+          label: 'Show setup guide',
+          icon: <ListChecks />,
+          onSelect: () => {
+            updateOnboarding.mutate({ checklist_dismissed: false })
+            navigate(`/app/w/${workspaceId}`)
+          },
+        },
         {
           id: 'help',
           label: 'Contact support',

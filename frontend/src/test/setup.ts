@@ -5,6 +5,7 @@ import { setActiveWorkspaceId } from '../api/client'
 import { resetRefreshState } from '../lib/auth/refresh'
 import { tokenStore } from '../lib/auth/tokens'
 import { clearSubscriptions } from '../lib/realtime/registry'
+import { resetOnboardingMocks } from '../features/dashboard/onboarding/mocks'
 import { resetMockDb } from '../mocks/db'
 import { server } from '../mocks/node'
 import { mockRealtime } from '../mocks/realtime'
@@ -37,6 +38,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   resetMockDb()
+  resetOnboardingMocks()
 })
 
 afterEach(() => {

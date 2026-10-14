@@ -5,6 +5,8 @@ import { Drawer } from '../../../components/app'
 import { cn } from '../../../lib/cn'
 import { site } from '../../../config/site'
 import { useWorkspace } from '../../../lib/workspace'
+import { OnboardingGate } from '../onboarding/OnboardingGate'
+import { TourProvider } from '../onboarding/tour/TourProvider'
 import { visibleNav } from '../registry'
 import { prefetchArea, prefetchAreasWhenIdle } from '../registry/prefetch'
 import { EmailVerificationBanner } from './EmailVerificationBanner'
@@ -35,6 +37,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                   <NavLink
                     to={item.to ? `/app/w/${workspaceId}/${item.to}` : `/app/w/${workspaceId}`}
                     end={item.end}
+                    data-tour={item.id}
                     onClick={onNavigate}
                     onPointerEnter={() => prefetchArea(item.to)}
                     onFocus={() => prefetchArea(item.to)}
@@ -86,6 +89,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 /** Responsive shell: fixed sidebar on large screens, top bar + drawer below. */
 export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <TourProvider>
+      <ShellFrame>{children}</ShellFrame>
+    </TourProvider>
+  )
+}
+
+function ShellFrame({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { workspace } = useWorkspace()
   const navigating = useSlowNavigation()
@@ -137,6 +148,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Drawer open={menuOpen} onOpenChange={setMenuOpen} side="left" width="max-w-72" title={site.name}>
         <SidebarContent onNavigate={() => setMenuOpen(false)} />
       </Drawer>
+
+      <OnboardingGate />
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { handlers as catalog } from '../catalog/mocks'
 import { handlers as contacts } from '../contacts/mocks'
 import { handlers as home } from '../home/mocks'
 import { handlers as inbox } from '../inbox/mocks'
+import { handlers as onboarding } from '../onboarding/mocks'
 import { handlers as orders } from '../orders/mocks'
 import { handlers as settings } from '../settings/mocks'
 import { handlers as store } from '../store/mocks'
@@ -19,6 +20,7 @@ import { handlers as templates } from '../templates/mocks'
 import { handlers as whatsapp } from '../whatsapp/mocks'
 
 export const areaMockHandlers: HttpHandler[] = [
+  ...onboarding,
   ...home,
   ...inbox,
   ...contacts,
