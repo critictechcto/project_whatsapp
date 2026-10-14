@@ -349,7 +349,7 @@ Every commerce reply id has the form `upc:<scope>:<action>[:<arg>...]`. It is at
 | Scope | Actions (args) | Owner |
 |---|---|---|
 | `shop` | `menu`, `browse` (no args: collections), `col` (collection_id, offset; or the pseudo collections `all`, offset when there are no collections, and `other`, offset for products without one), `prod` (product_id), `add` (product_id, qty), `qty` (product_id), `cart`, `clear`, `checkout`, `orders`, `talk` | shop |
-| `chk` | `confirm` (order_id), `edit` (order_id), `pay` (order_id, `online`/`cod`), `retry` (order_id), `cancel` (order_id) | orders |
+| `chk` | `confirm` (order_id), `edit` (order_id), `addr_use` (order_id), `addr_new` (order_id), `pay` (order_id, `online`/`cod`), `retry` (order_id), `cancel` (order_id) | orders |
 | `ord` | `view` (order_id), `list` | orders |
 | `nfm` | `address_message` (set by the webhook parser for `nfm_reply`) | orders |
 | `alerts` | `verify` (recipient_id), `pack` / `ship` / `ship_now` / `cancel` / `cancel_yes` / `cancel_no` (order_id), `orders` (no args: the open orders list; order_id: one order's actions) | seller_alerts |
@@ -434,6 +434,7 @@ open_orders_for_workspaces(workspace_ids, *, limit=10) -> list[Order]
 ```
 - `start_checkout` raises `CheckoutRejected(reason)` (`empty_cart` or `below_minimum`, in `apps.orders.exceptions`, re-exported by services) after telling the buyer why, and `catalog.OutOfStock` when the stock reservation fails.
 - *Edit cart* (`chk:edit`) cancels the checkout and sends the shop cart (`upc:shop:cart`); a stale checkout reply sends the shop menu (`upc:shop:menu`).
+- A returning buyer (a `ShopperAddress` with name, street, city and a pincode the store still serves) is first asked "Deliver order <number> to: <address>" with *Deliver here* (`chk:addr_use`, re-checks the address, then goes to the payment choice) and *Change address* (`chk:addr_new`, the address form prefilled with it, or the typed-address prompt). Anyone else gets the address form or typed prompt directly.
 - Order messages to buyers are recorded with source `commerce` and `source_ref` `order:<order_id>`.
 
 There is one active checkout per (contact, phone number), enforced by a partial unique constraint on non-terminal checkout statuses. Order numbers come from `OrderCounter` (`<order_prefix>-<n>`, starting at 1001).

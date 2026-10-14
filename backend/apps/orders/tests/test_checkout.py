@@ -97,14 +97,94 @@ def test_free_shipping_above_the_threshold(conversation, store, product):
     assert (order.shipping_paise, order.total_paise) == (0, 49800)
 
 
-def test_address_form_is_prefilled_from_the_saved_address(conversation, product):
+def test_returning_buyer_gets_the_saved_address_with_one_tap(conversation, store, product):
+    store.cod_enabled = True
+    store.save()
+    saved = ShopperAddressFactory(workspace=conversation.workspace, contact=conversation.contact)
+
+    order = start(conversation, (product, 1))
+
+    prompt = last_outbound(conversation.contact)
+    assert interactive_type(prompt) == "button"
+    assert f"Deliver order {order.number} to:" in content_text(prompt)
+    assert "411001" in content_text(prompt)
+    assert reply_ids(prompt) == [
+        build_reply_id("chk", "addr_use", order.pk),
+        build_reply_id("chk", "addr_new", order.pk),
+    ]
+
+    message = press(conversation, build_reply_id("chk", "addr_use", order.pk))
+
+    order = refresh(order)
+    assert order.status == Order.Status.AWAITING_PAYMENT_METHOD
+    assert order.address == saved.address
+    assert order.events.get(type="address_received").message_id == message.pk
+    assert reply_ids(last_outbound(conversation.contact))[-2:] == [
+        pay(order, "cod"),
+        build_reply_id("chk", "cancel", order.pk),
+    ]
+
+
+def test_change_address_opens_the_prefilled_form(conversation, product):
+    ShopperAddressFactory(workspace=conversation.workspace, contact=conversation.contact)
+    order = start(conversation, (product, 1))
+
+    press(conversation, build_reply_id("chk", "addr_new", order.pk))
+
+    assert refresh(order).status == Order.Status.AWAITING_ADDRESS
+    prompt = last_outbound(conversation.contact)
+    assert interactive_type(prompt) == "address_message"
+    form = json.dumps(prompt.payload["interactive"])
+    assert "411001" in form
+    assert "12, MG Road" in form
+    submit_address(conversation)
+    assert refresh(order).status == Order.Status.AWAITING_PAYMENT_METHOD
+
+
+def test_saved_address_outside_the_delivery_area_is_not_offered(conversation, store, product):
+    store.serviceable_pincodes = ["560038"]
+    store.save()
     ShopperAddressFactory(workspace=conversation.workspace, contact=conversation.contact)
 
     start(conversation, (product, 1))
 
-    form = json.dumps(last_outbound(conversation.contact).payload["interactive"])
-    assert "411001" in form
-    assert "12, MG Road" in form
+    assert interactive_type(last_outbound(conversation.contact)) == "address_message"
+
+
+def test_deliver_here_rechecks_the_saved_address(conversation, store, product):
+    ShopperAddressFactory(workspace=conversation.workspace, contact=conversation.contact)
+    order = start(conversation, (product, 1))
+    store.serviceable_pincodes = ["560038"]
+    store.save()
+
+    press(conversation, build_reply_id("chk", "addr_use", order.pk))
+
+    assert refresh(order).status == Order.Status.AWAITING_ADDRESS
+    assert interactive_type(last_outbound(conversation.contact)) == "address_message"
+
+
+def test_saved_address_buttons_are_stale_after_the_address_step(conversation, product):
+    ShopperAddressFactory(workspace=conversation.workspace, contact=conversation.contact)
+    order = start(conversation, (product, 1))
+    press(conversation, build_reply_id("chk", "addr_use", order.pk))
+
+    press(conversation, build_reply_id("chk", "addr_new", order.pk))
+
+    assert refresh(order).status == Order.Status.AWAITING_PAYMENT_METHOD
+    assert checkout.STALE_TEXT in content_text(last_outbound(conversation.contact))
+
+
+def test_buyer_who_types_addresses_can_reuse_the_saved_one(foreign_conversation, product):
+    conversation = foreign_conversation
+    ShopperAddressFactory(workspace=conversation.workspace, contact=conversation.contact)
+    order = start(conversation, (product, 1))
+    assert interactive_type(last_outbound(conversation.contact)) == "button"
+
+    press(conversation, build_reply_id("chk", "addr_new", order.pk))
+
+    prompt = last_outbound(conversation.contact)
+    assert prompt.type == Message.Type.TEXT
+    assert "type the full address" in prompt.text
 
 
 def test_price_change_needs_confirmation(conversation, product):

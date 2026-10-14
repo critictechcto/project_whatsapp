@@ -1,7 +1,8 @@
 """Buyer checkout on WhatsApp (docs/contracts/wave-3-commerce.md, "Orders services").
 
-Flow: re-priced cart → confirmation when the price changed → address (``address_message``, or
-typed text for non-Indian numbers and clients that fail it with error 1026) → payment choice
+Flow: re-priced cart → confirmation when the price changed → address (a returning buyer first
+gets their saved address with *Deliver here* / *Change address*; otherwise ``address_message``,
+or typed text for non-Indian numbers and clients that fail it with error 1026) → payment choice
 (online link on the seller's gateway, or cash on delivery) → confirmed.
 
 Every buyer reply is re-validated against the order row under ``select_for_update``. Replies to
@@ -322,7 +323,7 @@ def start_checkout(
         if price_changed:
             _ask_confirmation(order, store_settings)
         else:
-            request_address(order, idempotency_key=buyer.key(order.pk, "address"))
+            ask_address(order, store_settings, idempotency_key=buyer.key(order.pk, "address"))
     return order
 
 
@@ -440,6 +441,38 @@ def _form_values(address: dict | None, contact: Contact) -> dict[str, str]:
             "state": address.get("state", ""),
         }
     return {k: str(v) for k, v in values.items() if v}
+
+
+def saved_address(order: Order, store_settings) -> dict | None:
+    """The buyer's last used address when it is complete and still deliverable, else None."""
+    saved = ShopperAddress.objects.filter(
+        workspace_id=order.workspace_id, contact_id=order.contact_id
+    ).first()
+    address = saved.address if saved is not None else None
+    if not isinstance(address, dict):
+        return None
+    if not all(str(address.get(field) or "").strip() for field in ("name", "line1", "city")):
+        return None
+    if _serviceable_error(store_settings, str(address.get("pincode") or "")):
+        return None
+    return address
+
+
+def ask_address(order: Order, store_settings, *, idempotency_key: str) -> Message | None:
+    """First address question of a checkout: one tap for a returning buyer's saved address."""
+    address = saved_address(order, store_settings)
+    if address is None:
+        return request_address(order, idempotency_key=idempotency_key)
+    body = f"Deliver order {order.number} to:\n\n{buyer.format_address(address)}"
+    content = interactive.reply_buttons(
+        buyer.truncate(body),
+        [
+            (build_reply_id("chk", "addr_use", order.pk), "Deliver here"),
+            (build_reply_id("chk", "addr_new", order.pk), "Change address"),
+        ],
+        footer=footer_for(store_settings),
+    )
+    return buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
 
 
 def request_address(
@@ -831,6 +864,27 @@ def _chk_confirm(message, conversation, order, reply, store_settings) -> None:
         return
     order.expires_at = _deadline()
     lifecycle.set_status(order, Status.AWAITING_ADDRESS, actor=BUYER, system=True, message=message)
+    ask_address(order, store_settings, idempotency_key=buyer.key(message.pk, "address"))
+
+
+def _chk_addr_use(message, conversation, order, reply, store_settings) -> None:
+    if order.status != Status.AWAITING_ADDRESS:
+        _send_stale(conversation, message)
+        return
+    address = saved_address(order, store_settings)
+    if address is None:
+        # Changed since we offered it (pincode no longer served, address cleared): ask afresh.
+        request_address(order, idempotency_key=buyer.key(message.pk, "address"))
+        return
+    _accept_address(message, order, dict(address), store_settings)
+
+
+def _chk_addr_new(message, conversation, order, reply, store_settings) -> None:
+    if order.status != Status.AWAITING_ADDRESS:
+        _send_stale(conversation, message)
+        return
+    order.expires_at = _deadline()
+    order.save(update_fields=["expires_at", "updated_at"])
     request_address(order, idempotency_key=buyer.key(message.pk, "address"))
 
 
@@ -888,6 +942,8 @@ def _chk_cancel(message, conversation, order, reply, store_settings) -> None:
 
 CHECKOUT_ACTIONS = {
     "confirm": _chk_confirm,
+    "addr_use": _chk_addr_use,
+    "addr_new": _chk_addr_new,
     "edit": _chk_edit,
     "pay": _chk_pay,
     "retry": _chk_retry,
