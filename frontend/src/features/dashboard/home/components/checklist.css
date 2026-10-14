@@ -1,0 +1,33 @@
+/* Home setup checklist (SetupChecklist.tsx). The bar grows in on load and slides as steps finish. */
+.checklist-bar {
+  transform-origin: left;
+  animation: grow-x 0.9s var(--ease-soft) both;
+  transition: width 0.6s var(--ease-soft);
+}
+
+/* A step that turned done while the page was open. */
+.check-pop {
+  animation: check-pop 0.45s var(--ease-soft) both;
+}
+
+@keyframes check-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checklist-bar,
+  .check-pop {
+    animation: none;
+    transition: none;
+  }
+}

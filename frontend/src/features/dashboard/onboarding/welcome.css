@@ -1,0 +1,21 @@
+/* Welcome flow (WelcomeFlow.tsx). Bubbles and steps reuse chat-pop and fade-up from index.css. */
+.welcome-overlay {
+  animation: welcome-in 0.3s ease-out both;
+}
+
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Keeps the scene's height while the bubbles are still waiting to pop in. */
+.welcome-scene {
+  min-height: 13.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-overlay {
+    animation: none;
+  }
+}

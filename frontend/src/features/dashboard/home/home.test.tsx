@@ -7,6 +7,7 @@ import { server } from '../../../mocks/node'
 import { daysAgo, ids } from '../../../mocks/seed'
 import { errorResponse, http, paginate } from '../../../mocks/utils'
 import { renderDashboard, signIn } from '../../../test/render'
+import { mockOnboardingFlags, setMockWorkspaceGoal } from '../onboarding/mocks'
 import { campaignProgress, storeProgress, storeStepLabel, summarizeTemplates, tierLabel, trialDaysLeft } from './api'
 
 const home = `/app/w/${ids.sharmaSweets}`
@@ -186,7 +187,7 @@ function useHomeMocks({
 
 async function checklist() {
   await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 10_000 })
-  const heading = await screen.findByRole('heading', { level: 2, name: /Get started|Setup complete/ })
+  const heading = await screen.findByRole('heading', { level: 2, name: /Get started|You're all set/ })
   return heading.closest('section')!
 }
 
@@ -215,7 +216,7 @@ describe('home checklist', () => {
     await screen.findByRole('heading', { level: 1, name: 'Welcome, Rohan' }, { timeout: 10_000 })
 
     const toggle = await screen.findByRole('button', { name: 'Show steps' }, { timeout: 10_000 })
-    expect(screen.getByRole('heading', { name: 'Setup complete' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "You're all set" })).toBeInTheDocument()
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('Connect WhatsApp')).not.toBeVisible()
 
@@ -231,6 +232,58 @@ describe('home checklist', () => {
     const section = await checklist()
     const item = await waitFor(() => within(section).getByText('Set up an automation').closest('li')!)
     await waitFor(() => expect(within(item).getByLabelText("Couldn't check")).toBeInTheDocument())
+  })
+
+  it('orders steps for the sell goal with the store steps and why-lines', async () => {
+    setMockWorkspaceGoal(ids.sharmaSweets, 'sell')
+    useHomeMocks({ commerce: { checklist: checklistItems(2) } })
+    signIn()
+    renderDashboard(home)
+    const section = await checklist()
+    await waitFor(() => expect(within(section).getByText('5 of 7 done')).toBeInTheDocument())
+    const titles = within(section)
+      .getAllByRole('listitem')
+      .map((item) => item.querySelector('p')?.textContent)
+    expect(titles).toEqual(['Connect WhatsApp', 'Add products', 'Set up payments', 'Turn on your store', 'Add contacts', 'Create a template', 'Invite your team'])
+    const payments = within(section).getAllByText('Set up payments')[0].closest('li')!
+    expect(within(payments).getByText(/money never passes through us/)).toBeInTheDocument()
+    expect(within(payments).getByRole('link', { name: /Set up payments/ })).toHaveAttribute('href', `${home}/store/payments`)
+  })
+
+  it('drops the store steps when commerce is not available', async () => {
+    setMockWorkspaceGoal(ids.sharmaSweets, 'sell')
+    useHomeMocks({ commerce: { checklist: 409, summary: 409 } })
+    signIn()
+    renderDashboard(home)
+    const section = await checklist()
+    await waitFor(() => expect(within(section).getByText('4 of 4 done')).toBeInTheDocument())
+    expect(within(section).queryByText('Add products')).not.toBeInTheDocument()
+  })
+
+  it('hides the checklist for this person', async () => {
+    useHomeMocks({})
+    signIn()
+    const { user } = renderDashboard(home)
+    const section = await checklist()
+    await user.click(within(section).getByRole('button', { name: 'Hide checklist' }))
+    await waitFor(() => expect(screen.queryByRole('heading', { level: 2, name: 'Get started' })).not.toBeInTheDocument())
+    const membership = db.memberships.find((m) => m.workspace_id === ids.sharmaSweets && m.user_id === ids.demoUser)!
+    await waitFor(() => expect(mockOnboardingFlags(membership).checklist_dismissed).toBe(true))
+  })
+
+  it('pops a check only for a step that turns done while open', async () => {
+    useHomeMocks({})
+    signIn()
+    const { queryClient } = renderDashboard(home)
+    const section = await checklist()
+    await waitFor(() => expect(within(section).getByText('4 of 6 done')).toBeInTheDocument())
+    expect(section.querySelector('.check-pop')).toBeNull()
+
+    useHomeMocks({ automations: 'some' })
+    await act(() => queryClient.invalidateQueries())
+    const item = within(section).getByText('Set up an automation').closest('li')!
+    await waitFor(() => expect(within(item).getByLabelText('Done')).toHaveClass('check-pop'))
+    expect(section.querySelectorAll('.check-pop')).toHaveLength(1)
   })
 })
 

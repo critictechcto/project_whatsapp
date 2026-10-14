@@ -39,6 +39,16 @@ export function resetOnboardingMocks() {
   goals.clear()
 }
 
+/** Test helper: set a workspace's goal as if an admin had chosen it. */
+export function setMockWorkspaceGoal(workspaceId: string, goal: Schemas['Onboarding']['goal']) {
+  goals.set(workspaceId, goal)
+}
+
+/** Test helper: the stored flags of a membership (as the next GET would return them). */
+export function mockOnboardingFlags(membership: MockMembership): Readonly<Flags> {
+  return { ...flagsOf(membership) }
+}
+
 export const handlers: AreaMockHandlers = [
   http.get('/api/v1/workspaces/onboarding/', ({ request, response }) => {
     const ctx = authorize(request)

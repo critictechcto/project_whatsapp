@@ -2,15 +2,38 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import { PageHeader } from '../../../components/app'
 import { useWorkspace } from '../../../lib/workspace'
 import { useMe } from '../auth/session'
-import { hasSentCampaign, useHasAutomations, useHasContacts, useHasTeam, usePhoneNumbers, useRecentCampaigns, useTemplateSummary } from './api'
+import { useOnboarding, useUpdateOnboarding } from '../onboarding/api'
+import { COMMERCE_STEPS, goalSteps, type ChecklistStepId } from '../onboarding/goalSteps'
+import {
+  hasSentCampaign,
+  isCommerceUnavailable,
+  useHasAutomations,
+  useHasContacts,
+  useHasTeam,
+  usePhoneNumbers,
+  useRecentCampaigns,
+  useStoreChecklist,
+  useTemplateSummary,
+} from './api'
 import { OrdersTodayCard, StoreSetupCard } from './components/CommerceCards'
 import { CampaignsCard, ConnectionCard, ConversationsCard, SubscriptionCard, TemplatesCard } from './components/OverviewCards'
 import { SetupChecklist, type SetupStep, type StepState } from './components/SetupChecklist'
 
-function stepState<T>(query: Pick<UseQueryResult<T>, 'isPending' | 'isError' | 'data'>, done: (data: T) => boolean): StepState {
+type QueryState<T> = Pick<UseQueryResult<T>, 'isPending' | 'isError' | 'data'>
+
+function stepState<T>(query: QueryState<T>, done: (data: T) => boolean): StepState {
   if (query.isError) return 'unknown'
   if (query.isPending || query.data === undefined) return 'loading'
   return done(query.data) ? 'done' : 'todo'
+}
+
+/** State of one store checklist item; `missing` when the checklist has no such key. */
+function storeItemState(query: QueryState<{ items: readonly { key: string; done: boolean }[] }>, key: string): StepState | 'missing' {
+  if (query.isError) return 'unknown'
+  if (query.isPending || !query.data) return 'loading'
+  const item = query.data.items.find((candidate) => candidate.key === key)
+  if (!item) return 'missing'
+  return item.done ? 'done' : 'todo'
 }
 
 /** Workspace home: getting-started steps and overview cards, all computed from real list endpoints. */
@@ -25,6 +48,9 @@ export function HomePage() {
   const campaigns = useRecentCampaigns()
   const automations = useHasAutomations()
   const team = useHasTeam()
+  const storeChecklist = useStoreChecklist()
+  const onboarding = useOnboarding()
+  const updateOnboarding = useUpdateOnboarding()
 
   const teamState = ((): StepState => {
     const members = stepState(team.members, Boolean)
@@ -35,56 +61,25 @@ export function HomePage() {
     return members === 'unknown' ? 'unknown' : invitations
   })()
 
-  const steps: SetupStep[] = [
-    {
-      id: 'whatsapp',
-      title: 'Connect WhatsApp',
-      description: "Link your business number to the official WhatsApp Business Platform with Meta's Embedded Signup.",
-      to: 'whatsapp',
-      cta: 'Connect number',
-      state: stepState(phones, (page) => page.results.length > 0),
-    },
-    {
-      id: 'contacts',
-      title: 'Add contacts',
-      description: 'Import customers who agreed to hear from you on WhatsApp, with their opt-in recorded.',
-      to: 'contacts',
-      cta: 'Add contacts',
-      state: stepState(contacts, Boolean),
-    },
-    {
-      id: 'templates',
-      title: 'Create a template',
-      description: 'Messages you start outside the 24-hour customer service window need a template approved by Meta.',
-      to: 'templates',
-      cta: 'Create template',
-      state: stepState(templates, (summary) => summary.total > 0),
-    },
-    {
-      id: 'campaigns',
-      title: 'Send your first campaign',
-      description: 'Send an approved template to a tagged group of opted-in contacts, now or on a schedule.',
-      to: 'campaigns/new',
-      cta: 'New campaign',
-      state: stepState(campaigns, (page) => hasSentCampaign(page.results)),
-    },
-    {
-      id: 'automations',
-      title: 'Set up an automation',
-      description: 'Reply automatically to keywords, first messages or messages outside business hours.',
-      to: 'automations',
-      cta: 'Add automation',
-      state: stepState(automations, Boolean),
-    },
-    {
-      id: 'team',
-      title: 'Invite your team',
-      description: 'Share the inbox with colleagues and choose what each person can do.',
-      to: 'team',
-      cta: 'Invite teammates',
-      state: teamState,
-    },
-  ]
+  const stepStates: Record<ChecklistStepId, StepState | 'missing'> = {
+    whatsapp: stepState(phones, (page) => page.results.length > 0),
+    contacts: stepState(contacts, Boolean),
+    templates: stepState(templates, (summary) => summary.total > 0),
+    campaigns: stepState(campaigns, (page) => hasSentCampaign(page.results)),
+    automations: stepState(automations, Boolean),
+    team: teamState,
+    products: storeItemState(storeChecklist, 'products_added'),
+    payments: storeItemState(storeChecklist, 'payments_configured'),
+    store: storeItemState(storeChecklist, 'store_enabled'),
+  }
+
+  // Store steps drop out when the workspace can't use commerce (or the checklist lacks the key).
+  const commerceUnavailable = storeChecklist.isError && isCommerceUnavailable(storeChecklist.error)
+  const steps: SetupStep[] = goalSteps(onboarding.data?.goal ?? '').flatMap((step) => {
+    const state = stepStates[step.id]
+    if (state === 'missing' || (commerceUnavailable && COMMERCE_STEPS.includes(step.id))) return []
+    return [{ ...step, state }]
+  })
 
   return (
     <div className="flex flex-col gap-6">
@@ -94,7 +89,9 @@ export function HomePage() {
         description="Your WhatsApp workspace at a glance."
       />
 
-      <SetupChecklist steps={steps} />
+      {!onboarding.data?.checklist_dismissed && (
+        <SetupChecklist steps={steps} onHide={() => updateOnboarding.mutate({ checklist_dismissed: true })} />
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <OrdersTodayCard />

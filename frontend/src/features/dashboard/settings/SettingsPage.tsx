@@ -5,6 +5,7 @@ import { timeZoneName } from '../../../lib/datetime'
 import { type Role } from '../../../lib/roles'
 import { useWorkspace } from '../../../lib/workspace'
 import { RoleBadge } from '../team/RoleBadge'
+import { GoalSetting } from './GoalSetting'
 
 type SettingsLink = { to: string; icon: LucideIcon; title: string; description: string; minRole?: Role }
 
@@ -41,6 +42,8 @@ export function SettingsPage() {
           </dd>
         </div>
       </dl>
+
+      <GoalSetting />
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {links
