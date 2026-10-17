@@ -97,6 +97,31 @@ describe('offer code editor', () => {
     expect(router.state.location.pathname).toBe(`${base}/${created?.id}`)
   })
 
+  it('applies a code to chosen products or services', async () => {
+    signIn()
+    const { user } = renderDashboard(`${base}/new`)
+
+    await user.type(await screen.findByLabelText(/^Code\*?$/), 'GLOW')
+    await user.type(screen.getByLabelText(/^Title/), 'Glow facial offer')
+    await fill(user, screen.getByLabelText(/^Reply message/), '20% off the Diwali Glow facial.')
+    await user.type(screen.getByLabelText(/^Discount percent/), '20')
+    await user.selectOptions(screen.getByLabelText('Applies to'), 'items')
+    await user.click(screen.getByRole('button', { name: 'Create code' }))
+    expect(await screen.findByText('Choose at least one product or service.')).toBeInTheDocument()
+
+    const list = within(await screen.findByRole('list', { name: 'Products and services' }))
+    await user.type(screen.getByRole('textbox', { name: 'Search products and services' }), 'glow')
+    await user.click(list.getByRole('checkbox', { name: /Diwali Glow facial/ }))
+    expect(screen.getByText('1 chosen')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Create code' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'GLOW' })).toBeInTheDocument()
+    expect(screen.getByText(/On Diwali Glow facial/)).toBeInTheDocument()
+    const created = offerState().codes.find((item) => item.code === 'GLOW')
+    expect(created?.applies_to).toBe('items')
+    expect(created?.product_ids).toHaveLength(1)
+  })
+
   it('suggests turning a used code off instead of deleting it', async () => {
     signIn()
     const { user } = renderDashboard(`${base}/${offerIds.diwali}/edit`)

@@ -49,7 +49,7 @@ class CommerceGateMixin:
 class OfferCodeViewSet(CommerceGateMixin, WorkspaceScopedViewSet):
     """The workspace's offer codes, newest first, with claim counters."""
 
-    queryset = OfferCode.objects.annotate(
+    queryset = OfferCode.objects.prefetch_related("products").annotate(
         claims_count=Count("claims"),
         redeemed_count=Count("claims", filter=Q(claims__status=OfferClaim.Status.REDEEMED)),
     )

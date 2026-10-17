@@ -188,6 +188,19 @@ def _applies_to_kind(offer: OfferCode, order_kind: str) -> bool:
     return True
 
 
+def eligible_subtotal(offer: OfferCode, order) -> int:
+    """The part of the order's subtotal the offer counts: every line, or for ``items`` only the
+    lines of the chosen catalog items (0 when the order has none of them)."""
+    if offer.applies_to != OfferCode.AppliesTo.ITEMS:
+        return int(order.subtotal_paise or 0)
+    chosen = set(offer.products.values_list("pk", flat=True))
+    return sum(
+        line.line_total_paise
+        for line in order.items.all()
+        if line.product_id is not None and line.product_id in chosen
+    )
+
+
 # --- Checkout -----------------------------------------------------------------------------------
 
 
@@ -196,8 +209,9 @@ def apply_to_checkout(order) -> AppliedOffer | None:
 
     Takes the claim already applied to this order, else the newest ``claimed`` claim of the
     order's contact that qualifies (live offer, ``applies_to`` vs the order kind, minimum order
-    on the subtotal, ``max_uses``). A claim applied to this order that no longer qualifies goes
-    back to ``claimed``. Never raises for an invalid offer.
+    and discount on the eligible subtotal, which for ``items`` is only the chosen items' lines,
+    ``max_uses``). A claim applied to this order that no longer qualifies goes back to
+    ``claimed``. Never raises for an invalid offer.
     """
     if order is None or getattr(order, "pk", None) is None:
         return None
@@ -215,11 +229,13 @@ def apply_to_checkout(order) -> AppliedOffer | None:
         claims.sort(key=lambda claim: claim.status != APPLIED)  # this order's claim first
         for claim in claims:
             offer = OfferCode.objects.select_for_update().get(pk=claim.offer_id)
-            discount = discount_for(offer, subtotal)
+            eligible = min(eligible_subtotal(offer, order), subtotal)
+            discount = discount_for(offer, eligible)
             usable = (
                 is_live(offer, now)
                 and _applies_to_kind(offer, order_kind)
-                and subtotal >= offer.min_order_paise
+                and eligible > 0
+                and eligible >= offer.min_order_paise
                 and (discount > 0 or offer.discount_type == OfferCode.DiscountType.NONE)
                 and (claim.status == APPLIED or has_capacity(offer))
             )

@@ -1,7 +1,7 @@
 """Contract enum names for offers (docs/contracts/services-and-offers.md). Values only."""
 
 DISCOUNT_TYPES = ("none", "percent", "amount")
-APPLIES_TO = ("all", "products", "services")
+APPLIES_TO = ("all", "products", "services", "items")
 CLAIM_STATUSES = ("claimed", "applied", "redeemed", "expired")
 
 ENUM_NAME_OVERRIDES = {

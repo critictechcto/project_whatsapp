@@ -10,7 +10,7 @@ import { Notice } from '../campaigns/components/Notice'
 import { isCommerceUnavailable, offerKeys, offersApi, useOfferCodes } from './api'
 import { OffersUpgradePanel } from './components/OffersUpgradePanel'
 import { RedeemCounterDialog } from './components/RedeemDialogs'
-import { discountSummary, offerState, offerStateInfo, validitySummary } from './format'
+import { appliesToSummary, discountSummary, offerState, offerStateInfo, validitySummary } from './format'
 import type { OfferCode } from './types'
 
 export function OffersPage() {
@@ -64,7 +64,16 @@ export function OffersPage() {
         </div>
       ),
     },
-    { id: 'discount', header: 'Offer', cell: (offer) => <span className="text-[13px]">{discountSummary(offer)}</span> },
+    {
+      id: 'discount',
+      header: 'Offer',
+      cell: (offer) => (
+        <div className="flex flex-col">
+          <span className="text-[13px]">{discountSummary(offer)}</span>
+          {scopeLine(offer) && <span className="text-[12px] text-muted">{scopeLine(offer)}</span>}
+        </div>
+      ),
+    },
     {
       id: 'validity',
       header: 'Valid',
@@ -148,6 +157,7 @@ export function OffersPage() {
                   {activeControl(offer)}
                 </div>
                 <p className="mt-2 text-sm text-ink">{discountSummary(offer)}</p>
+                {scopeLine(offer) && <p className="text-[13px] text-muted">{scopeLine(offer)}</p>}
                 <p className="text-[13px] text-muted">{validitySummary(offer, timeZone)}</p>
                 <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-line-2 pt-3 text-[13px]">
                   <div>
@@ -173,4 +183,10 @@ export function OffersPage() {
 function StateBadge({ offer }: { offer: OfferCode }) {
   const info = offerStateInfo[offerState(offer)]
   return <StatusBadge tone={info.tone}>{info.label}</StatusBadge>
+}
+
+/** "On Kaju katli 500 g and Kaju katli 1 kg", "Products only"; empty for offers on everything. */
+function scopeLine(offer: OfferCode): string {
+  if (offer.discount_type === 'none' || (offer.applies_to ?? 'all') === 'all') return ''
+  return offer.applies_to === 'items' ? `On ${appliesToSummary(offer)}` : appliesToSummary(offer)
 }

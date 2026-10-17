@@ -6,10 +6,11 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
+from apps.catalog.factories import ProductFactory
 from apps.offers import services
 from apps.offers.factories import OfferClaimFactory, OfferCodeFactory
 from apps.offers.models import OfferClaim
-from apps.orders.factories import OrderFactory
+from apps.orders.factories import OrderFactory, OrderItemFactory
 from apps.orders.models import Order
 from common import events
 
@@ -226,3 +227,48 @@ def test_expire_claims_of_ended_offers(workspace, contact):
 
     statuses = dict(OfferClaim.objects.values_list("pk", "status"))
     assert statuses == {stale.pk: EXPIRED, used.pk: REDEEMED, current.pk: CLAIMED}
+
+
+# --- Chosen items -------------------------------------------------------------------------------
+
+
+def _chosen_items_offer(offer, *products):
+    offer.applies_to = "items"
+    offer.save()
+    offer.products.set(products)
+    return offer
+
+
+def test_chosen_items_discount_only_their_lines(order, claim, offer, workspace):
+    facial = ProductFactory(workspace=workspace, name="Diwali Glow facial")
+    other = ProductFactory(workspace=workspace, name="Haircut")
+    OrderItemFactory(order=order, product=facial, unit_price_paise=30000, quantity=1)
+    OrderItemFactory(order=order, product=other, unit_price_paise=70000, quantity=1)
+    _chosen_items_offer(offer, facial)
+
+    applied = services.apply_to_checkout(order)
+
+    assert applied.discount_paise == 3000  # 10% of the facial's ₹300 only
+
+
+def test_chosen_items_need_one_in_the_order(order, claim, offer, workspace):
+    other = ProductFactory(workspace=workspace)
+    OrderItemFactory(order=order, product=other, unit_price_paise=100000, quantity=1)
+    _chosen_items_offer(offer, ProductFactory(workspace=workspace))
+
+    assert services.apply_to_checkout(order) is None
+    claim.refresh_from_db()
+    assert claim.status == CLAIMED
+
+
+def test_chosen_items_minimum_counts_only_their_lines(order, claim, offer, workspace):
+    facial = ProductFactory(workspace=workspace)
+    OrderItemFactory(order=order, product=facial, unit_price_paise=30000, quantity=1)
+    OrderItemFactory(
+        order=order, product=ProductFactory(workspace=workspace), unit_price_paise=70000
+    )
+    _chosen_items_offer(offer, facial)
+    offer.min_order_paise = 50000
+    offer.save()
+
+    assert services.apply_to_checkout(order) is None

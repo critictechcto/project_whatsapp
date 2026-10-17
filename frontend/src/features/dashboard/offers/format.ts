@@ -7,6 +7,18 @@ export const appliesToLabels: Record<OfferAppliesTo, string> = {
   all: 'Everything',
   products: 'Products only',
   services: 'Services only',
+  items: 'Chosen products or services',
+}
+
+/** "Products only"; for chosen items "Facial", "Facial and Haircut", "Facial, Haircut and 2 more". */
+export function appliesToSummary(offer: Pick<OfferCode, 'applies_to' | 'products'>): string {
+  const appliesTo = offer.applies_to ?? 'all'
+  if (appliesTo !== 'items') return appliesToLabels[appliesTo]
+  const names = (offer.products ?? []).map((item) => item.name)
+  if (names.length === 0) return 'No items chosen'
+  if (names.length <= 2) return names.join(' and ')
+  if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]}`
+  return `${names[0]}, ${names[1]} and ${names.length - 2} more`
 }
 
 export const claimStatusInfo: Record<OfferClaimStatus, { label: string; tone: Tone; description: string }> = {

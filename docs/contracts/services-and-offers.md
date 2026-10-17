@@ -140,7 +140,7 @@ Checkout rejections add `mixed_cart`, `payment_unavailable` and `no_booking_time
 
 ### Models
 
-`OfferCode` (TenantScopedModel): `code` (2–20 chars `[A-Za-z0-9_-]`, stored upper-case, unique per workspace), `title` (≤60), `reply_text` (≤900), `discount_type`, `discount_value` (percent 1–90, or paise ≥100; 0 for `none`), `max_discount_paise` (null = no cap, percent only), `min_order_paise` (default 0), `applies_to`, `starts_at`/`ends_at` (nullable), `max_uses` (null = unlimited; counts `applied` + `redeemed` claims), `max_uses_per_contact` (default 1), `is_active`.
+`OfferCode` (TenantScopedModel): `code` (2–20 chars `[A-Za-z0-9_-]`, stored upper-case, unique per workspace), `title` (≤60), `reply_text` (≤900), `discount_type`, `discount_value` (percent 1–90, or paise ≥100; 0 for `none`), `max_discount_paise` (null = no cap, percent only), `min_order_paise` (default 0), `applies_to` (`all` | `products` | `services` | `items`), `products` (M2M to `catalog.Product`, the chosen items for `items`), `starts_at`/`ends_at` (nullable), `max_uses` (null = unlimited; counts `applied` + `redeemed` claims), `max_uses_per_contact` (default 1), `is_active`.
 
 `OfferClaim` (TenantScopedModel): `offer` FK, `contact` FK, `conversation` FK (null for counter-only), `message` FK to `inbox.Message` (null for counter-only), `wamid` (unique with offer when set; makes webhook retries no-ops), `status`, `order` FK (null), `discount_paise`, `bill_paise` (null; entered at the counter), `ad_source_id`, `ad_source_url`, `ad_headline`, `ctwa_clid` (from `Message.payload["referral"]`, "" when absent), `redeemed_at`, `redeemed_by` FK user (null).
 
@@ -151,13 +151,13 @@ def match_code(workspace_id, text: str | None) -> OfferCode | None
     # whole-message match after normalisation (trim, casefold, strip edge punctuation), active and within dates
 def apply_to_checkout(order) -> AppliedOffer | None
     # latest claimed (or already applied to this order) claim of order.contact; checks dates, applies_to vs
-    # order.kind, min_order on subtotal, max_uses; marks it applied to the order; returns
+    # order.kind, min_order on the eligible subtotal, max_uses; marks it applied to the order; returns
     # AppliedOffer(claim_id, code, discount_paise). Never raises for an invalid offer: returns None.
 def release_for_order(order) -> None   # also driven by OrderStatusChanged; claim back to claimed
 @dataclass(frozen=True) class AppliedOffer: claim_id: UUID; code: str; discount_paise: int
 ```
 
-Discount: percent → `floor(subtotal × pct / 100)`, capped at `max_discount_paise`; amount → `min(value, subtotal − 100)` (never below ₹1 to pay).
+Discount: percent → `floor(eligible × pct / 100)`, capped at `max_discount_paise`; amount → `min(value, eligible − 100)` (never below ₹1 to pay). `eligible` is the subtotal, or for `applies_to = items` the sum of the order lines whose product is one of the chosen items; an `items` offer needs at least one such line, and `min_order_paise` is checked on `eligible`. Counter redemption doesn't check items.
 
 ### Inbound
 
@@ -173,7 +173,7 @@ A registered commerce claimer (`common.commerce.register_message_claimer`) claim
 
 | Endpoint | Notes |
 |---|---|
-| `GET/POST codes/`, `GET/PATCH/DELETE codes/{id}/` | `OfferCode` + read-only counters `claims_count`, `redeemed_count` |
+| `GET/POST codes/`, `GET/PATCH/DELETE codes/{id}/` | `OfferCode` + read-only counters `claims_count`, `redeemed_count` and `products` (`[{id, name, kind, price_paise, is_active}]`); write `product_ids` (UUIDs of this workspace's catalog items, required and non-empty when `applies_to` is `items`, cleared otherwise) |
 | `GET codes/{id}/stats/` | `{claims, from_ads, applied, redeemed, discount_paise, revenue_paise, daily: [{date, claims, redeemed}]}`; `revenue_paise` = sum of redeemed `bill_paise` |
 | `GET claims/` | filters `offer`, `status`, `phone` (contains); cursor pagination; includes contact summary, order id/number |
 | `POST claims/{id}/redeem/` | body `{bill_paise?}`; claimed/applied → redeemed; 409 `invalid_transition` if already redeemed |

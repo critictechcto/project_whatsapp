@@ -3491,9 +3491,10 @@ export interface components {
          * @description * `all` - Products and services
          *     * `products` - Products
          *     * `services` - Services
+         *     * `items` - Chosen products or services
          * @enum {string}
          */
-        OfferAppliesToEnum: "all" | "products" | "services";
+        OfferAppliesToEnum: "all" | "products" | "services" | "items";
         OfferClaim: {
             /** Format: uuid */
             readonly id: string;
@@ -3540,6 +3541,7 @@ export interface components {
             max_discount_paise?: number | null;
             min_order_paise?: number;
             applies_to?: components["schemas"]["OfferAppliesToEnum"];
+            readonly products: components["schemas"]["OfferItem"][];
             /** Format: date-time */
             starts_at?: string | null;
             /** Format: date-time */
@@ -3563,6 +3565,8 @@ export interface components {
             max_discount_paise?: number | null;
             min_order_paise?: number;
             applies_to?: components["schemas"]["OfferAppliesToEnum"];
+            /** @description The catalog items an "items" offer applies to; ignored for other values. */
+            product_ids?: string[];
             /** Format: date-time */
             starts_at?: string | null;
             /** Format: date-time */
@@ -3578,6 +3582,15 @@ export interface components {
          * @enum {string}
          */
         OfferDiscountTypeEnum: "none" | "percent" | "amount";
+        /** @description A catalog item an ``items`` offer applies to. */
+        OfferItem: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            readonly price_paise: number;
+            readonly is_active: boolean;
+        };
         OfferStats: {
             claims: number;
             from_ads: number;
@@ -4412,6 +4425,8 @@ export interface components {
             max_discount_paise?: number | null;
             min_order_paise?: number;
             applies_to?: components["schemas"]["OfferAppliesToEnum"];
+            /** @description The catalog items an "items" offer applies to; ignored for other values. */
+            product_ids?: string[];
             /** Format: date-time */
             starts_at?: string | null;
             /** Format: date-time */
@@ -4770,8 +4785,8 @@ export interface components {
             file: string;
         };
         /**
-         * @description * `product` - product
-         *     * `service` - service
+         * @description * `product` - Product
+         *     * `service` - Service
          * @enum {string}
          */
         ProductKindEnum: "product" | "service";

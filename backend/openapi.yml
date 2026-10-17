@@ -9131,11 +9131,13 @@ components:
       - all
       - products
       - services
+      - items
       type: string
       description: |-
         * `all` - Products and services
         * `products` - Products
         * `services` - Services
+        * `items` - Chosen products or services
     OfferClaim:
       type: object
       properties:
@@ -9273,6 +9275,11 @@ components:
           minimum: 0
         applies_to:
           $ref: '#/components/schemas/OfferAppliesToEnum'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfferItem'
+          readOnly: true
         starts_at:
           type: string
           format: date-time
@@ -9311,6 +9318,7 @@ components:
       - code
       - created_at
       - id
+      - products
       - redeemed_count
       - reply_text
       - updated_at
@@ -9345,6 +9353,15 @@ components:
           minimum: 0
         applies_to:
           $ref: '#/components/schemas/OfferAppliesToEnum'
+        product_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          writeOnly: true
+          description: The catalog items an "items" offer applies to; ignored for
+            other values.
+          maxItems: 100
         starts_at:
           type: string
           format: date-time
@@ -9377,6 +9394,33 @@ components:
         * `none` - No discount
         * `percent` - Percent
         * `amount` - Amount
+    OfferItem:
+      type: object
+      description: A catalog item an ``items`` offer applies to.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ProductKindEnum'
+          readOnly: true
+        price_paise:
+          type: integer
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+      required:
+      - id
+      - is_active
+      - kind
+      - name
+      - price_paise
     OfferStats:
       type: object
       properties:
@@ -11036,6 +11080,15 @@ components:
           minimum: 0
         applies_to:
           $ref: '#/components/schemas/OfferAppliesToEnum'
+        product_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          writeOnly: true
+          description: The catalog items an "items" offer applies to; ignored for
+            other values.
+          maxItems: 100
         starts_at:
           type: string
           format: date-time
@@ -11921,8 +11974,8 @@ components:
       - service
       type: string
       description: |-
-        * `product` - product
-        * `service` - service
+        * `product` - Product
+        * `service` - Service
     ProductWriteRequest:
       type: object
       description: Create or PATCH a product. ``sku`` is accepted on create only.

@@ -2,8 +2,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '../../../api/client'
 import { isApiError } from '../../../api/errors'
-import { useCursorQuery } from '../../../api/pagination'
+import { cursorFromUrl, useCursorQuery } from '../../../api/pagination'
 import { workspaceKeys } from '../../../api/queryKeys'
+import type { Schemas } from '../../../api/types'
 import type { OfferClaim, OfferClaimFilters, OfferCodeWrite, RedeemAtCounterBody, RedeemClaimBody } from './types'
 
 export const offerKeys = workspaceKeys('offers')
@@ -21,6 +22,27 @@ export const offersApi = {
     unwrap(api.GET('/api/v1/offers/claims/', { params: { query: { ...filters, phone: filters.phone || undefined } }, signal })),
   redeemClaim: (id: string, body: RedeemClaimBody) => unwrap(api.POST('/api/v1/offers/claims/{id}/redeem/', { ...pathOf(id), body })),
   redeemAtCounter: (body: RedeemAtCounterBody) => unwrap(api.POST('/api/v1/offers/redeem/', { body })),
+}
+
+export type OfferCatalogItem = Schemas['Product']
+
+/** Catalog items for choosing what an offer applies to (active and inactive, in catalog order). */
+export function useOfferCatalogItems(workspaceId: string) {
+  return useQuery({
+    queryKey: offerKeys.custom(workspaceId, 'catalog-items'),
+    queryFn: async ({ signal }) => {
+      const items: OfferCatalogItem[] = []
+      let cursor: string | undefined
+      for (let page = 0; page < 20; page++) {
+        const data = await unwrap(api.GET('/api/v1/catalog/products/', { params: { query: { page_size: 200, cursor } }, signal }))
+        items.push(...data.results)
+        cursor = cursorFromUrl(data.next)
+        if (!cursor) break
+      }
+      return items
+    },
+    staleTime: 60_000,
+  })
 }
 
 /** Every code. Workspaces have a handful, so one page is enough. */

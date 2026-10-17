@@ -25,7 +25,7 @@ import { Notice } from '../campaigns/components/Notice'
 import { isCommerceUnavailable, useOfferClaims, useOfferCode, useOfferStats } from './api'
 import { OffersUpgradePanel } from './components/OffersUpgradePanel'
 import { RedeemClaimDialog, RedeemCounterDialog } from './components/RedeemDialogs'
-import { appliesToLabels, claimStatuses, claimStatusInfo, discountSummary, formatPhone, offerState, offerStateInfo, validitySummary } from './format'
+import { appliesToSummary, claimStatuses, claimStatusInfo, discountSummary, formatPhone, offerState, offerStateInfo, validitySummary } from './format'
 import type { OfferClaim, OfferClaimStatus, OfferCode, OfferStats } from './types'
 
 export function OfferDetailPage() {
@@ -70,7 +70,7 @@ function OfferDetail({ offer }: { offer: OfferCode }) {
         description={
           <>
             {offer.title} · {discountSummary(offer)}
-            {offer.discount_type !== 'none' && offer.applies_to !== 'all' ? ` · ${appliesToLabels[offer.applies_to ?? 'all']}` : ''} ·{' '}
+            {offer.discount_type !== 'none' && offer.applies_to !== 'all' ? ` · ${offer.applies_to === 'items' ? 'On ' : ''}${appliesToSummary(offer)}` : ''} ·{' '}
             {validitySummary(offer, timeZone)}
           </>
         }

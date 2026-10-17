@@ -13,6 +13,7 @@ import {
   type MockErrorResponse,
   type WorkspaceContext,
 } from '../../../mocks/utils'
+import { catalogMock } from '../catalog/mockState'
 import type { AreaMockHandlers } from '../registry/types'
 import { normalisePhone } from './format'
 import { offerState, serializeClaim, serializeCode, userSummary, type MockClaim, type MockOfferCode } from './mockState'
@@ -58,6 +59,12 @@ function validate(ctx: WorkspaceContext, body: Partial<OfferCodeWrite>, current?
   if (merged.discount_type === 'percent' && (value < 1 || value > 90)) errors.discount_value = ['Enter a percent from 1 to 90.']
   if (merged.discount_type === 'amount' && value < 100) errors.discount_value = ['The discount must be at least ₹1.']
   if (merged.starts_at && merged.ends_at && merged.ends_at < merged.starts_at) errors.ends_at = ['The end must be after the start.']
+  if (merged.applies_to === 'items' && merged.discount_type !== 'none') {
+    const chosen = merged.product_ids ?? []
+    const catalog = catalogMock().products.filter((product) => product.workspace_id === ctx.workspace.id)
+    if (chosen.length === 0) errors.product_ids = ['Choose at least one product or service.']
+    else if (chosen.some((id) => !catalog.some((product) => product.id === id))) errors.product_ids = ['Some of these items are not in your catalog.']
+  }
   return errors
 }
 
@@ -66,6 +73,7 @@ function applyBody(code: MockOfferCode, body: Partial<OfferCodeWrite>) {
   if (body.code !== undefined) code.code = body.code.trim().toUpperCase()
   if (code.discount_type === 'none') code.discount_value = 0
   if (code.discount_type !== 'percent') code.max_discount_paise = null
+  if (code.applies_to !== 'items') code.product_ids = []
   code.updated_at = nowIso()
 }
 
@@ -162,6 +170,7 @@ export const handlers: AreaMockHandlers = [
       max_discount_paise: null,
       min_order_paise: 0,
       applies_to: 'all',
+      product_ids: [],
       starts_at: null,
       ends_at: null,
       max_uses: null,

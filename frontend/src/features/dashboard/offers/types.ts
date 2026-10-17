@@ -7,6 +7,8 @@ export type OfferAppliesTo = Schemas['OfferAppliesToEnum']
 export type OfferClaimStatus = Schemas['OfferClaimStatusEnum']
 
 export type OfferCode = Schemas['OfferCode']
+/** A catalog item an `items` offer applies to. */
+export type OfferItem = Schemas['OfferItem']
 /** Body of `POST codes/`; `PATCH codes/{id}/` takes any part of it. */
 export type OfferCodeWrite = Schemas['OfferCodeRequest']
 export type OfferClaim = Schemas['OfferClaim']

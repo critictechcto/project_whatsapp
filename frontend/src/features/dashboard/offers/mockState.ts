@@ -5,9 +5,14 @@
  */
 import { db, type Mutable } from '../../../mocks/db'
 import { ids, indianMobile, indianName } from '../../../mocks/seed'
+import { catalogMock, productId } from '../catalog/mockState'
 import type { OfferClaim, OfferCode } from './types'
 
-export type MockOfferCode = Required<Mutable<Omit<OfferCode, 'claims_count' | 'redeemed_count'>>> & { workspaceId: string }
+/** Stored code; `products` is read from the catalog mock by `product_ids` when serialized. */
+export type MockOfferCode = Required<Mutable<Omit<OfferCode, 'claims_count' | 'redeemed_count' | 'products'>>> & {
+  workspaceId: string
+  product_ids: string[]
+}
 /** Stored claim; `offer_code` and `from_ad` are derived when serialized, as on the backend. */
 export type MockClaim = Mutable<Omit<OfferClaim, 'offer_code' | 'from_ad'>> & { workspaceId: string }
 
@@ -58,6 +63,7 @@ function build() {
       max_discount_paise: 30_000,
       min_order_paise: 50_000,
       applies_to: 'all',
+      product_ids: [],
       starts_at: daysAgo(12),
       ends_at: daysAhead(20),
       max_uses: null,
@@ -76,7 +82,8 @@ function build() {
       discount_value: 10_000,
       max_discount_paise: null,
       min_order_paise: 99_900,
-      applies_to: 'products',
+      applies_to: 'items',
+      product_ids: [productId(1), productId(2)],
       starts_at: null,
       ends_at: null,
       max_uses: 200,
@@ -96,6 +103,7 @@ function build() {
       max_discount_paise: null,
       min_order_paise: 0,
       applies_to: 'all',
+      product_ids: [],
       starts_at: null,
       ends_at: null,
       max_uses: null,
@@ -214,7 +222,13 @@ export function serializeCode(code: MockOfferCode): OfferCode {
   const { workspaceId, ...rest } = code
   void workspaceId
   const claims = offerState().claims.filter((claim) => claim.offer === code.id)
-  return { ...rest, claims_count: claims.length, redeemed_count: claims.filter((claim) => claim.status === 'redeemed').length }
+  const { product_ids: productIds, ...fields } = rest
+  const catalog = catalogMock().products
+  const products = productIds.flatMap((id) => {
+    const item = catalog.find((product) => product.id === id)
+    return item ? [{ id: item.id, name: item.name, kind: item.kind ?? 'product', price_paise: item.price_paise, is_active: item.is_active ?? true }] : []
+  })
+  return { ...fields, products, claims_count: claims.length, redeemed_count: claims.filter((claim) => claim.status === 'redeemed').length }
 }
 
 export function serializeClaim(claim: MockClaim): OfferClaim {

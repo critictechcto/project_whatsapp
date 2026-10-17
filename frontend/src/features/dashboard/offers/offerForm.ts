@@ -31,7 +31,8 @@ export const offerSchema = z
     amount: z.string(),
     max_discount: optionalRupees('Enter an amount in rupees, like 300.'),
     min_order: optionalRupees('Enter an amount in rupees, like 999.'),
-    applies_to: z.enum(['all', 'products', 'services']),
+    applies_to: z.enum(['all', 'products', 'services', 'items']),
+    product_ids: z.array(z.string()),
     starts_on: z.string(),
     ends_on: z.string(),
     max_uses: optionalWholeNumber(1, 'Enter a whole number of 1 or more, or leave it empty.'),
@@ -52,6 +53,9 @@ export const offerSchema = z
       const paise = parseRupeesToPaise(values.amount)
       if (paise === null || paise < 100) ctx.addIssue({ code: 'custom', path: ['amount'], message: 'Enter at least ₹1.' })
     }
+    if (values.discount_type !== 'none' && values.applies_to === 'items' && values.product_ids.length === 0) {
+      ctx.addIssue({ code: 'custom', path: ['product_ids'], message: 'Choose at least one product or service.' })
+    }
     if (values.starts_on && values.ends_on && values.ends_on < values.starts_on) {
       ctx.addIssue({ code: 'custom', path: ['ends_on'], message: 'The end date is before the start date.' })
     }
@@ -71,6 +75,7 @@ export function offerToForm(offer: OfferCode | null, timeZone: string): OfferFor
     max_discount: offer?.max_discount_paise ? paiseToRupeesString(offer.max_discount_paise).replace(/\.00$/, '') : '',
     min_order: offer?.min_order_paise ? paiseToRupeesString(offer.min_order_paise).replace(/\.00$/, '') : '',
     applies_to: offer?.applies_to ?? 'all',
+    product_ids: (offer?.products ?? []).map((item) => item.id),
     starts_on: day(offer?.starts_at ?? null),
     ends_on: day(offer?.ends_at ?? null),
     max_uses: offer?.max_uses ? String(offer.max_uses) : '',
@@ -93,7 +98,9 @@ export function formToBody(values: OfferFormValues, timeZone: string): OfferCode
     discount_value: discountValue,
     max_discount_paise: type === 'percent' && values.max_discount.trim() ? rupees(values.max_discount) : null,
     min_order_paise: type === 'none' ? 0 : rupees(values.min_order),
-    applies_to: values.applies_to as OfferAppliesTo,
+    // A message-only code has nothing to restrict.
+    applies_to: type === 'none' ? 'all' : (values.applies_to as OfferAppliesTo),
+    product_ids: type !== 'none' && values.applies_to === 'items' ? values.product_ids : [],
     starts_at: values.starts_on ? fromZonedParts(values.starts_on, '00:00', timeZone) : null,
     ends_at: values.ends_on ? endOfDay(values.ends_on, timeZone) : null,
     max_uses: values.max_uses.trim() ? Number(values.max_uses) : null,
@@ -128,6 +135,7 @@ export const offerFormFields = [
   'max_discount',
   'min_order',
   'applies_to',
+  'product_ids',
   'starts_on',
   'ends_on',
   'max_uses',

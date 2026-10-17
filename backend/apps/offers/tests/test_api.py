@@ -5,6 +5,7 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
+from apps.catalog.factories import ProductFactory
 from apps.contacts.models import Contact
 from apps.offers.factories import OfferClaimFactory, OfferCodeFactory
 from apps.offers.models import OfferClaim, OfferCode
@@ -338,3 +339,41 @@ def test_counter_redeem_validates_code_and_phone(auth_client, offer):
     response = client.post(REDEEM, {"code": "DIWALI", "phone": "12"}, format="json")
     assert response.status_code == 400
     assert "phone" in response.json()["error"]["details"]
+
+
+# --- Chosen items -------------------------------------------------------------------------------
+
+
+def test_items_offer_keeps_its_chosen_items(auth_client, workspace):
+    client = auth_client(Role.ADMIN)
+    facial = ProductFactory(workspace=workspace, name="Diwali Glow facial", kind="service")
+
+    created = client.post(
+        CODES, {**NEW_CODE, "applies_to": "items", "product_ids": [str(facial.pk)]}, format="json"
+    )
+
+    assert created.status_code == 201, created.content
+    assert [item["name"] for item in created.json()["products"]] == ["Diwali Glow facial"]
+    assert created.json()["products"][0]["kind"] == "service"
+    url = f"{CODES}{created.json()['id']}/"
+    patched = client.patch(url, {"title": "Glow"}, format="json")
+    assert patched.status_code == 200, patched.content
+    assert len(patched.json()["products"]) == 1
+
+    switched = client.patch(url, {"applies_to": "all"}, format="json")
+    assert switched.json()["products"] == []
+
+
+def test_items_offer_needs_items_of_this_workspace(auth_client, other_workspace):
+    client = auth_client(Role.ADMIN)
+
+    empty = client.post(CODES, {**NEW_CODE, "applies_to": "items"}, format="json")
+    assert empty.status_code == 400
+    assert "product_ids" in empty.json()["error"]["details"]
+
+    foreign = ProductFactory(workspace=other_workspace)
+    stolen = client.post(
+        CODES, {**NEW_CODE, "applies_to": "items", "product_ids": [str(foreign.pk)]}, format="json"
+    )
+    assert stolen.status_code == 400
+    assert "product_ids" in stolen.json()["error"]["details"]

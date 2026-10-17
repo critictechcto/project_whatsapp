@@ -24,6 +24,7 @@ import { ConfirmDialog } from '../campaigns/components/ConfirmDialog'
 import { Notice } from '../campaigns/components/Notice'
 import { RadioCards } from '../campaigns/components/RadioCards'
 import { isCommerceUnavailable, offerKeys, offersApi, useOfferCode } from './api'
+import { OfferItemPicker } from './components/OfferItemPicker'
 import { OffersUpgradePanel } from './components/OffersUpgradePanel'
 import { appliesToLabels } from './format'
 import { formToBody, MAX_REPLY, MAX_TITLE, offerFieldMap, offerFormFields, offerSchema, offerToForm, type OfferFormValues } from './offerForm'
@@ -98,6 +99,7 @@ function OfferEditor({ offer }: { offer: OfferCode | null }) {
   } = useForm<OfferFormValues>({ resolver: zodResolver(offerSchema), defaultValues: initialValues })
   const discountType = useWatch({ control, name: 'discount_type' })
   const replyText = useWatch({ control, name: 'reply_text' })
+  const appliesTo = useWatch({ control, name: 'applies_to' })
   const [locked, setLocked] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -222,7 +224,11 @@ function OfferEditor({ offer }: { offer: OfferCode | null }) {
               )}
               {discountType !== 'none' && (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Minimum order" hint="Optional. Checked on the order subtotal." error={errors.min_order?.message}>
+                  <Field
+                    label="Minimum order"
+                    hint={appliesTo === 'items' ? 'Optional. Counts only the chosen items in the cart.' : 'Optional. Checked on the order subtotal.'}
+                    error={errors.min_order?.message}
+                  >
                     <Input {...register('min_order')} prefix="₹" inputMode="decimal" autoComplete="off" placeholder="500" />
                   </Field>
                   <Field label="Applies to" error={errors.applies_to?.message}>
@@ -231,6 +237,35 @@ function OfferEditor({ offer }: { offer: OfferCode | null }) {
                       options={(Object.keys(appliesToLabels) as OfferAppliesTo[]).map((value) => ({ value, label: appliesToLabels[value] }))}
                     />
                   </Field>
+                </div>
+              )}
+              {discountType !== 'none' && appliesTo === 'items' && (
+                <div className="flex flex-col gap-1.5">
+                  <p id="offer-items-label" className="text-sm font-medium text-ink">
+                    Products and services
+                  </p>
+                  <p id="offer-items-hint" className="text-[13px] text-muted">
+                    The discount is worked out on these items only. Other items in the same cart are charged in full.
+                  </p>
+                  <Controller
+                    control={control}
+                    name="product_ids"
+                    render={({ field }) => (
+                      <OfferItemPicker
+                        workspaceId={workspaceId}
+                        value={field.value}
+                        onChange={field.onChange}
+                        saved={offer?.products}
+                        invalid={Boolean(errors.product_ids)}
+                        describedBy={errors.product_ids ? 'offer-items-hint offer-items-error' : 'offer-items-hint'}
+                      />
+                    )}
+                  />
+                  {errors.product_ids?.message && (
+                    <p id="offer-items-error" role="alert" className="text-[13px] text-signal">
+                      {errors.product_ids.message}
+                    </p>
+                  )}
                 </div>
               )}
             </Section>

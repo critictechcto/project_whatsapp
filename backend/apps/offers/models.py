@@ -27,6 +27,7 @@ class OfferCode(TenantScopedModel):
         ALL = "all", "Products and services"
         PRODUCTS = "products", "Products"
         SERVICES = "services", "Services"
+        ITEMS = "items", "Chosen products or services"
 
     code = models.CharField(max_length=20, validators=[code_validator])  # stored upper-case
     title = models.CharField(max_length=60, blank=True)
@@ -39,6 +40,8 @@ class OfferCode(TenantScopedModel):
     max_discount_paise = models.PositiveIntegerField(null=True, blank=True)  # percent only
     min_order_paise = models.PositiveIntegerField(default=0)
     applies_to = models.CharField(max_length=8, choices=AppliesTo.choices, default=AppliesTo.ALL)
+    # For ``items``: the discount and minimum order count only these catalog items.
+    products = models.ManyToManyField("catalog.Product", blank=True, related_name="+")
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
     max_uses = models.PositiveIntegerField(null=True, blank=True)  # applied + redeemed claims
