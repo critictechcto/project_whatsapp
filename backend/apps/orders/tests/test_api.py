@@ -77,6 +77,7 @@ def test_list_item_shape(auth_client, workspace):
         "kind": "delivery",
         "requested_date": None,
         "appointment_at": None,
+        "reschedule_requested_at": None,
         "created_at": item["created_at"],
         "updated_at": item["updated_at"],
     }
