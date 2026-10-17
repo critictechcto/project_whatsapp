@@ -42,7 +42,7 @@ export function OffersPage() {
   const activeControl = (offer: OfferCode) =>
     canManage ? (
       <Switch
-        checked={offer.is_active}
+        checked={offer.is_active ?? true}
         onCheckedChange={(active) => toggle.mutate({ offer, active })}
         label={`Active: ${offer.code}`}
         hideLabel

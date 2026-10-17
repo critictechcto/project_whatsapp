@@ -5,11 +5,21 @@
 import type { Schemas } from '../../../api/types'
 import { db, type Mutable } from '../../../mocks/db'
 import { daysAgo, ids, seedPhoneNumber, seedTemplates } from '../../../mocks/seed'
-import { DEFAULT_BOOKING_WINDOWS, type BookingSettingsFields, type BookingTemplateField } from './bookingTypes'
+import { DEFAULT_BOOKING_WINDOWS, type BookingTemplateField } from './api'
 
-// TODO(api:types): the booking fields come from ./bookingTypes until schema.d.ts has them.
+type BookingSettingsField =
+  | 'pay_at_shop_enabled'
+  | 'booking_days'
+  | 'booking_windows'
+  | 'booking_days_ahead'
+  | 'booking_reminder_hours'
+  | 'booking_day_before_reminder'
+  | BookingTemplateField
+
 export type MockStoreSettings = Mutable<Schemas['StoreSettings']> &
-  Required<BookingSettingsFields> & { notification_templates: Schemas['OrderNotificationTemplates'] }
+  Required<Pick<Mutable<Schemas['StoreSettings']>, BookingSettingsField>> & {
+    notification_templates: Schemas['OrderNotificationTemplates']
+  }
 export type MockPaymentAccount = Mutable<Schemas['PaymentAccount']> & {
   /** Kept only in the mock; never returned. */
   key_secret: string
@@ -119,6 +129,7 @@ function defaultSettings(workspaceId: string): MockStoreSettings {
     booking_windows: DEFAULT_BOOKING_WINDOWS.map((window) => ({ ...window })),
     booking_days_ahead: 7,
     booking_reminder_hours: 3,
+    booking_day_before_reminder: true,
     booking_confirmed_template_id: null,
     booking_cancelled_template_id: null,
     booking_reminder_template_id: null,

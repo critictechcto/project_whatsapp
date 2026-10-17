@@ -1,12 +1,11 @@
-import { HttpResponse } from 'msw'
 import type { Schemas } from '../../../api/types'
 import { formatInZone } from '../../../lib/datetime'
 import { db } from '../../../mocks/db'
 import { mockRealtime } from '../../../mocks/realtime'
 import { ids } from '../../../mocks/seed'
-import { apiUrl, authorize, errorResponse, http, mockDelay, notFound, paginate, validationError, type MockErrorResponse } from '../../../mocks/utils'
+import { authorize, errorResponse, http, mockDelay, notFound, paginate, validationError, type MockErrorResponse } from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
-import type { ConfirmBookingBody, OrderStatus, TransitionBody } from './bookingTypes'
+import type { ConfirmBookingBody, OrderStatus, TransitionBody } from './api'
 import { orderStatusInfo, transitionsFor } from './labels'
 import {
   addEvent,
@@ -21,23 +20,19 @@ import {
 
 const transitionTargets: readonly string[] = ['confirmed', 'packed', 'shipped', 'delivered', 'completed', 'no_show']
 
-// TODO(api:types): the generated Order enums don't have the booking statuses yet; drop these casts after regeneration.
-function orderBody(record: OrderRecord): Schemas['Order'] {
-  return toOrder(record) as unknown as Schemas['Order']
-}
+const orderBody = toOrder
 
 function emitUpdated(record: OrderRecord) {
   const { id, status, payment_status } = record.order
-  // TODO(api:types): realtime payload status enum lacks the booking statuses.
-  mockRealtime.emit('order.updated', { order_id: id, status: status as Schemas['OrderStatusEnum'], payment_status }, record.workspaceId)
+  mockRealtime.emit('order.updated', { order_id: id, status, payment_status }, record.workspaceId)
 }
 
-function invalidTransition(record: OrderRecord, to: OrderStatus, message?: string, code = 'invalid_order_transition'): MockErrorResponse {
+function invalidTransition(record: OrderRecord, to: OrderStatus, message?: string): MockErrorResponse {
   const { kind, status: from } = record.order
   const noun = kind === 'booking' ? 'booking' : 'order'
   return errorResponse(
     409,
-    code,
+    'invalid_order_transition',
     message ?? `A ${orderStatusInfo[from].label.toLowerCase()} ${noun} can't be moved to ${orderStatusInfo[to].label.toLowerCase()}.`,
     { from_status: from, to_status: to, allowed: [...transitionsFor(kind, from)] },
   )
@@ -70,7 +65,7 @@ export const handlers: AreaMockHandlers = [
     const ctx = authorize(request)
     if (ctx instanceof Response) return response.untyped(ctx)
     const items = filterOrders(ctx.workspace.id, {
-      kind: new URL(request.url).searchParams.get('kind'), // TODO(api:types): typed query has no kind yet
+      kind: query.get('kind'),
       status: query.get('status'),
       stage: query.get('stage'),
       payment_status: query.get('payment_status'),
@@ -79,7 +74,7 @@ export const handlers: AreaMockHandlers = [
       search: query.get('search'),
       created_after: query.get('created_after'),
       created_before: query.get('created_before'),
-    }).map(toListItem) as unknown as Schemas['OrderListItem'][] // TODO(api:types): booking statuses and kind
+    }).map(toListItem)
     return response(200).json(paginate(request, items))
   }),
 
@@ -110,7 +105,7 @@ export const handlers: AreaMockHandlers = [
     const loaded = load(request, params.id, 'viewer')
     if ('error' in loaded) return response.untyped(loaded.error)
     const events = [...loaded.record.events].sort((a, b) => a.created_at.localeCompare(b.created_at))
-    return response(200).json(paginate(request, events as unknown as Schemas['OrderEvent'][])) // TODO(api:types): new event types
+    return response(200).json(paginate(request, events))
   }),
 
   http.post('/api/v1/orders/{id}/transition/', async ({ request, params, response }) => {
@@ -214,18 +209,17 @@ export const handlers: AreaMockHandlers = [
     return response(200).json(orderBody(record))
   }),
 
-  // TODO(api:types): not in the generated schema yet, hence the untyped handler.
-  http.untyped.post(apiUrl('/api/v1/orders/:id/confirm-booking/'), async ({ request, params }) => {
+  http.post('/api/v1/orders/{id}/confirm-booking/', async ({ request, params, response }) => {
     await mockDelay()
-    const loaded = load(request, String(params.id), 'agent')
-    if ('error' in loaded) return loaded.error
+    const loaded = load(request, params.id, 'agent')
+    if ('error' in loaded) return response.untyped(loaded.error)
     const { record, userId } = loaded
     const order = record.order
     const body = (await request.json()) as Partial<ConfirmBookingBody>
     const at = body.appointment_at ? Date.parse(body.appointment_at) : Number.NaN
-    if (Number.isNaN(at)) return validationError({ appointment_at: ['Enter a valid date and time.'] })
+    if (Number.isNaN(at)) return response.untyped(validationError({ appointment_at: ['Enter a valid date and time.'] }))
     if (order.kind !== 'booking' || (order.status !== 'requested' && order.status !== 'confirmed')) {
-      return invalidTransition(record, 'confirmed', 'Only requested or confirmed bookings can be given a time.', 'invalid_transition')
+      return response.untyped(invalidTransition(record, 'confirmed', 'Only requested or confirmed bookings can be given an appointment time.'))
     }
 
     const timeZone = db.workspaces.find((workspace) => workspace.id === record.workspaceId)?.time_zone || 'Asia/Kolkata'
@@ -233,6 +227,9 @@ export const handlers: AreaMockHandlers = [
     const from = order.status
     order.appointment_at = new Date(at).toISOString()
     order.reminder_sent_at = null
+    order.day_before_reminder_sent_at = null
+    order.attendance_confirmed_at = null
+    order.reschedule_requested_at = null
     addEvent(record, 'appointment_set', 'dashboard', { detail: when, userId })
     if (from === 'requested') {
       order.status = 'confirmed'
@@ -243,7 +240,7 @@ export const handlers: AreaMockHandlers = [
       addEvent(record, 'notification_sent', 'system', { detail: `Told the buyer the new time, ${when}.` })
     }
     emitUpdated(record)
-    return HttpResponse.json(toOrder(record))
+    return response(200).json(orderBody(record))
   }),
 
   http.post('/api/v1/orders/{id}/mark-refunded/', async ({ request, params, response }) => {
@@ -272,6 +269,6 @@ if (import.meta.env.MODE !== 'test' && typeof window !== 'undefined') {
     if (!mockRealtime.isConnected(ids.sharmaSweets)) return
     const record = createMockOrder(ids.sharmaSweets)
     const { id, number, status } = record.order
-    mockRealtime.emit('order.created', { order_id: id, number, status: status as Schemas['OrderStatusEnum'] }, ids.sharmaSweets) // TODO(api:types)
+    mockRealtime.emit('order.created', { order_id: id, number, status }, ids.sharmaSweets)
   }, 45_000)
 }

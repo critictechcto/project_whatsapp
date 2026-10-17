@@ -125,6 +125,19 @@ export function BookingsSection({ control, register, errors }: BookingsSectionPr
             <Input {...register('booking_reminder_hours')} inputMode="numeric" autoComplete="off" className="max-w-32" />
           </Field>
         </div>
+
+        <Controller
+          control={control}
+          name="booking_day_before_reminder"
+          render={({ field }) => (
+            <Switch
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              label="Reminder the evening before (6 pm)"
+              description="Sent at 6 pm the day before a confirmed booking, with buttons to confirm or change the time. When both reminders are due together, only the hours-before one is sent."
+            />
+          )}
+        />
       </div>
     </SectionCard>
   )

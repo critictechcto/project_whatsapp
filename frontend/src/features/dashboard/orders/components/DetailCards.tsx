@@ -1,14 +1,14 @@
 import type { ReactNode } from 'react'
-import { ExternalLink, MessageSquare, Package } from 'lucide-react'
+import { CircleCheck, ExternalLink, MessageSquare, Package } from 'lucide-react'
 import { Link } from 'react-router'
 import { buttonClasses } from '../../../../components/app'
 import { formatDateTime } from '../../../../lib/datetime'
 import { formatPaise } from '../../../../lib/money'
 import { useWorkspace } from '../../../../lib/workspace'
-import type { Order } from '../api'
-import { isBooking } from '../bookingTypes'
+import { isBooking, type Order } from '../api'
 import { displayUrl, formatDay, formatPhone, formatWindow, itemsLabel } from '../format'
 import { isCheckoutStatus, paymentMethodLabels } from '../labels'
+import { Notice } from './Notice'
 import { PaymentBadge, PaymentLinkBadge } from './OrderBadges'
 import { DetailList, SectionCard } from './SectionCard'
 
@@ -157,11 +157,31 @@ export function BookingCard({ order }: { order: Order }) {
     { label: 'Appointment', value: order.appointment_at ? formatDateTime(order.appointment_at, timeZone) : 'Not confirmed yet' },
     { label: 'Payment', value: order.payment_method === 'pay_at_shop' ? 'Pay at the shop' : order.payment_method ? 'Online' : 'Not chosen yet' },
   ]
-  if (order.reminder_sent_at) items.push({ label: 'Reminder sent', value: formatDateTime(order.reminder_sent_at, timeZone) })
+  if (order.day_before_reminder_sent_at) {
+    items.push({ label: 'Reminder sent', value: `${formatDateTime(order.day_before_reminder_sent_at, timeZone)} (evening before)` })
+  }
+  if (order.reminder_sent_at) {
+    items.push({ label: 'Reminder sent', value: `${formatDateTime(order.reminder_sent_at, timeZone)} (before the appointment)` })
+  }
+  const awaitingAnswer = order.status === 'confirmed'
 
   return (
     <SectionCard title="Booking">
       <DetailList items={items} />
+      {awaitingAnswer && order.reschedule_requested_at ? (
+        <Notice tone="warning" title="Customer asked to change the time" className="mt-3">
+          They tapped Change time on {formatDateTime(order.reschedule_requested_at, timeZone)}. Agree a new time with them,
+          then use Change time to update the booking.
+        </Notice>
+      ) : awaitingAnswer && order.attendance_confirmed_at ? (
+        <p className="mt-3 flex items-start gap-2 border-t border-line-2 pt-3 text-[13px] text-ink-2">
+          <CircleCheck className="mt-0.5 size-4 shrink-0 text-accent-2" aria-hidden="true" />
+          <span>
+            Customer confirmed they&apos;ll come{' '}
+            <span className="text-muted">({formatDateTime(order.attendance_confirmed_at, timeZone)})</span>
+          </span>
+        </p>
+      ) : null}
       {order.status === 'requested' && (
         <p className="mt-3 border-t border-line-2 pt-3 text-[13px] text-muted">
           Confirm a time to accept the booking. The buyer gets a WhatsApp message with it, and a reminder before the appointment.

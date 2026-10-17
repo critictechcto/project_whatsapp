@@ -1,25 +1,23 @@
 import { useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query'
-import { api, apiFetch, unwrap } from '../../../api/client'
+import { api, unwrap } from '../../../api/client'
 import { useCursorQuery } from '../../../api/pagination'
 import { workspaceKeys } from '../../../api/queryKeys'
 import type { paths } from '../../../api/schema'
 import type { CursorPage, Schemas } from '../../../api/types'
 import { useToast } from '../../../components/app'
 import { useRealtimeEvent } from '../../../lib/realtime/hooks'
-import type {
-  BookingWindow,
-  ConfirmBookingBody,
-  EventType,
-  Order,
-  OrderEvent,
-  OrderKind,
-  OrderListItem,
-  OrderStatus,
-  PaymentMethod,
-  TransitionBody,
-} from './bookingTypes'
 
-export type { BookingWindow, ConfirmBookingBody, EventType, Order, OrderEvent, OrderKind, OrderListItem, OrderStatus, PaymentMethod, TransitionBody }
+export type Order = Schemas['Order']
+export type OrderListItem = Schemas['OrderListItem']
+export type OrderEvent = Schemas['OrderEvent']
+export type OrderKind = Schemas['OrderKindEnum']
+export type OrderStatus = Schemas['OrderStatusEnum']
+export type PaymentMethod = Schemas['PaymentMethodEnum']
+export type EventType = Schemas['OrderEventTypeEnum']
+/** A booking time window, `HH:MM` in the workspace time zone. */
+export type BookingWindow = Schemas['BookingWindow']
+export type TransitionBody = Schemas['OrderTransitionRequest']
+export type ConfirmBookingBody = Schemas['ConfirmBookingRequest']
 export type OrderItem = Schemas['OrderItem']
 export type OrderAddress = Schemas['OrderAddress']
 export type OrderSummary = Schemas['OrderSummary']
@@ -29,16 +27,18 @@ export type OrderSource = Schemas['OrderSourceEnum']
 export type EventActor = Schemas['OrderEventActorEnum']
 export type CancelBody = Schemas['CancelOrderRequest']
 
-export type OrderListQuery = {
-  status?: string
-  stage?: 'checkout' | 'open' | 'closed'
-  kind?: OrderKind
-  payment_status?: PaymentStatus
-  payment_method?: PaymentMethod
-  created_after?: string
-  created_before?: string
-  search?: string
-  cursor?: string
+export type OrderListQuery = NonNullable<paths['/api/v1/orders/']['get']['parameters']['query']>
+
+export function isBooking(order: { kind?: OrderKind }): boolean {
+  return order.kind === 'booking'
+}
+
+/**
+ * The buyer tapped *Change time* on a reminder and no new time is set yet. `GET orders/` doesn't return
+ * `reschedule_requested_at` (only the detail does), so list rows show it only when the field is present.
+ */
+export function wantsNewTime(order: OrderListItem | Order): boolean {
+  return 'reschedule_requested_at' in order && Boolean(order.reschedule_requested_at)
 }
 
 export const orderKeys = workspaceKeys('orders')
@@ -46,17 +46,8 @@ export const orderKeys = workspaceKeys('orders')
 export const summaryKey = (workspaceId: string) => orderKeys.custom(workspaceId, 'summary')
 export const eventsKey = (workspaceId: string, orderId: string) => orderKeys.custom(workspaceId, 'events', orderId)
 
-/*
- * TODO(api:types): `kind`, `pay_at_shop`, the new statuses and the booking/offer fields aren't in the generated
- * schema yet. The casts in this file (each marked) narrow the generated types to `./bookingTypes`; drop them
- * after `npm run api:types`.
- */
-type GeneratedOrderQuery = paths['/api/v1/orders/']['get']['parameters']['query']
-
-export async function fetchOrders(query: OrderListQuery = {}, signal?: AbortSignal): Promise<CursorPage<OrderListItem>> {
-  // TODO(api:types): `kind` filter and `pay_at_shop` method.
-  const page = await unwrap(api.GET('/api/v1/orders/', { params: { query: query as GeneratedOrderQuery }, signal }))
-  return page as unknown as CursorPage<OrderListItem> // TODO(api:types)
+export function fetchOrders(query: OrderListQuery = {}, signal?: AbortSignal): Promise<CursorPage<OrderListItem>> {
+  return unwrap(api.GET('/api/v1/orders/', { params: { query }, signal }))
 }
 
 export function useOrders(workspaceId: string, query: Omit<OrderListQuery, 'cursor'>) {
@@ -69,8 +60,7 @@ export function useOrders(workspaceId: string, query: Omit<OrderListQuery, 'curs
 export function useOrder(workspaceId: string, id: string) {
   return useQuery({
     queryKey: orderKeys.detail(workspaceId, id),
-    // TODO(api:types): booking-aware `Order`.
-    queryFn: async ({ signal }) => (await unwrap(api.GET('/api/v1/orders/{id}/', { params: { path: { id } }, signal }))) as unknown as Order,
+    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/orders/{id}/', { params: { path: { id } }, signal })),
     enabled: Boolean(id),
   })
 }
@@ -85,31 +75,22 @@ export function useOrderSummary(workspaceId: string) {
 export function useOrderEvents(workspaceId: string, id: string) {
   return useCursorQuery<OrderEvent>({
     queryKey: eventsKey(workspaceId, id),
-    // TODO(api:types): new event types.
-    queryFn: async ({ cursor, signal }) =>
-      (await unwrap(
-        api.GET('/api/v1/orders/{id}/events/', { params: { path: { id }, query: { cursor } }, signal }),
-      )) as unknown as CursorPage<OrderEvent>,
+    queryFn: ({ cursor, signal }) =>
+      unwrap(api.GET('/api/v1/orders/{id}/events/', { params: { path: { id }, query: { cursor } }, signal })),
   })
 }
 
 const pathOf = (id: string) => ({ params: { path: { id } } })
 
-/** TODO(api:types): mutation responses are the booking-aware `Order`. */
-const asOrder = async (request: Promise<unknown>): Promise<Order> => (await request) as Order
-
 export const orderMutations = {
-  transition: (id: string, body: TransitionBody) =>
-    // TODO(api:types): `completed` and `no_show` aren't transition targets in the generated schema yet.
-    asOrder(unwrap(api.POST('/api/v1/orders/{id}/transition/', { ...pathOf(id), body: body as Schemas['OrderTransitionRequest'] }))),
-  cancel: (id: string, body: CancelBody) => asOrder(unwrap(api.POST('/api/v1/orders/{id}/cancel/', { ...pathOf(id), body }))),
+  transition: (id: string, body: TransitionBody) => unwrap(api.POST('/api/v1/orders/{id}/transition/', { ...pathOf(id), body })),
+  cancel: (id: string, body: CancelBody) => unwrap(api.POST('/api/v1/orders/{id}/cancel/', { ...pathOf(id), body })),
   /** Also "Mark paid at shop" for `pay_at_shop` bookings. */
-  markCodCollected: (id: string) => asOrder(unwrap(api.POST('/api/v1/orders/{id}/mark-cod-collected/', pathOf(id)))),
-  markRefunded: (id: string) => asOrder(unwrap(api.POST('/api/v1/orders/{id}/mark-refunded/', pathOf(id)))),
-  updateNotes: (id: string, notes: string) => asOrder(unwrap(api.PATCH('/api/v1/orders/{id}/', { ...pathOf(id), body: { notes } }))),
-  // TODO(api:types): `confirm-booking` isn't in the generated schema yet, so it goes through `apiFetch`.
+  markCodCollected: (id: string) => unwrap(api.POST('/api/v1/orders/{id}/mark-cod-collected/', pathOf(id))),
+  markRefunded: (id: string) => unwrap(api.POST('/api/v1/orders/{id}/mark-refunded/', pathOf(id))),
+  updateNotes: (id: string, notes: string) => unwrap(api.PATCH('/api/v1/orders/{id}/', { ...pathOf(id), body: { notes } })),
   confirmBooking: (id: string, body: ConfirmBookingBody) =>
-    apiFetch<Order>(`/api/v1/orders/${encodeURIComponent(id)}/confirm-booking/`, { method: 'POST', body: JSON.stringify(body) }),
+    unwrap(api.POST('/api/v1/orders/{id}/confirm-booking/', { ...pathOf(id), body })),
 }
 
 type OrderPages = InfiniteData<CursorPage<OrderListItem>, string | undefined>

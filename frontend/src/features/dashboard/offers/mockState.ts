@@ -7,8 +7,9 @@ import { db, type Mutable } from '../../../mocks/db'
 import { ids, indianMobile, indianName } from '../../../mocks/seed'
 import type { OfferClaim, OfferCode } from './types'
 
-export type MockOfferCode = Mutable<Omit<OfferCode, 'claims_count' | 'redeemed_count'>> & { workspaceId: string }
-export type MockClaim = Mutable<OfferClaim> & { workspaceId: string }
+export type MockOfferCode = Required<Mutable<Omit<OfferCode, 'claims_count' | 'redeemed_count'>>> & { workspaceId: string }
+/** Stored claim; `offer_code` and `from_ad` are derived when serialized, as on the backend. */
+export type MockClaim = Mutable<Omit<OfferClaim, 'offer_code' | 'from_ad'>> & { workspaceId: string }
 
 export const offerIds = {
   diwali: '0ffe0000-0000-4000-8000-000000000001',
@@ -29,8 +30,13 @@ export const claimIds = {
 
 const CONTACT_PREFIX = 'e0f1a2b3-c4d5-4e6f-8a9b-'
 
-export function mockContact(i: number) {
-  return { id: `${CONTACT_PREFIX}${String(i + 1).padStart(12, '0')}`, name: indianName(i), phone_e164: indianMobile(i) }
+export function mockContact(i: number): OfferClaim['contact'] {
+  return {
+    id: `${CONTACT_PREFIX}${String(i + 1).padStart(12, '0')}`,
+    name: indianName(i),
+    phone_e164: indianMobile(i),
+    marketing_opt_in_status: i % 3 === 0 ? 'unknown' : 'opted_in',
+  }
 }
 
 function build() {
@@ -105,7 +111,9 @@ function build() {
     return {
       workspaceId: ids.sharmaSweets,
       contact: mockContact(contactIndex),
-      order: null,
+      conversation_id: null,
+      order_id: null,
+      order_number: null,
       discount_paise: 0,
       bill_paise: null,
       ad_source_id: '',
@@ -113,6 +121,7 @@ function build() {
       ad_headline: '',
       ctwa_clid: '',
       redeemed_at: null,
+      redeemed_by: null,
       ...rest,
     }
   }
@@ -123,7 +132,9 @@ function build() {
       offer: offerIds.diwali,
       contactIndex: 6,
       status: 'applied',
-      order: { id: '7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01', number: 'SS-1042' },
+      conversation_id: 'c3d4e5f6-a7b8-4c9d-8e0f-000000000010',
+      order_id: '7d0a4e3c-9f6b-4a1c-a5e8-3b4c5d6e7f01',
+      order_number: 'SS-1042',
       discount_paise: 18_000,
       ad_source_id: '120210000000000001',
       ad_source_url: 'https://fb.me/sharmasweets-diwali',
@@ -139,6 +150,7 @@ function build() {
       discount_paise: 30_000,
       bill_paise: 245_000,
       redeemed_at: daysAgo(1),
+      redeemed_by: userSummary(ids.demoUser),
       created_at: daysAgo(3),
     }),
     claim({
@@ -208,5 +220,12 @@ export function serializeCode(code: MockOfferCode): OfferCode {
 export function serializeClaim(claim: MockClaim): OfferClaim {
   const { workspaceId, ...rest } = claim
   void workspaceId
-  return rest
+  const code = offerState().codes.find((item) => item.id === claim.offer)
+  return { ...rest, offer_code: code?.code ?? '', from_ad: Boolean(claim.ad_source_id || claim.ctwa_clid) }
+}
+
+/** A dashboard member as `redeemed_by`. */
+export function userSummary(userId: string): OfferClaim['redeemed_by'] {
+  const user = db.users.find((candidate) => candidate.id === userId)
+  return user ? { id: user.id, full_name: user.full_name ?? '', email: user.email } : null
 }

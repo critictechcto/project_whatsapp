@@ -122,6 +122,8 @@ export const eventTypeLabels: Record<EventType, string> = {
   time_requested: 'Booking day and time chosen',
   appointment_set: 'Appointment time set',
   reminder_sent: 'Appointment reminder sent',
+  attendance_confirmed: "Customer confirmed they'll come",
+  reschedule_requested: 'Customer asked to change the time',
   offer_applied: 'Offer applied',
   offer_removed: 'Offer removed',
   payment_link_created: 'Payment link sent',
@@ -139,9 +141,23 @@ function statusLabel(status: string): string {
   return orderStatusInfo[status as OrderStatus]?.label ?? status.replace(/_/g, ' ')
 }
 
+/**
+ * Which reminder a `reminder_sent` event was: the contract keeps it in `metadata.reminder` (`booking_day_before` or
+ * `booking_reminder`). `OrderEvent` doesn't expose `metadata` yet, so the backend's detail text ("Day-before
+ * reminder for …") is the fallback.
+ */
+export function reminderKind(event: Pick<OrderEvent, 'detail'> & { metadata?: { reminder?: string } }): 'day_before' | 'hours_before' {
+  const reminder = event.metadata?.reminder
+  if (reminder) return reminder === 'booking_day_before' ? 'day_before' : 'hours_before'
+  return /^day-before/i.test(event.detail) ? 'day_before' : 'hours_before'
+}
+
 /** Title of a timeline entry. */
-export function eventTitle(event: Pick<OrderEvent, 'type' | 'to_status'>): string {
+export function eventTitle(event: Pick<OrderEvent, 'type' | 'to_status' | 'detail'>): string {
   if (event.type === 'status_changed' && event.to_status) return `Moved to ${statusLabel(event.to_status)}`
+  if (event.type === 'reminder_sent') {
+    return reminderKind(event) === 'day_before' ? 'Evening-before reminder sent' : 'Reminder sent before the appointment'
+  }
   return eventTypeLabels[event.type] ?? event.type
 }
 
@@ -165,13 +181,19 @@ function joinOr(items: string[]): string {
 type TransitionDetails = { from_status?: string; to_status?: string; allowed?: string[] }
 
 /** A readable message for a failed order action, with `invalid_order_transition` details spelled out. */
-export function orderActionError(error: unknown): string {
-  if (!isApiError(error, 'invalid_order_transition') && !isApiError(error, 'invalid_transition')) return errorMessage(error)
+export function orderActionError(error: unknown, options: { booking?: boolean; action?: 'confirm_booking' } = {}): string {
+  if (!isApiError(error, 'invalid_order_transition')) return errorMessage(error)
   const details = (error.details ?? {}) as TransitionDetails
   const from = details.from_status ? statusLabel(details.from_status) : ''
   const to = details.to_status ? statusLabel(details.to_status) : ''
   const allowed = (details.allowed ?? []).map((status) => statusLabel(status).toLowerCase())
   const next = allowed.length ? `From here it can only be moved to ${joinOr(allowed)}.` : "Its status can't be changed any more."
+  if (options.action === 'confirm_booking') {
+    // confirm-booking only works on requested or confirmed bookings.
+    const now = from ? `This booking is ${from.toLowerCase()} now, so it can't be given a time.` : error.message
+    return `${now} ${next}`.trim()
+  }
   if (!from || !to || from === to) return `${error.message} ${next}`.trim()
-  return `This order is ${from.toLowerCase()} now, so it can't be moved to ${to.toLowerCase()}. ${next}`
+  const noun = options.booking ? 'booking' : 'order'
+  return `This ${noun} is ${from.toLowerCase()} now, so it can't be moved to ${to.toLowerCase()}. ${next}`
 }

@@ -24,10 +24,11 @@ import {
 import { StoreFrame } from './components/StoreNav'
 
 export const MAX_ALERT_RECIPIENTS = 3
-const ALERT_EVENTS: readonly AlertEvent[] = ['new_order', 'needs_attention', 'order_cancelled']
+const ALERT_EVENTS: readonly AlertEvent[] = ['new_order', 'new_booking', 'needs_attention', 'order_cancelled']
 
 const eventLabels: Record<AlertEvent, { label: string; description: string }> = {
   new_order: { label: 'New orders', description: 'With buttons to mark it packed, shipped or cancel it.' },
+  new_booking: { label: 'New bookings', description: 'With buttons to accept the booking at the time the buyer asked for, or cancel it.' },
   needs_attention: { label: 'Orders that need attention', description: 'For example a payment that arrived for an expired order.' },
   order_cancelled: { label: 'Cancelled orders', description: 'When a confirmed order is cancelled by the buyer or UpChatz.' },
 }
@@ -239,7 +240,7 @@ export function AlertsPage() {
   )
 }
 
-const eventsSchema = z.array(z.enum(['new_order', 'needs_attention', 'order_cancelled'])).min(1, 'Choose at least one alert.')
+const eventsSchema = z.array(z.enum(['new_order', 'new_booking', 'needs_attention', 'order_cancelled'])).min(1, 'Choose at least one alert.')
 
 function recipientSchema(editing: boolean) {
   return z.object({

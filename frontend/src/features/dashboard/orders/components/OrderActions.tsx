@@ -2,10 +2,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Button, Checkbox, Dialog, useToast } from '../../../../components/app'
 import { useWorkspace } from '../../../../lib/workspace'
-import { orderKeys, orderMutations, storeOrder, type Order } from '../api'
+import { isBooking, orderKeys, orderMutations, storeOrder, type Order } from '../api'
 import { actionLabel, availableOrderActions, progressActions, simpleActionCopy, type OrderAction, type SimpleAction } from '../actions'
 import { orderActionError } from '../labels'
-import { isBooking } from '../bookingTypes'
 import { AppointmentDialog } from './AppointmentDialog'
 import { CancelDialog } from './CancelDialog'
 import { ShipDialog } from './ShipDialog'
@@ -96,9 +95,9 @@ export function OrderActions({ order, onError, onSuccess }: OrderActionsProps) {
     toast({ title: message, tone: 'success' })
   }
 
-  const failed = (error: unknown) => {
+  const failed = (error: unknown, action?: 'confirm_booking') => {
     setOpen(null)
-    onError(orderActionError(error))
+    onError(orderActionError(error, { booking: isBooking(order), action }))
     void queryClient.invalidateQueries({ queryKey: orderKeys.detail(workspaceId, order.id) })
     void queryClient.invalidateQueries({ queryKey: orderKeys.lists(workspaceId) })
   }
@@ -127,7 +126,7 @@ export function OrderActions({ order, onError, onSuccess }: OrderActionsProps) {
           order={order}
           onClose={close}
           onSaved={(updated) => done(updated, open === 'change_time' ? 'Appointment time changed' : 'Booking confirmed')}
-          onFailed={failed}
+          onFailed={(error) => failed(error, 'confirm_booking')}
         />
       )}
       {open && isSimple(open) && (

@@ -39,7 +39,7 @@ describe('order alerts', () => {
     expect(await within(table).findByText('Priya Verma')).toBeInTheDocument()
     expect(within(table).getByText('Waiting for Confirm')).toBeInTheDocument()
     const created = storeState(ids.sharmaSweets).recipients.find((recipient) => recipient.name === 'Priya Verma')
-    expect(created).toMatchObject({ phone_e164: '+919876543210', status: 'pending', events: ['new_order', 'needs_attention'] })
+    expect(created).toMatchObject({ phone_e164: '+919876543210', status: 'pending', events: ['new_order', 'new_booking', 'needs_attention'] })
   })
 
   it('resends a confirmation and explains when it was sent too recently', async () => {

@@ -45,6 +45,9 @@ describe('booking settings', () => {
     const reminder = scope.getByLabelText(/^Reminder \(hours before\)/)
     await user.clear(reminder)
     await user.type(reminder, '0')
+    const eveningBefore = scope.getByRole('switch', { name: /^Reminder the evening before \(6 pm\)/ })
+    expect(eveningBefore).toBeChecked()
+    await user.click(eveningBefore)
 
     await user.click(screen.getByRole('button', { name: 'Save settings' }))
     expect(await screen.findByText('End after the start time.')).toBeInTheDocument()
@@ -60,6 +63,7 @@ describe('booking settings', () => {
     expect(saved.pay_at_shop_enabled).toBe(false)
     expect(saved.booking_days).toEqual([0, 1, 2, 3, 4, 5])
     expect(saved.booking_reminder_hours).toBe(0)
+    expect(saved.booking_day_before_reminder).toBe(false)
     expect(saved.booking_windows).toEqual([
       { label: 'Afternoon', start: '12:00', end: '16:00' },
       { label: 'Evening', start: '16:00', end: '20:00' },

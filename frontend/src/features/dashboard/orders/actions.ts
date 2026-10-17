@@ -1,7 +1,6 @@
 import { formatPaise } from '../../../lib/money'
 import type { Role } from '../../../lib/roles'
-import type { Order } from './api'
-import { isBooking } from './bookingTypes'
+import { isBooking, type Order } from './api'
 
 export type OrderAction =
   | 'confirmed'

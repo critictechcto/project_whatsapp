@@ -7,7 +7,7 @@ import { formatInZone, fromZonedParts } from '../../../lib/datetime'
 import { formatPaise } from '../../../lib/money'
 import { db, type Mutable } from '../../../mocks/db'
 import { ids, indianMobile, indianName, seedPhoneNumber } from '../../../mocks/seed'
-import type { BookingWindow, EventType, Order, OrderListItem, OrderEvent, OrderStatus, PaymentMethod } from './bookingTypes'
+import type { BookingWindow, EventType, Order, OrderListItem, OrderEvent, OrderStatus, PaymentMethod } from './api'
 import { stageStatuses, transitionsFor } from './labels'
 
 type OrderSource = Schemas['OrderSourceEnum']
@@ -140,6 +140,8 @@ type Seed = {
   notes?: string
   /** A booking for a service: the requested day (days from now) and window index. */
   booking?: { inDays: number; window: number }
+  /** A confirmed booking whose evening-before reminder went out, and the buyer's answer to it. */
+  reminderAnswer?: 'attend' | 'reschedule'
   /** An offer code applied at checkout. */
   offer?: [code: string, discountPaise: number]
 }
@@ -253,9 +255,20 @@ const seeds: Seed[] = [
     method: 'pay_at_shop',
     booking: { inDays: 1, window: 0 },
     offer: ['DIWALI10', 15_000],
+    reminderAnswer: 'attend',
   },
   { key: 'bookingRequested', hoursAgo: 0.5, contact: 4, lines: [[DIWALI_GLOW, 1]], status: 'requested', method: 'pay_at_shop', booking: { inDays: 2, window: 2 } },
   { key: 'bookingCompleted', hoursAgo: 70, contact: 9, lines: [[HAIR_SPA, 1]], status: 'completed', method: 'pay_at_shop', booking: { inDays: -1, window: 1 }, codCollected: true },
+  {
+    key: 'bookingReschedule',
+    hoursAgo: 30,
+    contact: 11,
+    lines: [[HAIR_SPA, 1]],
+    status: 'confirmed',
+    method: 'pay_at_shop',
+    booking: { inDays: 1, window: 1 },
+    reminderAnswer: 'reschedule',
+  },
 ]
 
 const SHIPPING_PAISE = 6_000
@@ -341,6 +354,9 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     requested_window: null,
     appointment_at: null,
     reminder_sent_at: null,
+    day_before_reminder_sent_at: null,
+    attendance_confirmed_at: null,
+    reschedule_requested_at: null,
     discount_paise: discount,
     offer_code: seed.offer?.[0] ?? '',
     offer_claim_id: seed.offer ? `6d7e8f9a-0b1c-4d2e-8f3a-${String(n).padStart(12, '0')}` : null,
@@ -407,6 +423,20 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     event('appointment_set', 'dashboard', formatInZone(order.appointment_at ?? iso(), BOOKING_TIME_ZONE), { user: ids.demoUser })
     move('confirmed', 'dashboard', '', ids.demoUser)
     event('notification_sent', 'system', 'Sent the booking confirmation.')
+    if (seed.reminderAnswer) {
+      // The evening-before reminder went out a couple of hours ago and the buyer tapped a button on it.
+      tick(Math.max(0, (now - 2 * HOUR - t) / MINUTE))
+      order.day_before_reminder_sent_at = iso()
+      event('reminder_sent', 'system', `Day-before reminder for the appointment at ${formatInZone(order.appointment_at ?? iso(), BOOKING_TIME_ZONE)}.`)
+      tick(25)
+      if (seed.reminderAnswer === 'attend') {
+        order.attendance_confirmed_at = iso()
+        event('attendance_confirmed', 'buyer', "Tapped I'll be there.")
+      } else {
+        order.reschedule_requested_at = iso()
+        event('reschedule_requested', 'buyer', 'Tapped Change time.')
+      }
+    }
     if (seed.status === 'confirmed') return finish()
 
     tick(Math.max(60, (Date.parse(order.appointment_at ?? iso()) - t) / MINUTE + 60))
@@ -584,9 +614,19 @@ export function toOrder(record: OrderRecord): Order {
   return { ...record.order, allowed_transitions: [...transitionsFor(record.order.kind, record.order.status)] }
 }
 
-export function toListItem({ order }: OrderRecord): OrderListItem {
-  const { id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count, created_at, updated_at } = order
-  return { id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count, created_at, updated_at }
+/**
+ * A `GET orders/` row. `reschedule_requested_at` isn't in the generated `OrderListItem` (the list endpoint doesn't
+ * return it yet); the mock includes it so the list's "asked to change the time" marker can be seen.
+ */
+export function toListItem({ order }: OrderRecord): OrderListItem & { reschedule_requested_at: string | null } {
+  const {
+    id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count,
+    requested_date, appointment_at, created_at, updated_at, reschedule_requested_at,
+  } = order
+  return {
+    id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count,
+    requested_date, appointment_at, created_at, updated_at, reschedule_requested_at,
+  }
 }
 
 /** Appends a timeline event stamped now. */

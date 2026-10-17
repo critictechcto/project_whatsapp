@@ -3,7 +3,7 @@ import { ids, seedPhoneNumber } from '../../../mocks/seed'
 import { mockRealtime } from '../../../mocks/realtime'
 import { authorize, errorResponse, http, mockDelay, notFound, nowIso, paginate, uuid, validationError } from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
-import type { StoreSettings, StoreSettingsPatch } from './bookingTypes'
+import type { StoreSettings, StoreSettingsPatch } from './api'
 import {
   BOOKING_TEMPLATE_FIELDS,
   emptyAccount,
@@ -26,7 +26,7 @@ const PREFIX = /^[A-Z]{2,5}$/
 const PINCODE = /^[1-9]\d{5}$/
 const RAZORPAY_KEY = /^rzp_(test|live)_[A-Za-z0-9]+$/
 const E164 = /^\+[1-9]\d{7,14}$/
-const ALERT_EVENTS: readonly Schemas['AlertEventEnum'][] = ['new_order', 'needs_attention', 'order_cancelled']
+const ALERT_EVENTS: readonly Schemas['AlertEventEnum'][] = ['new_order', 'new_booking', 'needs_attention', 'order_cancelled']
 const MAX_RECIPIENTS = 3
 const RESEND_COOLDOWN_MS = 5 * 60_000
 const WEBHOOK_BASE = 'https://api.upchatz.com/webhooks/payments/merchants'
@@ -41,7 +41,7 @@ function isMoney(value: unknown) {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
 
-// TODO(api:types): the booking fields aren't in the generated StoreSettings yet, hence the cast.
+
 function settingsResponse(store: WorkspaceStore): Schemas['StoreSettings'] {
   const { settings } = store
   const body: StoreSettings = {
@@ -52,7 +52,7 @@ function settingsResponse(store: WorkspaceStore): Schemas['StoreSettings'] {
     booking_days: [...settings.booking_days],
     booking_windows: settings.booking_windows.map((window) => ({ ...window })),
   }
-  return body as Schemas['StoreSettings']
+  return body
 }
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -82,6 +82,9 @@ function bookingErrors(body: StoreSettingsPatch): Record<string, string[]> {
   }
   if (body.booking_reminder_hours !== undefined && !isWholeNumber(body.booking_reminder_hours, 0, 48)) {
     errors.booking_reminder_hours = ['Ensure this value is between 0 and 48.']
+  }
+  if (body.booking_day_before_reminder !== undefined && typeof body.booking_day_before_reminder !== 'boolean') {
+    errors.booking_day_before_reminder = ['Must be a valid boolean.']
   }
   return errors
 }
@@ -207,7 +210,7 @@ export const handlers: AreaMockHandlers = [
     const ctx = authorize(request, 'admin')
     if (ctx instanceof Response) return response.untyped(ctx)
     const store = storeState(ctx.workspace.id)
-    const body = (await request.json()) as StoreSettingsPatch // TODO(api:types)
+    const body = (await request.json()) as StoreSettingsPatch
     const errors = { ...settingsErrors(ctx.workspace.id, body), ...bookingErrors(body) }
     if (Object.keys(errors).length) return response.untyped(validationError(errors))
 

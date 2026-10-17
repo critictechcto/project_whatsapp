@@ -5,7 +5,8 @@ import { formatPaise } from '../../../lib/money'
 import { ids } from '../../../mocks/seed'
 import { findDialog, renderDashboard, signIn } from '../../../test/render'
 import { availableOrderActions } from './actions'
-import type { Order } from './bookingTypes'
+import { eventTitle } from './labels'
+import type { Order } from './api'
 import { seededOrder, toOrder } from './mockState'
 
 const ws = `/app/w/${ids.sharmaSweets}`
@@ -121,6 +122,54 @@ describe('booking detail', () => {
   })
 })
 
+describe('booking reminders and replies', () => {
+  it('shows the evening-before reminder and that the customer will come', async () => {
+    const { record } = await openOrder('bookingConfirmed')
+    expect(record.order.attendance_confirmed_at).not.toBeNull()
+
+    const booking = region('Booking')
+    expect(within(booking).getByText(/\(evening before\)$/)).toBeInTheDocument()
+    expect(within(booking).getByText(/Customer confirmed they.ll come/)).toBeInTheDocument()
+    expect(within(booking).queryByText('Customer asked to change the time')).not.toBeInTheDocument()
+
+    const timeline = region('Timeline')
+    expect(await within(timeline).findByText('Evening-before reminder sent', {}, slow)).toBeInTheDocument()
+    expect(within(timeline).getByText("Customer confirmed they'll come")).toBeInTheDocument()
+  })
+
+  it('warns when the customer asked to change the time', async () => {
+    const { record } = await openOrder('bookingReschedule')
+    expect(record.order.reschedule_requested_at).not.toBeNull()
+
+    const booking = region('Booking')
+    expect(within(booking).getByText('Customer asked to change the time')).toBeInTheDocument()
+    expect(within(booking).getByText(/use Change time to update the booking/)).toBeInTheDocument()
+    expect(within(booking).queryByText(/Customer confirmed they.ll come/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Change time' })).toBeInTheDocument()
+
+    const timeline = region('Timeline')
+    expect(await within(timeline).findByText('Customer asked to change the time', {}, slow)).toBeInTheDocument()
+  })
+
+  it('labels the reminder sent before the appointment', () => {
+    expect(eventTitle({ type: 'reminder_sent', to_status: '', detail: 'Day-before reminder for the appointment at 5 pm' })).toBe('Evening-before reminder sent')
+    expect(eventTitle({ type: 'reminder_sent', to_status: '', detail: 'Reminder for the appointment at 5 pm' })).toBe('Reminder sent before the appointment')
+  })
+
+  it('explains a confirm-booking conflict', async () => {
+    const { user, record } = await openOrder('bookingConfirmed')
+    // Someone else completed it meanwhile.
+    record.order.status = 'completed'
+
+    await user.click(screen.getByRole('button', { name: 'Change time' }))
+    const dialog = await findDialog()
+    fireEvent.change(within(dialog).getByLabelText(/^Time/), { target: { value: '18:00' } })
+    await user.click(within(dialog).getByRole('button', { name: 'Change time' }))
+
+    expect(await screen.findByText(/This booking is completed now, so it can't be given a time\./, {}, slow)).toBeInTheDocument()
+  })
+})
+
 describe('orders list kind filter', () => {
   it('filters to bookings and marks them in the list', async () => {
     signIn()
@@ -139,5 +188,10 @@ describe('orders list kind filter', () => {
     }, slow)
     const row = screen.getByRole('link', { name: booking.number }).closest('tr')!
     expect(within(row).getByText('Booking')).toBeInTheDocument()
+    expect(within(row).queryByText('Asked to change the time')).not.toBeInTheDocument()
+
+    const reschedule = seededOrder('bookingReschedule').order
+    const rescheduleRow = screen.getByRole('link', { name: reschedule.number }).closest('tr')!
+    expect(within(rescheduleRow).getByText('Asked to change the time')).toBeInTheDocument()
   })
 })

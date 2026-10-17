@@ -22,14 +22,15 @@ export const claimStatuses = Object.keys(claimStatusInfo) as OfferClaimStatus[]
 export function discountSummary(offer: Pick<OfferCode, 'discount_type' | 'discount_value' | 'max_discount_paise' | 'min_order_paise'>): string {
   let text: string
   if (offer.discount_type === 'percent') {
-    text = `${offer.discount_value}% off`
+    text = `${offer.discount_value ?? 0}% off`
     if (offer.max_discount_paise) text += ` (up to ${formatPaise(offer.max_discount_paise)})`
   } else if (offer.discount_type === 'amount') {
-    text = `${formatPaise(offer.discount_value)} off`
+    text = `${formatPaise(offer.discount_value ?? 0)} off`
   } else {
     return 'Message only'
   }
-  if (offer.min_order_paise > 0) text += ` on ${formatPaise(offer.min_order_paise)}+`
+  const minOrder = offer.min_order_paise ?? 0
+  if (minOrder > 0) text += ` on ${formatPaise(minOrder)}+`
   return text
 }
 

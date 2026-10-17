@@ -2,9 +2,19 @@ import { useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '../../../api/client'
 import { workspaceKeys } from '../../../api/queryKeys'
 import type { Schemas } from '../../../api/types'
-import type { StoreSettings, StoreSettingsPatch } from './bookingTypes'
 
-export type { BookingTemplateField, BookingWindow, StoreSettings, StoreSettingsPatch } from './bookingTypes'
+export type StoreSettings = Schemas['StoreSettings']
+export type StoreSettingsPatch = Schemas['PatchedStoreSettingsRequest']
+/** A booking time window, `HH:MM` in the workspace time zone. */
+export type BookingWindow = Schemas['BookingWindow']
+export type BookingTemplateField = 'booking_confirmed_template_id' | 'booking_cancelled_template_id' | 'booking_reminder_template_id'
+
+export const DEFAULT_BOOKING_WINDOWS: readonly BookingWindow[] = [
+  { label: 'Morning', start: '09:00', end: '12:00' },
+  { label: 'Afternoon', start: '12:00', end: '16:00' },
+  { label: 'Evening', start: '16:00', end: '20:00' },
+]
+
 export type StoreChecklistItem = Schemas['StoreChecklistItem']
 export type PaymentAccount = Schemas['PaymentAccount']
 export type PaymentAccountPatch = Schemas['PatchedPaymentAccountRequest']
@@ -28,13 +38,12 @@ export const storeQueryKeys = {
   phoneNumbers: (workspaceId: string) => storeKeys.custom(workspaceId, 'phone-numbers'),
 }
 
-// TODO(api:types): the generated StoreSettings lacks the booking fields; these casts isolate that.
 export function fetchStoreSettings(signal?: AbortSignal): Promise<StoreSettings> {
-  return unwrap(api.GET('/api/v1/store/settings/', { signal })) as Promise<StoreSettings>
+  return unwrap(api.GET('/api/v1/store/settings/', { signal }))
 }
 
 export function patchStoreSettings(body: StoreSettingsPatch): Promise<StoreSettings> {
-  return unwrap(api.PATCH('/api/v1/store/settings/', { body: body as Schemas['PatchedStoreSettingsRequest'] })) as Promise<StoreSettings>
+  return unwrap(api.PATCH('/api/v1/store/settings/', { body }))
 }
 
 export function useStoreSettings(workspaceId: string) {

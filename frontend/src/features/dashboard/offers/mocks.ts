@@ -1,17 +1,22 @@
-/**
- * Mock handlers for `/api/v1/offers/` (docs/contracts/services-and-offers.md, "Offers").
- * Plain `msw` handlers because the endpoints aren't in `openapi.yml` yet.
- * TODO: switch to generated types after api:types (typed `http` from `mocks/utils`).
- */
-import { http, HttpResponse } from 'msw'
+/** Mock handlers for `/api/v1/offers/` (docs/contracts/services-and-offers.md, "Offers"). */
 import { ids } from '../../../mocks/seed'
-import { apiUrl, authorize, errorResponse, mockDelay, notFound, nowIso, paginate, uuid, validationError, type WorkspaceContext } from '../../../mocks/utils'
+import {
+  authorize,
+  errorResponse,
+  http,
+  mockDelay,
+  notFound,
+  nowIso,
+  paginate,
+  uuid,
+  validationError,
+  type MockErrorResponse,
+  type WorkspaceContext,
+} from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
 import { normalisePhone } from './format'
-import { offerState, serializeClaim, serializeCode, type MockClaim, type MockOfferCode } from './mockState'
-import type { OfferClaimStatus, OfferCodeWrite, OfferStats, RedeemAtCounterBody, RedeemClaimBody } from './types'
-
-const url = (path: string) => apiUrl(`/api/v1/offers/${path}`)
+import { offerState, serializeClaim, serializeCode, userSummary, type MockClaim, type MockOfferCode } from './mockState'
+import type { OfferCodeWrite, OfferStats, RedeemAtCounterBody, RedeemClaimBody } from './types'
 
 /** Words the shop, consent and opt-out flows already answer. */
 const RESERVED_CODES = ['MENU', 'SHOP', 'CART', 'ORDER', 'HI', 'YES', 'NO', 'STOP', 'UNSUBSCRIBE', 'START', 'HELP', 'CANCEL']
@@ -19,7 +24,7 @@ const CODE = /^[A-Za-z0-9_-]{2,20}$/
 const CLAIM_STATUSES: readonly string[] = ['claimed', 'applied', 'redeemed', 'expired']
 
 /** Kaveri Dental Clinic's plan doesn't include commerce (as in the analytics mocks). */
-function gate(request: Request, minRole: 'viewer' | 'agent' | 'admin' = 'viewer'): WorkspaceContext | Response {
+function gate(request: Request, minRole: 'viewer' | 'agent' | 'admin' = 'viewer'): WorkspaceContext | MockErrorResponse {
   const ctx = authorize(request, minRole)
   if (ctx instanceof Response) return ctx
   if (ctx.workspace.id === ids.kaveriClinic) {
@@ -32,7 +37,7 @@ function codesOf(workspaceId: string) {
   return offerState().codes.filter((code) => code.workspaceId === workspaceId)
 }
 
-function findCode(workspaceId: string, id: string | readonly string[] | undefined) {
+function findCode(workspaceId: string, id: string) {
   return codesOf(workspaceId).find((code) => code.id === id)
 }
 
@@ -87,12 +92,13 @@ function discountFor(code: MockOfferCode, billPaise: number | null | undefined):
   return 0
 }
 
-function redeem(claim: MockClaim, code: MockOfferCode, billPaise: number | undefined) {
+function redeem(claim: MockClaim, code: MockOfferCode, billPaise: number | null | undefined, userId: string) {
   claim.status = 'redeemed'
   claim.redeemed_at = nowIso()
-  if (billPaise !== undefined) {
+  claim.redeemed_by = userSummary(userId)
+  if (billPaise !== undefined && billPaise !== null) {
     claim.bill_paise = billPaise
-    if (!claim.order) claim.discount_paise = discountFor(code, billPaise)
+    if (!claim.order_id) claim.discount_paise = discountFor(code, billPaise)
   }
 }
 
@@ -106,7 +112,6 @@ async function readJson<T>(request: Request): Promise<T> {
 
 function stats(code: MockOfferCode): OfferStats {
   const claims = offerState().claims.filter((claim) => claim.offer === code.id)
-  const used = claims.filter((claim) => claim.status === 'applied' || claim.status === 'redeemed')
   const redeemed = claims.filter((claim) => claim.status === 'redeemed')
   const day = (iso: string) => iso.slice(0, 10)
   const daily = Array.from({ length: 14 }, (_, i) => {
@@ -119,31 +124,32 @@ function stats(code: MockOfferCode): OfferStats {
   })
   return {
     claims: claims.length,
-    from_ads: claims.filter((claim) => claim.ad_source_id || claim.ad_headline).length,
-    applied: claims.filter((claim) => claim.status === 'applied' || (claim.status === 'redeemed' && claim.order)).length,
+    from_ads: claims.filter((claim) => claim.ad_source_id || claim.ctwa_clid).length,
+    applied: claims.filter((claim) => claim.status === 'applied').length,
     redeemed: redeemed.length,
-    discount_paise: used.reduce((sum, claim) => sum + claim.discount_paise, 0),
+    // As on the backend: the discount given on redeemed claims.
+    discount_paise: redeemed.reduce((sum, claim) => sum + claim.discount_paise, 0),
     revenue_paise: redeemed.reduce((sum, claim) => sum + (claim.bill_paise ?? 0), 0),
     daily,
   }
 }
 
 export const handlers: AreaMockHandlers = [
-  http.get(url('codes/'), async ({ request }) => {
+  http.get('/api/v1/offers/codes/', async ({ request, response }) => {
     await mockDelay()
     const ctx = gate(request)
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const list = [...codesOf(ctx.workspace.id)].sort((a, b) => b.created_at.localeCompare(a.created_at)).map(serializeCode)
-    return HttpResponse.json(paginate(request, list))
+    return response(200).json(paginate(request, list))
   }),
 
-  http.post(url('codes/'), async ({ request }) => {
+  http.post('/api/v1/offers/codes/', async ({ request, response }) => {
     await mockDelay()
     const ctx = gate(request, 'admin')
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const body = await readJson<Partial<OfferCodeWrite>>(request)
     const errors = validate(ctx, body)
-    if (Object.keys(errors).length) return validationError(errors)
+    if (Object.keys(errors).length) return response.untyped(validationError(errors))
     const now = nowIso()
     const code: MockOfferCode = {
       workspaceId: ctx.workspace.id,
@@ -166,95 +172,96 @@ export const handlers: AreaMockHandlers = [
     }
     applyBody(code, body)
     offerState().codes.push(code)
-    return HttpResponse.json(serializeCode(code), { status: 201 })
+    return response(201).json(serializeCode(code))
   }),
 
-  http.get(url('codes/:id/'), async ({ request, params }) => {
+  http.get('/api/v1/offers/codes/{id}/', async ({ request, params, response }) => {
     await mockDelay()
     const ctx = gate(request)
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const code = findCode(ctx.workspace.id, params.id)
-    return code ? HttpResponse.json(serializeCode(code)) : notFound()
+    return code ? response(200).json(serializeCode(code)) : response.untyped(notFound())
   }),
 
-  http.patch(url('codes/:id/'), async ({ request, params }) => {
+  http.patch('/api/v1/offers/codes/{id}/', async ({ request, params, response }) => {
     await mockDelay()
     const ctx = gate(request, 'admin')
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const code = findCode(ctx.workspace.id, params.id)
-    if (!code) return notFound()
+    if (!code) return response.untyped(notFound())
     const body = await readJson<Partial<OfferCodeWrite>>(request)
     const errors = validate(ctx, body, code)
-    if (Object.keys(errors).length) return validationError(errors)
+    if (Object.keys(errors).length) return response.untyped(validationError(errors))
     applyBody(code, body)
-    return HttpResponse.json(serializeCode(code))
+    return response(200).json(serializeCode(code))
   }),
 
-  http.delete(url('codes/:id/'), async ({ request, params }) => {
+  http.delete('/api/v1/offers/codes/{id}/', async ({ request, params, response }) => {
     await mockDelay()
     const ctx = gate(request, 'admin')
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const state = offerState()
     const code = findCode(ctx.workspace.id, params.id)
-    if (!code) return notFound()
+    if (!code) return response.untyped(notFound())
     if (state.claims.some((claim) => claim.offer === code.id)) {
-      return errorResponse(409, 'offer_in_use', 'This offer has claims. Turn it off instead of deleting it.')
+      return response.untyped(errorResponse(409, 'offer_in_use', 'This offer has claims. Turn it off instead of deleting it.'))
     }
     state.codes.splice(state.codes.indexOf(code), 1)
-    return new HttpResponse(null, { status: 204 })
+    return response(204).empty()
   }),
 
-  http.get(url('codes/:id/stats/'), async ({ request, params }) => {
+  http.get('/api/v1/offers/codes/{id}/stats/', async ({ request, params, response }) => {
     await mockDelay()
     const ctx = gate(request)
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const code = findCode(ctx.workspace.id, params.id)
-    return code ? HttpResponse.json(stats(code)) : notFound()
+    return code ? response(200).json(stats(code)) : response.untyped(notFound())
   }),
 
-  http.get(url('claims/'), async ({ request }) => {
+  http.get('/api/v1/offers/claims/', async ({ request, query, response }) => {
     await mockDelay()
     const ctx = gate(request)
-    if (ctx instanceof Response) return ctx
-    const search = new URL(request.url).searchParams
-    const offer = search.get('offer')
-    const status = search.get('status')
-    const phone = (search.get('phone') ?? '').replace(/[^\d+]/g, '')
-    if (status && !CLAIM_STATUSES.includes(status)) return validationError({ status: [`"${status}" is not a valid choice.`] })
+    if (ctx instanceof Response) return response.untyped(ctx)
+    const offer = query.get('offer')
+    const status = query.get('status')
+    const phone = (query.get('phone') ?? '').replace(/[^\d+]/g, '')
+    if (status && !CLAIM_STATUSES.includes(status)) return response.untyped(validationError({ status: [`"${status}" is not a valid choice.`] }))
     const list = offerState()
       .claims.filter(
         (claim) =>
           claim.workspaceId === ctx.workspace.id &&
           (!offer || claim.offer === offer) &&
-          (!status || claim.status === (status as OfferClaimStatus)) &&
+          (!status || claim.status === status) &&
           (!phone || claim.contact.phone_e164.includes(phone)),
       )
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map(serializeClaim)
-    return HttpResponse.json(paginate(request, list))
+    return response(200).json(paginate(request, list))
   }),
 
-  http.post(url('claims/:id/redeem/'), async ({ request, params }) => {
+  http.post('/api/v1/offers/claims/{id}/redeem/', async ({ request, params, response }) => {
     await mockDelay()
     const ctx = gate(request, 'agent')
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const claim = offerState().claims.find((item) => item.workspaceId === ctx.workspace.id && item.id === params.id)
-    if (!claim) return notFound()
+    if (!claim) return response.untyped(notFound())
     const code = findCode(ctx.workspace.id, claim.offer)
-    if (!code) return notFound()
+    if (!code) return response.untyped(notFound())
     const body = await readJson<RedeemClaimBody>(request)
-    if (invalidBill(body.bill_paise)) return validationError({ bill_paise: ['Enter a valid amount.'] })
+    if (invalidBill(body.bill_paise)) return response.untyped(validationError({ bill_paise: ['Enter a valid amount.'] }))
     if (claim.status !== 'claimed' && claim.status !== 'applied') {
-      return errorResponse(409, 'invalid_transition', claim.status === 'redeemed' ? 'This claim is already redeemed.' : 'This claim has expired.')
+      return response.untyped(
+        errorResponse(409, 'invalid_transition', claim.status === 'redeemed' ? 'This claim is already redeemed.' : 'This claim has expired.'),
+      )
     }
-    redeem(claim, code, body.bill_paise)
-    return HttpResponse.json(serializeClaim(claim))
+    redeem(claim, code, body.bill_paise, ctx.user.id)
+    return response(200).json(serializeClaim(claim))
   }),
 
-  http.post(url('redeem/'), async ({ request }) => {
+  http.post('/api/v1/offers/redeem/', async ({ request, response }) => {
     await mockDelay()
     const ctx = gate(request, 'agent')
-    if (ctx instanceof Response) return ctx
+    if (ctx instanceof Response) return response.untyped(ctx)
     const body = await readJson<Partial<RedeemAtCounterBody>>(request)
     const errors: Record<string, string[]> = {}
     const typed = (body.code ?? '').trim().toUpperCase()
@@ -262,30 +269,36 @@ export const handlers: AreaMockHandlers = [
     if (!typed) errors.code = ['This field may not be blank.']
     if (!phone) errors.phone = ['Enter a valid phone number.']
     if (invalidBill(body.bill_paise)) errors.bill_paise = ['Enter a valid amount.']
-    if (Object.keys(errors).length) return validationError(errors)
+    if (Object.keys(errors).length || !phone) return response.untyped(validationError(errors))
     const code = codesOf(ctx.workspace.id).find((item) => item.code === typed)
-    if (!code) return validationError({ code: ['No offer has this code.'] })
+    if (!code) return response.untyped(validationError({ code: ['No offer has this code.'] }))
 
     const state = offerState()
     const mine = state.claims.filter((claim) => claim.offer === code.id && claim.contact.phone_e164 === phone)
     const open = mine.find((claim) => claim.status === 'claimed' || claim.status === 'applied')
     if (open) {
-      if (!code.is_active) return errorResponse(409, 'offer_unavailable', `${code.code} is turned off.`)
-      redeem(open, code, body.bill_paise ?? undefined)
-      return HttpResponse.json(serializeClaim(open))
+      if (!code.is_active) return response.untyped(errorResponse(409, 'offer_unavailable', `${code.code} is turned off.`))
+      redeem(open, code, body.bill_paise, ctx.user.id)
+      return response(201).json(serializeClaim(open))
     }
-    if (!available(code)) return errorResponse(409, 'offer_unavailable', `${code.code} can't be used right now: it is off, outside its dates or fully used.`)
+    if (!available(code)) {
+      return response.untyped(
+        errorResponse(409, 'offer_unavailable', `${code.code} can't be used right now: it is off, outside its dates or fully used.`),
+      )
+    }
     if (mine.filter((claim) => claim.status === 'redeemed').length >= code.max_uses_per_contact) {
-      return errorResponse(409, 'offer_unavailable', `This customer has already used ${code.code}.`)
+      return response.untyped(errorResponse(409, 'offer_unavailable', `This customer has already used ${code.code}.`))
     }
     const existing = state.claims.find((claim) => claim.contact.phone_e164 === phone)?.contact
     const claim: MockClaim = {
       workspaceId: ctx.workspace.id,
       id: uuid(),
       offer: code.id,
-      contact: existing ?? { id: uuid(), name: '', phone_e164: phone! },
+      contact: existing ?? { id: uuid(), name: '', phone_e164: phone, marketing_opt_in_status: 'unknown' },
+      conversation_id: null,
       status: 'claimed',
-      order: null,
+      order_id: null,
+      order_number: null,
       discount_paise: 0,
       bill_paise: null,
       ad_source_id: '',
@@ -293,10 +306,11 @@ export const handlers: AreaMockHandlers = [
       ad_headline: '',
       ctwa_clid: '',
       redeemed_at: null,
+      redeemed_by: null,
       created_at: nowIso(),
     }
-    redeem(claim, code, body.bill_paise ?? undefined)
+    redeem(claim, code, body.bill_paise, ctx.user.id)
     state.claims.push(claim)
-    return HttpResponse.json(serializeClaim(claim), { status: 201 })
+    return response(201).json(serializeClaim(claim))
   }),
 ]

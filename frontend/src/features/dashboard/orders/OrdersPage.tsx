@@ -6,7 +6,7 @@ import { Button, EmptyState, PageHeader, Table, Tabs, type Column } from '../../
 import { formatDateTime } from '../../../lib/datetime'
 import { formatPaise } from '../../../lib/money'
 import { useWorkspace } from '../../../lib/workspace'
-import { useNewOrderAlerts, useOrders, useOrderSummary, useOrderUpdates, type OrderListItem } from './api'
+import { useNewOrderAlerts, useOrders, useOrderSummary, useOrderUpdates, wantsNewTime, type OrderListItem } from './api'
 import { OrderFiltersBar } from './components/OrderFiltersBar'
 import { KindBadge, OrderStatusBadge, PaymentBadge } from './components/OrderBadges'
 import { Notice } from './components/Notice'
@@ -78,6 +78,9 @@ export function OrdersPage() {
         <div className="flex flex-col items-start gap-1">
           <OrderStatusBadge status={order.status} />
           <PaymentBadge status={order.payment_status} method={order.payment_method} />
+          {wantsNewTime(order) && (
+            <span className="inline-flex items-center rounded-full bg-amber-soft px-2 py-0.5 text-xs font-medium text-amber">Asked to change the time</span>
+          )}
         </div>
       ),
     },

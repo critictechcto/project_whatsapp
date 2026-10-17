@@ -5,8 +5,6 @@ import { cursorFromUrl, useCursorQuery } from '../../../api/pagination'
 import { workspaceKeys } from '../../../api/queryKeys'
 import { useRealtimeEvent } from '../../../lib/realtime/hooks'
 import { useWorkspace } from '../../../lib/workspace'
-import type { paths } from '../../../api/schema'
-import type { Schemas } from '../../../api/types'
 import type {
   Collection,
   MetaCatalog,
@@ -32,25 +30,16 @@ export type ProductFilters = {
   kind?: ProductKind
 }
 
-type ProductPage = { next?: string | null; previous?: string | null; results: Product[] }
-
-// TODO(api:types): the generated Product has no `kind`/`duration_minutes` and the list query no `kind` yet.
-// These casts isolate that; delete them after `npm run api:types`.
-type GeneratedProductQuery = NonNullable<paths['/api/v1/catalog/products/']['get']['parameters']['query']>
-const asProduct = (product: Schemas['Product']) => product as Product
-const asProductPage = (page: { next?: string | null; previous?: string | null; results: Schemas['Product'][] }) => page as ProductPage
-const asWriteBody = (body: ProductWriteRequest) => body as Schemas['ProductWriteRequest']
-
 export function fetchProduct(id: string, signal?: AbortSignal): Promise<Product> {
-  return unwrap(api.GET('/api/v1/catalog/products/{id}/', { params: { path: { id } }, signal })).then(asProduct)
+  return unwrap(api.GET('/api/v1/catalog/products/{id}/', { params: { path: { id } }, signal }))
 }
 
 export function createProduct(body: ProductWriteRequest): Promise<Product> {
-  return unwrap(api.POST('/api/v1/catalog/products/', { body: asWriteBody(body) })).then(asProduct)
+  return unwrap(api.POST('/api/v1/catalog/products/', { body }))
 }
 
 export function updateProduct(id: string, body: ProductWriteRequest): Promise<Product> {
-  return unwrap(api.PATCH('/api/v1/catalog/products/{id}/', { params: { path: { id } }, body: asWriteBody(body) })).then(asProduct)
+  return unwrap(api.PATCH('/api/v1/catalog/products/{id}/', { params: { path: { id } }, body }))
 }
 
 const MAX_PAGES = 50
@@ -81,10 +70,7 @@ export function useProducts(filters: ProductFilters) {
   }
   return useCursorQuery<Product>({
     queryKey: catalogKeys.list(workspaceId, { resource: 'products', ...query }),
-    queryFn: ({ cursor, signal }) =>
-      unwrap(
-        api.GET('/api/v1/catalog/products/', { params: { query: { ...query, cursor } as GeneratedProductQuery }, signal }),
-      ).then(asProductPage),
+    queryFn: ({ cursor, signal }) => unwrap(api.GET('/api/v1/catalog/products/', { params: { query: { ...query, cursor } }, signal })),
   })
 }
 
@@ -95,7 +81,7 @@ export function useAllProducts(enabled: boolean) {
     queryKey: catalogKeys.list(workspaceId, { resource: 'products', all: true }),
     queryFn: ({ signal }) =>
       fetchAll((cursor) =>
-        unwrap(api.GET('/api/v1/catalog/products/', { params: { query: { page_size: 200, cursor } }, signal })).then(asProductPage),
+        unwrap(api.GET('/api/v1/catalog/products/', { params: { query: { page_size: 200, cursor } }, signal })),
       ),
     enabled,
   })

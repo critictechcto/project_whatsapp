@@ -4,8 +4,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { applyApiErrorToForm, isApiError } from '../../../../api/errors'
 import { Button, Checkbox, Dialog, Field, Textarea } from '../../../../components/app'
-import { orderMutations, type Order } from '../api'
-import { isBooking } from '../bookingTypes'
+import { isBooking, orderMutations, type Order } from '../api'
 import { Notice } from './Notice'
 
 const MAX_REASON = 200

@@ -70,7 +70,7 @@ function OfferDetail({ offer }: { offer: OfferCode }) {
         description={
           <>
             {offer.title} · {discountSummary(offer)}
-            {offer.discount_type !== 'none' && offer.applies_to !== 'all' ? ` · ${appliesToLabels[offer.applies_to]}` : ''} ·{' '}
+            {offer.discount_type !== 'none' && offer.applies_to !== 'all' ? ` · ${appliesToLabels[offer.applies_to ?? 'all']}` : ''} ·{' '}
             {validitySummary(offer, timeZone)}
           </>
         }
@@ -156,7 +156,7 @@ function StatsBody({ stats }: { stats: OfferStats }) {
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         <Tile label="People sent" value={formatNumber(stats.claims)} icon={<Users className="size-3.5" aria-hidden="true" />} />
         <Tile label="From ads" value={formatNumber(stats.from_ads)} icon={<Megaphone className="size-3.5" aria-hidden="true" />} />
-        <Tile label="Used in orders" value={formatNumber(stats.applied)} />
+        <Tile label="In open orders" value={formatNumber(stats.applied)} />
         <Tile label="Redeemed" value={formatNumber(stats.redeemed)} />
         <Tile label="Discount given" value={formatPaise(stats.discount_paise, { decimals: 0 })} />
         <Tile label="Revenue" value={formatPaise(stats.revenue_paise, { decimals: 0 })} />
@@ -199,17 +199,20 @@ function ClaimsSection({ offer }: { offer: OfferCode }) {
       </Button>
     ) : null
   const orderLink = (claim: OfferClaim) =>
-    claim.order ? (
-      <Link to={`/app/w/${workspaceId}/orders/${claim.order.id}`} className="font-mono text-accent-2 underline-offset-4 hover:underline">
-        {claim.order.number}
+    claim.order_id ? (
+      <Link to={`/app/w/${workspaceId}/orders/${claim.order_id}`} className="font-mono text-accent-2 underline-offset-4 hover:underline">
+        {claim.order_number || 'Order'}
       </Link>
     ) : (
       <span className="text-muted">—</span>
     )
-  const redeemedText = (claim: OfferClaim) =>
-    claim.redeemed_at
-      ? `${formatDateTime(claim.redeemed_at, timeZone)}${claim.bill_paise ? ` · bill ${formatPaise(claim.bill_paise)}` : ''}`
-      : '—'
+  const redeemedText = (claim: OfferClaim) => {
+    if (!claim.redeemed_at) return '—'
+    const by = claim.redeemed_by ? claim.redeemed_by.full_name || claim.redeemed_by.email : ''
+    return [formatDateTime(claim.redeemed_at, timeZone), claim.bill_paise ? `bill ${formatPaise(claim.bill_paise)}` : '', by ? `by ${by}` : '']
+      .filter(Boolean)
+      .join(' · ')
+  }
 
   const columns: Column<OfferClaim>[] = [
     {
@@ -313,7 +316,7 @@ function ClaimsSection({ offer }: { offer: OfferCode }) {
                   </div>
                   {claim.ad_headline && <p className="mt-2 text-[13px] text-ink">Ad: {claim.ad_headline}</p>}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-                    {claim.order && <span>Order {orderLink(claim)}</span>}
+                    {claim.order_id && <span>Order {orderLink(claim)}</span>}
                     {claim.redeemed_at && <span className="text-muted">Redeemed {redeemedText(claim)}</span>}
                   </div>
                   {redeemButton(claim, 'mt-3 min-h-11 w-full')}

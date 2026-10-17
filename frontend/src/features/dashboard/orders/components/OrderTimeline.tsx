@@ -18,6 +18,8 @@ const dotTones: Partial<Record<EventType, string>> = {
   cod_collected: 'bg-accent',
   appointment_set: 'bg-accent',
   offer_applied: 'bg-accent',
+  attendance_confirmed: 'bg-accent',
+  reschedule_requested: 'bg-amber',
   payment_link_expired: 'bg-amber',
   price_changed: 'bg-amber',
   notification_failed: 'bg-signal',

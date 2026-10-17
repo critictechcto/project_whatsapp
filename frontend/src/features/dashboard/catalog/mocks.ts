@@ -299,7 +299,7 @@ export const handlers: AreaMockHandlers = [
     const active = query.get('is_active')
     const availability = query.get('availability')
     const review = query.get('meta_review_status')
-    const kind = new URL(request.url).searchParams.get('kind') // TODO(api:types): typed query has no kind yet
+    const kind = query.get('kind')
     const items = productsOf(ctx.workspace.id).filter(
       (p) =>
         (!search || p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search)) &&

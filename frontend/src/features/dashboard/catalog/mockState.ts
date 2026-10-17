@@ -6,16 +6,12 @@
 import type { Schemas } from '../../../api/types'
 import { db, type Mutable } from '../../../mocks/db'
 import { daysAgo, ids, seedPhoneNumber, seedWaba } from '../../../mocks/seed'
-import type { ProductKind } from './lib/types'
 
 export type MockCollection = Omit<Mutable<Schemas['Collection']>, 'product_count'> & { workspace_id: string }
 export type MockProduct = Omit<Mutable<Schemas['Product']>, 'collection' | 'effective_price_paise' | 'meta_rejection_reasons'> & {
   workspace_id: string
   collection_id: string | null
   meta_rejection_reasons: string[]
-  // TODO(api:types): services contract fields, not in the generated Product yet.
-  kind: ProductKind
-  duration_minutes: number | null
 }
 export type MockMetaCatalog = Omit<Mutable<Schemas['MetaCatalog']>, 'product_counts' | 'phone_numbers'> & {
   workspace_id: string

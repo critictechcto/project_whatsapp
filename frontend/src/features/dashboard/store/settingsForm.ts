@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { paiseToRupeesString, parseRupeesToPaise } from '../../../lib/money'
-import type { StoreSettings, StoreSettingsPatch } from './api'
-import { DEFAULT_BOOKING_WINDOWS } from './bookingTypes'
+import { DEFAULT_BOOKING_WINDOWS, type StoreSettings, type StoreSettingsPatch } from './api'
 
 export const MAX_MENU_KEYWORDS = 20
 export const PINCODE = /^[1-9]\d{5}$/
@@ -84,6 +83,7 @@ export const settingsSchema = z.object({
     .max(MAX_BOOKING_WINDOWS, `Use ${MAX_BOOKING_WINDOWS} windows or fewer.`),
   booking_days_ahead: wholeNumber(1, 30),
   booking_reminder_hours: wholeNumber(0, 48),
+  booking_day_before_reminder: z.boolean(),
 })
 
 export type SettingsFormValues = z.infer<typeof settingsSchema>
@@ -121,6 +121,7 @@ export function settingsToForm(settings: StoreSettings): SettingsFormValues {
     booking_windows: (settings.booking_windows ?? DEFAULT_BOOKING_WINDOWS).map((window) => ({ ...window })),
     booking_days_ahead: String(settings.booking_days_ahead ?? 7),
     booking_reminder_hours: String(settings.booking_reminder_hours ?? 3),
+    booking_day_before_reminder: settings.booking_day_before_reminder ?? true,
   }
 }
 
@@ -149,5 +150,6 @@ export function formToPatch(values: SettingsFormValues): StoreSettingsPatch {
     booking_windows: values.booking_windows.map(({ label, start, end }) => ({ label: label.trim(), start, end })),
     booking_days_ahead: Number(values.booking_days_ahead),
     booking_reminder_hours: Number(values.booking_reminder_hours),
+    booking_day_before_reminder: values.booking_day_before_reminder,
   }
 }
