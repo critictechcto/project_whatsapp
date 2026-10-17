@@ -1977,6 +1977,13 @@ paths:
         schema:
           type: boolean
       - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - product
+          - service
+      - in: query
         name: meta_review_status
         schema:
           type: string
@@ -3462,6 +3469,327 @@ paths:
               schema:
                 $ref: '#/components/schemas/WsTicket'
           description: ''
+  /api/v1/offers/claims/:
+    get:
+      operationId: offers_claims_list
+      description: Claims of the workspace's offer codes, newest first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - in: query
+        name: offer
+        schema:
+          type: string
+          format: uuid
+        description: Offer code id.
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: phone
+        schema:
+          type: string
+        description: Part of the phone number.
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - applied
+          - claimed
+          - expired
+          - redeemed
+      tags:
+      - offers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOfferClaimList'
+          description: ''
+  /api/v1/offers/claims/{id}/redeem/:
+    post:
+      operationId: offers_claims_redeem_create
+      description: Claims of the workspace's offer codes, newest first.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - offers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemClaimRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RedeemClaimRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RedeemClaimRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferClaim'
+          description: ''
+  /api/v1/offers/codes/:
+    get:
+      operationId: offers_codes_list
+      description: The workspace's offer codes, newest first, with claim counters.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - name: cursor
+        required: false
+        in: query
+        description: The pagination cursor value.
+        schema:
+          type: string
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - offers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOfferCodeList'
+          description: ''
+    post:
+      operationId: offers_codes_create
+      description: The workspace's offer codes, newest first, with claim counters.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - offers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfferCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OfferCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OfferCodeRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferCode'
+          description: ''
+  /api/v1/offers/codes/{id}/:
+    get:
+      operationId: offers_codes_retrieve
+      description: The workspace's offer codes, newest first, with claim counters.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - offers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferCode'
+          description: ''
+    patch:
+      operationId: offers_codes_partial_update
+      description: The workspace's offer codes, newest first, with claim counters.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - offers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOfferCodeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOfferCodeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOfferCodeRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferCode'
+          description: ''
+    delete:
+      operationId: offers_codes_destroy
+      description: The workspace's offer codes, newest first, with claim counters.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - offers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/offers/codes/{id}/stats/:
+    get:
+      operationId: offers_codes_stats_retrieve
+      description: The workspace's offer codes, newest first, with claim counters.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - offers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferStats'
+          description: ''
+  /api/v1/offers/redeem/:
+    post:
+      operationId: offers_redeem_create
+      description: Redeem a code at the counter by the buyer's phone (creates the
+        contact when new).
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      tags:
+      - offers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CounterRedeemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CounterRedeemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CounterRedeemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferClaim'
+          description: ''
   /api/v1/orders/:
     get:
       operationId: orders_list
@@ -3497,6 +3825,13 @@ paths:
         description: The pagination cursor value.
         schema:
           type: string
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - booking
+          - delivery
       - name: page_size
         required: false
         in: query
@@ -3510,6 +3845,7 @@ paths:
           enum:
           - cod
           - online
+          - pay_at_shop
       - in: query
         name: payment_status
         schema:
@@ -3658,6 +3994,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/Order'
           description: ''
+  /api/v1/orders/{id}/confirm-booking/:
+    post:
+      operationId: orders_confirm_booking_create
+      description: Confirm a requested booking at `appointment_at`, or change the
+        time of a confirmed one; the buyer is notified each time. 409 invalid_order_transition
+        otherwise.
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmBookingRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConfirmBookingRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConfirmBookingRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
   /api/v1/orders/{id}/events/:
     get:
       operationId: orders_events_list
@@ -3702,7 +4081,8 @@ paths:
   /api/v1/orders/{id}/mark-cod-collected/:
     post:
       operationId: orders_mark_cod_collected_create
-      description: Only COD orders that are shipped or delivered; otherwise 409 invalid_order_transition.
+      description: COD orders that are shipped or delivered, and pay-at-shop bookings
+        that are confirmed or completed (mark paid at the shop); otherwise 409 invalid_order_transition.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -5588,11 +5968,13 @@ components:
     AlertEventEnum:
       enum:
       - new_order
+      - new_booking
       - needs_attention
       - order_cancelled
       type: string
       description: |-
         * `new_order` - new_order
+        * `new_booking` - new_booking
         * `needs_attention` - needs_attention
         * `order_cancelled` - order_cancelled
     AlertRecipient:
@@ -6525,6 +6907,49 @@ components:
     BlankEnum:
       enum:
       - ''
+    BookingWindow:
+      type: object
+      description: A bookable time window of a day, e.g. Morning 09:00-12:00 (24-hour
+        ``HH:MM``).
+      properties:
+        label:
+          type: string
+          maxLength: 24
+        start:
+          type: string
+          description: HH:MM, 24-hour.
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        end:
+          type: string
+          description: HH:MM, 24-hour; after start.
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+      required:
+      - end
+      - label
+      - start
+    BookingWindowRequest:
+      type: object
+      description: A bookable time window of a day, e.g. Morning 09:00-12:00 (24-hour
+        ``HH:MM``).
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 24
+        start:
+          type: string
+          minLength: 1
+          description: HH:MM, 24-hour.
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+        end:
+          type: string
+          minLength: 1
+          description: HH:MM, 24-hour; after start.
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+      required:
+      - end
+      - label
+      - start
     BulkTagRequest:
       type: object
       properties:
@@ -7146,6 +7571,16 @@ components:
       required:
       - display_phone_number
       - phone_number_id
+    ConfirmBookingRequest:
+      type: object
+      properties:
+        appointment_at:
+          type: string
+          format: date-time
+          description: The confirmed appointment; a time without an offset is workspace
+            time.
+      required:
+      - appointment_at
     ConsentActionEnum:
       enum:
       - opt_in
@@ -7688,6 +8123,24 @@ components:
       - amount
       - currency
       - note
+    CounterRedeemRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        bill_paise:
+          type: integer
+          minimum: 0
+          nullable: true
+      required:
+      - code
+      - phone
     EmailVerifyRequest:
       type: object
       properties:
@@ -8673,6 +9126,298 @@ components:
     NullEnum:
       enum:
       - null
+    OfferAppliesToEnum:
+      enum:
+      - all
+      - products
+      - services
+      type: string
+      description: |-
+        * `all` - Products and services
+        * `products` - Products
+        * `services` - Services
+    OfferClaim:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        offer:
+          type: string
+          format: uuid
+          readOnly: true
+        offer_code:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OfferClaimStatusEnum'
+          readOnly: true
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ConversationContact'
+          readOnly: true
+        conversation_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        order_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        order_number:
+          type: string
+          nullable: true
+          readOnly: true
+        discount_paise:
+          type: integer
+          readOnly: true
+        bill_paise:
+          type: integer
+          readOnly: true
+          nullable: true
+        from_ad:
+          type: boolean
+          readOnly: true
+        ad_source_id:
+          type: string
+          readOnly: true
+        ad_source_url:
+          type: string
+          format: uri
+          readOnly: true
+        ad_headline:
+          type: string
+          readOnly: true
+        ctwa_clid:
+          type: string
+          readOnly: true
+        redeemed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        redeemed_by:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - ad_headline
+      - ad_source_id
+      - ad_source_url
+      - bill_paise
+      - contact
+      - conversation_id
+      - created_at
+      - ctwa_clid
+      - discount_paise
+      - from_ad
+      - id
+      - offer
+      - offer_code
+      - order_id
+      - order_number
+      - redeemed_at
+      - redeemed_by
+      - status
+    OfferClaimStatusEnum:
+      enum:
+      - claimed
+      - applied
+      - redeemed
+      - expired
+      type: string
+      description: |-
+        * `claimed` - Claimed
+        * `applied` - Applied
+        * `redeemed` - Redeemed
+        * `expired` - Expired
+    OfferCode:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          maxLength: 20
+        title:
+          type: string
+          maxLength: 60
+        reply_text:
+          type: string
+          maxLength: 900
+        discount_type:
+          $ref: '#/components/schemas/OfferDiscountTypeEnum'
+        discount_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        max_discount_paise:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        min_order_paise:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        applies_to:
+          $ref: '#/components/schemas/OfferAppliesToEnum'
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_uses:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+          nullable: true
+        max_uses_per_contact:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+        is_active:
+          type: boolean
+        claims_count:
+          type: integer
+          readOnly: true
+        redeemed_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - claims_count
+      - code
+      - created_at
+      - id
+      - redeemed_count
+      - reply_text
+      - updated_at
+    OfferCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 20
+        title:
+          type: string
+          maxLength: 60
+        reply_text:
+          type: string
+          minLength: 1
+          maxLength: 900
+        discount_type:
+          $ref: '#/components/schemas/OfferDiscountTypeEnum'
+        discount_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        max_discount_paise:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        min_order_paise:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        applies_to:
+          $ref: '#/components/schemas/OfferAppliesToEnum'
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_uses:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+          nullable: true
+        max_uses_per_contact:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+        is_active:
+          type: boolean
+      required:
+      - code
+      - reply_text
+    OfferDiscountTypeEnum:
+      enum:
+      - none
+      - percent
+      - amount
+      type: string
+      description: |-
+        * `none` - No discount
+        * `percent` - Percent
+        * `amount` - Amount
+    OfferStats:
+      type: object
+      properties:
+        claims:
+          type: integer
+        from_ads:
+          type: integer
+        applied:
+          type: integer
+        redeemed:
+          type: integer
+        discount_paise:
+          type: integer
+        revenue_paise:
+          type: integer
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfferStatsDay'
+      required:
+      - applied
+      - claims
+      - daily
+      - discount_paise
+      - from_ads
+      - redeemed
+      - revenue_paise
+    OfferStatsDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        claims:
+          type: integer
+        redeemed:
+          type: integer
+      required:
+      - claims
+      - date
+      - redeemed
     Onboarding:
       type: object
       description: The caller's onboarding in the workspace of the ``X-Workspace-ID``
@@ -8737,6 +9482,15 @@ components:
           allOf:
           - $ref: '#/components/schemas/OrderSourceEnum'
           readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/OrderKindEnum'
+          readOnly: true
+          description: |-
+            delivery (products) or booking (services).
+
+            * `delivery` - delivery
+            * `booking` - booking
         contact:
           allOf:
           - $ref: '#/components/schemas/ConversationContact'
@@ -8747,6 +9501,16 @@ components:
         item_count:
           type: integer
           readOnly: true
+        requested_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        appointment_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -8778,6 +9542,18 @@ components:
         cod_fee_paise:
           type: integer
           readOnly: true
+        discount_paise:
+          type: integer
+          readOnly: true
+        offer_code:
+          type: string
+          readOnly: true
+          description: '"" when no offer applies.'
+        offer_claim_id:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
         currency:
           type: string
           readOnly: true
@@ -8786,6 +9562,37 @@ components:
           - $ref: '#/components/schemas/OrderAddress'
           readOnly: true
           nullable: true
+          description: Null for bookings.
+        requested_window:
+          allOf:
+          - $ref: '#/components/schemas/BookingWindow'
+          readOnly: true
+          nullable: true
+        reminder_sent_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: When the hours-before reminder was sent.
+        day_before_reminder_sent_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: When the day-before (18:00) reminder was sent.
+        attendance_confirmed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: The buyer tapped I'll be there.
+        reschedule_requested_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: The buyer asked to change the time; cleared when the time is
+            set again.
         courier_name:
           type: string
           readOnly: true
@@ -8846,6 +9653,8 @@ components:
       required:
       - address
       - allowed_transitions
+      - appointment_at
+      - attendance_confirmed_at
       - awb_number
       - cancel_reason
       - cancelled_at
@@ -8856,18 +9665,27 @@ components:
       - courier_name
       - created_at
       - currency
+      - day_before_reminder_sent_at
       - delivered_at
+      - discount_paise
       - expires_at
       - id
       - item_count
       - items
+      - kind
       - notes
       - number
+      - offer_claim_id
+      - offer_code
       - packed_at
       - payment_link
       - payment_method
       - payment_status
       - phone_number
+      - reminder_sent_at
+      - requested_date
+      - requested_window
+      - reschedule_requested_at
       - shipped_at
       - shipping_paise
       - source
@@ -9008,6 +9826,13 @@ components:
       - notification_sent
       - notification_failed
       - note
+      - time_requested
+      - appointment_set
+      - reminder_sent
+      - attendance_confirmed
+      - reschedule_requested
+      - offer_applied
+      - offer_removed
       type: string
       description: |-
         * `created` - created
@@ -9023,6 +9848,13 @@ components:
         * `notification_sent` - notification_sent
         * `notification_failed` - notification_failed
         * `note` - note
+        * `time_requested` - time_requested
+        * `appointment_set` - appointment_set
+        * `reminder_sent` - reminder_sent
+        * `attendance_confirmed` - attendance_confirmed
+        * `reschedule_requested` - reschedule_requested
+        * `offer_applied` - offer_applied
+        * `offer_removed` - offer_removed
     OrderItem:
       type: object
       properties:
@@ -9065,6 +9897,14 @@ components:
       - quantity
       - sku
       - unit_price_paise
+    OrderKindEnum:
+      enum:
+      - delivery
+      - booking
+      type: string
+      description: |-
+        * `delivery` - delivery
+        * `booking` - booking
     OrderListItem:
       type: object
       properties:
@@ -9094,6 +9934,15 @@ components:
           allOf:
           - $ref: '#/components/schemas/OrderSourceEnum'
           readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/OrderKindEnum'
+          readOnly: true
+          description: |-
+            delivery (products) or booking (services).
+
+            * `delivery` - delivery
+            * `booking` - booking
         contact:
           allOf:
           - $ref: '#/components/schemas/ConversationContact'
@@ -9104,6 +9953,16 @@ components:
         item_count:
           type: integer
           readOnly: true
+        requested_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        appointment_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -9113,13 +9972,16 @@ components:
           format: date-time
           readOnly: true
       required:
+      - appointment_at
       - contact
       - created_at
       - id
       - item_count
+      - kind
       - number
       - payment_method
       - payment_status
+      - requested_date
       - source
       - status
       - total_paise
@@ -9225,12 +10087,16 @@ components:
       - draft
       - awaiting_confirmation
       - awaiting_address
+      - awaiting_time
       - awaiting_payment_method
       - pending_payment
+      - requested
       - confirmed
       - packed
       - shipped
       - delivered
+      - completed
+      - no_show
       - cancelled
       - expired
       - needs_attention
@@ -9239,12 +10105,16 @@ components:
         * `draft` - draft
         * `awaiting_confirmation` - awaiting_confirmation
         * `awaiting_address` - awaiting_address
+        * `awaiting_time` - awaiting_time
         * `awaiting_payment_method` - awaiting_payment_method
         * `pending_payment` - pending_payment
+        * `requested` - requested
         * `confirmed` - confirmed
         * `packed` - packed
         * `shipped` - shipped
         * `delivered` - delivered
+        * `completed` - completed
+        * `no_show` - no_show
         * `cancelled` - cancelled
         * `expired` - expired
         * `needs_attention` - needs_attention
@@ -9279,12 +10149,15 @@ components:
           allOf:
           - $ref: '#/components/schemas/OrderTransitionTargetEnum'
           description: |-
-            confirmed only from needs_attention.
+            Deliveries: confirmed only from needs_attention, packed, shipped, delivered. Bookings: requested (from needs_attention), confirmed (needs an appointment; use confirm-booking), completed, no_show.
 
+            * `requested` - requested
             * `confirmed` - confirmed
             * `packed` - packed
             * `shipped` - shipped
             * `delivered` - delivered
+            * `completed` - completed
+            * `no_show` - no_show
         courier_name:
           type: string
           maxLength: 100
@@ -9305,16 +10178,22 @@ components:
       - to_status
     OrderTransitionTargetEnum:
       enum:
+      - requested
       - confirmed
       - packed
       - shipped
       - delivered
+      - completed
+      - no_show
       type: string
       description: |-
+        * `requested` - requested
         * `confirmed` - confirmed
         * `packed` - packed
         * `shipped` - shipped
         * `delivered` - delivered
+        * `completed` - completed
+        * `no_show` - no_show
     PaginatedAlertRecipientList:
       type: object
       required:
@@ -9638,6 +10517,44 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MetaCatalog'
+    PaginatedOfferClaimList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfferClaim'
+    PaginatedOfferCodeList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OfferCode'
     PaginatedOrderEventList:
       type: object
       required:
@@ -10076,6 +10993,56 @@ components:
             additionalProperties: true
           description: Template components in Meta's format (HEADER, BODY, FOOTER,
             BUTTONS).
+    PatchedOfferCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 20
+        title:
+          type: string
+          maxLength: 60
+        reply_text:
+          type: string
+          minLength: 1
+          maxLength: 900
+        discount_type:
+          $ref: '#/components/schemas/OfferDiscountTypeEnum'
+        discount_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        max_discount_paise:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        min_order_paise:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        applies_to:
+          $ref: '#/components/schemas/OfferAppliesToEnum'
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_uses:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+          nullable: true
+        max_uses_per_contact:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+        is_active:
+          type: boolean
     PatchedOnboardingRequest:
       type: object
       description: The caller's onboarding in the workspace of the ``X-Workspace-ID``
@@ -10147,6 +11114,20 @@ components:
           description: Create only.
           maxLength: 100
           pattern: ^[A-Za-z0-9_-]{1,100}$
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ProductKindEnum'
+          description: |-
+            Default product. Services never track stock (stock_qty must be null).
+
+            * `product` - product
+            * `service` - service
+        duration_minutes:
+          type: integer
+          maximum: 600
+          minimum: 5
+          nullable: true
+          description: Services only; must be null for products.
         name:
           type: string
           minLength: 1
@@ -10248,6 +11229,47 @@ components:
           description: Null uses the workspace default number.
         notification_templates:
           $ref: '#/components/schemas/OrderNotificationTemplatesRequest'
+        pay_at_shop_enabled:
+          type: boolean
+          description: Bookings may be paid at the shop after the service.
+        booking_days:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Days buyers can book; Monday is 0.
+          maxItems: 7
+          minItems: 1
+        booking_windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingWindowRequest'
+          description: 1-10 windows offered each day.
+        booking_days_ahead:
+          type: integer
+          maximum: 30
+          minimum: 1
+        booking_reminder_hours:
+          type: integer
+          maximum: 48
+          minimum: 0
+          description: 0 turns reminders off.
+        booking_day_before_reminder:
+          type: boolean
+          description: Also remind buyers at 18:00 the day before.
+        booking_confirmed_template_id:
+          type: string
+          format: uuid
+          nullable: true
+        booking_cancelled_template_id:
+          type: string
+          format: uuid
+          nullable: true
+        booking_reminder_template_id:
+          type: string
+          format: uuid
+          nullable: true
     PatchedTagRequest:
       type: object
       properties:
@@ -10429,10 +11451,12 @@ components:
       enum:
       - online
       - cod
+      - pay_at_shop
       type: string
       description: |-
         * `online` - online
         * `cod` - cod
+        * `pay_at_shop` - pay_at_shop
     PaymentModeEnum:
       enum:
       - test
@@ -10714,6 +11738,15 @@ components:
           type: string
           readOnly: true
           description: Meta retailer_id; read-only.
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ProductKindEnum'
+          readOnly: true
+        duration_minutes:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Services only; null for products.
         name:
           type: string
           readOnly: true
@@ -10789,10 +11822,12 @@ components:
       - created_at
       - currency
       - description
+      - duration_minutes
       - effective_price_paise
       - id
       - image_url
       - is_active
+      - kind
       - max_qty_per_order
       - meta_rejection_reasons
       - meta_review_status
@@ -10868,6 +11903,14 @@ components:
           description: CSV, at most 2 MB and 5,000 rows.
       required:
       - file
+    ProductKindEnum:
+      enum:
+      - product
+      - service
+      type: string
+      description: |-
+        * `product` - product
+        * `service` - service
     ProductWriteRequest:
       type: object
       description: Create or PATCH a product. ``sku`` is accepted on create only.
@@ -10878,6 +11921,20 @@ components:
           description: Create only.
           maxLength: 100
           pattern: ^[A-Za-z0-9_-]{1,100}$
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ProductKindEnum'
+          description: |-
+            Default product. Services never track stock (stock_qty must be null).
+
+            * `product` - product
+            * `service` - service
+        duration_minutes:
+          type: integer
+          maximum: 600
+          minimum: 5
+          nullable: true
+          description: Services only; must be null for products.
         name:
           type: string
           minLength: 1
@@ -10937,6 +11994,13 @@ components:
         * `delivered` - delivered
         * `read` - read
         * `failed` - failed
+    RedeemClaimRequest:
+      type: object
+      properties:
+        bill_paise:
+          type: integer
+          minimum: 0
+          nullable: true
     RegisterRequest:
       type: object
       properties:
@@ -11108,7 +12172,8 @@ components:
           type: string
           readOnly: true
           description: whatsapp_connected, products_added, payments_configured, order_templates_ready,
-            alert_number_verified or store_enabled
+            booking_templates (only with an active service), alert_number_verified
+            or store_enabled
         done:
           type: boolean
           readOnly: true
@@ -11185,6 +12250,47 @@ components:
           nullable: true
         notification_templates:
           $ref: '#/components/schemas/OrderNotificationTemplates'
+        pay_at_shop_enabled:
+          type: boolean
+          description: Bookings may be paid at the shop after the service.
+        booking_days:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          description: Days buyers can book; Monday is 0.
+          maxItems: 7
+          minItems: 1
+        booking_windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingWindow'
+          description: 1-10 windows offered each day.
+        booking_days_ahead:
+          type: integer
+          maximum: 30
+          minimum: 1
+        booking_reminder_hours:
+          type: integer
+          maximum: 48
+          minimum: 0
+          description: 0 turns reminders off.
+        booking_day_before_reminder:
+          type: boolean
+          description: Also remind buyers at 18:00 the day before.
+        booking_confirmed_template_id:
+          type: string
+          format: uuid
+          nullable: true
+        booking_cancelled_template_id:
+          type: string
+          format: uuid
+          nullable: true
+        booking_reminder_template_id:
+          type: string
+          format: uuid
+          nullable: true
         updated_at:
           type: string
           format: date-time

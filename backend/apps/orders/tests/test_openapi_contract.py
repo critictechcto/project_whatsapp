@@ -119,7 +119,7 @@ CONTRACT_ENUMS = {
     "PaymentAccountStatusEnum": ["not_configured", "unverified", "verified", "invalid"],
     "PaymentLinkStatusEnum": ["creating", "created", "paid", "expired", "cancelled", "failed"],
     "AlertRecipientStatusEnum": ["pending", "verified", "opted_out"],
-    "AlertEventEnum": ["new_order", "needs_attention", "order_cancelled"],
+    "AlertEventEnum": ["new_order", "new_booking", "needs_attention", "order_cancelled"],
 }
 
 CONTRACT_PATHS = {

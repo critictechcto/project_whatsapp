@@ -1854,7 +1854,8 @@ def apply_offer_to_active_checkout(conversation_id) -> bool:
         if order is None or not _apply_offer(order):
             return False
         lifecycle.broadcast_updated(order)
-        if order.status == Status.AWAITING_PAYMENT_METHOD:
+        # A message-only offer (no discount) changes nothing the buyer sees.
+        if order.status == Status.AWAITING_PAYMENT_METHOD and order.discount_paise:
             offer_payment(
                 order,
                 get_store_settings(order.workspace),

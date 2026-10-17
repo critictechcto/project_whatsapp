@@ -347,6 +347,19 @@ def test_offer_claimed_while_choosing_a_time_updates_quietly(
     assert len(outbound(conversation.contact)) == before
 
 
+def test_message_only_offer_does_not_resend_the_payment_choice(
+    conversation, store, haircut, monkeypatch
+):
+    to_payment_choice(conversation, haircut)
+    before = len(outbound(conversation.contact))
+    applied = offers.AppliedOffer(claim_id=uuid.uuid4(), code="HELLO", discount_paise=0)
+    monkeypatch.setattr(offers, "apply_to_checkout", lambda order: applied)
+
+    services.apply_offer_to_active_checkout(conversation.pk)
+
+    assert len(outbound(conversation.contact)) == before
+
+
 def test_no_checkout_no_offer(conversation, store, offer):
     assert services.apply_offer_to_active_checkout(conversation.pk) is False
 

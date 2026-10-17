@@ -23,7 +23,7 @@ from common.tenancy import WorkspaceScopedGenericViewSet
 from . import imports, meta, writes
 from .exceptions import CommerceNotEnabled
 from .models import Collection, MetaCatalog, Product
-from .schema_enums import META_REVIEW_STATUSES, PRODUCT_AVAILABILITIES
+from .schema_enums import META_REVIEW_STATUSES, PRODUCT_AVAILABILITIES, PRODUCT_KINDS
 from .serializers import (
     AvailableCatalogSerializer,
     CollectionSerializer,
@@ -118,6 +118,7 @@ class ProductViewSet(CatalogViewSet):
             OpenApiParameter("collection", OpenApiTypes.STR, description="Collection id, or none."),
             OpenApiParameter("is_active", OpenApiTypes.BOOL),
             OpenApiParameter("availability", OpenApiTypes.STR, enum=PRODUCT_AVAILABILITIES),
+            OpenApiParameter("kind", OpenApiTypes.STR, enum=PRODUCT_KINDS),
             OpenApiParameter("meta_review_status", OpenApiTypes.STR, enum=META_REVIEW_STATUSES),
             OpenApiParameter("search", OpenApiTypes.STR, description="Name or SKU."),
         ],
@@ -134,6 +135,8 @@ class ProductViewSet(CatalogViewSet):
             queryset = queryset.filter(is_active=is_active)
         if availability := self.query_choice("availability", PRODUCT_AVAILABILITIES):
             queryset = queryset.filter(availability=availability)
+        if kind := self.query_choice("kind", PRODUCT_KINDS):
+            queryset = queryset.filter(kind=kind)
         if review := self.query_choice("meta_review_status", META_REVIEW_STATUSES):
             queryset = queryset.filter(meta_review_status=review)
         if search := request.query_params.get("search", "").strip():

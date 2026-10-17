@@ -1275,6 +1275,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/offers/claims/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Claims of the workspace's offer codes, newest first. */
+        get: operations["offers_claims_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/claims/{id}/redeem/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Claims of the workspace's offer codes, newest first. */
+        post: operations["offers_claims_redeem_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/codes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's offer codes, newest first, with claim counters. */
+        get: operations["offers_codes_list"];
+        put?: never;
+        /** @description The workspace's offer codes, newest first, with claim counters. */
+        post: operations["offers_codes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/codes/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's offer codes, newest first, with claim counters. */
+        get: operations["offers_codes_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description The workspace's offer codes, newest first, with claim counters. */
+        delete: operations["offers_codes_destroy"];
+        options?: never;
+        head?: never;
+        /** @description The workspace's offer codes, newest first, with claim counters. */
+        patch: operations["offers_codes_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/offers/codes/{id}/stats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The workspace's offer codes, newest first, with claim counters. */
+        get: operations["offers_codes_stats_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/offers/redeem/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Redeem a code at the counter by the buyer's phone (creates the contact when new). */
+        post: operations["offers_redeem_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/": {
         parameters: {
             query?: never;
@@ -1327,6 +1432,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/{id}/confirm-booking/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Confirm a requested booking at `appointment_at`, or change the time of a confirmed one; the buyer is notified each time. 409 invalid_order_transition otherwise. */
+        post: operations["orders_confirm_booking_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/{id}/events/": {
         parameters: {
             query?: never;
@@ -1353,7 +1475,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Only COD orders that are shipped or delivered; otherwise 409 invalid_order_transition. */
+        /** @description COD orders that are shipped or delivered, and pay-at-shop bookings that are confirmed or completed (mark paid at the shop); otherwise 409 invalid_order_transition. */
         post: operations["orders_mark_cod_collected_create"];
         delete?: never;
         options?: never;
@@ -2056,11 +2178,12 @@ export interface components {
         };
         /**
          * @description * `new_order` - new_order
+         *     * `new_booking` - new_booking
          *     * `needs_attention` - needs_attention
          *     * `order_cancelled` - order_cancelled
          * @enum {string}
          */
-        AlertEventEnum: "new_order" | "needs_attention" | "order_cancelled";
+        AlertEventEnum: "new_order" | "new_booking" | "needs_attention" | "order_cancelled";
         AlertRecipient: {
             /** Format: uuid */
             readonly id: string;
@@ -2474,6 +2597,22 @@ export interface components {
         };
         /** @enum {unknown} */
         BlankEnum: "";
+        /** @description A bookable time window of a day, e.g. Morning 09:00-12:00 (24-hour ``HH:MM``). */
+        BookingWindow: {
+            label: string;
+            /** @description HH:MM, 24-hour. */
+            start: string;
+            /** @description HH:MM, 24-hour; after start. */
+            end: string;
+        };
+        /** @description A bookable time window of a day, e.g. Morning 09:00-12:00 (24-hour ``HH:MM``). */
+        BookingWindowRequest: {
+            label: string;
+            /** @description HH:MM, 24-hour. */
+            start: string;
+            /** @description HH:MM, 24-hour; after start. */
+            end: string;
+        };
         BulkTagRequest: {
             contact_ids: string[];
             add_tag_ids?: string[];
@@ -2722,6 +2861,13 @@ export interface components {
             is_cart_enabled?: boolean;
             is_catalog_visible?: boolean;
         };
+        ConfirmBookingRequest: {
+            /**
+             * Format: date-time
+             * @description The confirmed appointment; a time without an offset is workspace time.
+             */
+            appointment_at: string;
+        };
         /**
          * @description * `opt_in` - Opt in
          *     * `opt_out` - Opt out
@@ -2929,6 +3075,11 @@ export interface components {
             /** Format: decimal */
             readonly amount: string;
             readonly note: string;
+        };
+        CounterRedeemRequest: {
+            code: string;
+            phone: string;
+            bill_paise?: number | null;
         };
         EmailVerifyRequest: {
             token: string;
@@ -3336,6 +3487,112 @@ export interface components {
         MetaReviewStatusEnum: "none" | "pending" | "approved" | "rejected" | "outdated";
         /** @enum {unknown} */
         NullEnum: null;
+        /**
+         * @description * `all` - Products and services
+         *     * `products` - Products
+         *     * `services` - Services
+         * @enum {string}
+         */
+        OfferAppliesToEnum: "all" | "products" | "services";
+        OfferClaim: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly offer: string;
+            readonly offer_code: string;
+            readonly status: components["schemas"]["OfferClaimStatusEnum"];
+            readonly contact: components["schemas"]["ConversationContact"];
+            /** Format: uuid */
+            readonly conversation_id: string | null;
+            /** Format: uuid */
+            readonly order_id: string | null;
+            readonly order_number: string | null;
+            readonly discount_paise: number;
+            readonly bill_paise: number | null;
+            readonly from_ad: boolean;
+            readonly ad_source_id: string;
+            /** Format: uri */
+            readonly ad_source_url: string;
+            readonly ad_headline: string;
+            readonly ctwa_clid: string;
+            /** Format: date-time */
+            readonly redeemed_at: string | null;
+            readonly redeemed_by: components["schemas"]["UserSummary"] | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `claimed` - Claimed
+         *     * `applied` - Applied
+         *     * `redeemed` - Redeemed
+         *     * `expired` - Expired
+         * @enum {string}
+         */
+        OfferClaimStatusEnum: "claimed" | "applied" | "redeemed" | "expired";
+        OfferCode: {
+            /** Format: uuid */
+            readonly id: string;
+            code: string;
+            title?: string;
+            reply_text: string;
+            discount_type?: components["schemas"]["OfferDiscountTypeEnum"];
+            discount_value?: number;
+            max_discount_paise?: number | null;
+            min_order_paise?: number;
+            applies_to?: components["schemas"]["OfferAppliesToEnum"];
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            max_uses?: number | null;
+            max_uses_per_contact?: number;
+            is_active?: boolean;
+            readonly claims_count: number;
+            readonly redeemed_count: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        OfferCodeRequest: {
+            code: string;
+            title?: string;
+            reply_text: string;
+            discount_type?: components["schemas"]["OfferDiscountTypeEnum"];
+            discount_value?: number;
+            max_discount_paise?: number | null;
+            min_order_paise?: number;
+            applies_to?: components["schemas"]["OfferAppliesToEnum"];
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            max_uses?: number | null;
+            max_uses_per_contact?: number;
+            is_active?: boolean;
+        };
+        /**
+         * @description * `none` - No discount
+         *     * `percent` - Percent
+         *     * `amount` - Amount
+         * @enum {string}
+         */
+        OfferDiscountTypeEnum: "none" | "percent" | "amount";
+        OfferStats: {
+            claims: number;
+            from_ads: number;
+            applied: number;
+            redeemed: number;
+            discount_paise: number;
+            revenue_paise: number;
+            daily: components["schemas"]["OfferStatsDay"][];
+        };
+        OfferStatsDay: {
+            /** Format: date */
+            date: string;
+            claims: number;
+            redeemed: number;
+        };
         /** @description The caller's onboarding in the workspace of the ``X-Workspace-ID`` header. */
         Onboarding: {
             /** @description What the workspace wants to do first, in the order sell, marketing, support; empty until chosen. Admins and owners may set it. */
@@ -3360,9 +3617,20 @@ export interface components {
             readonly payment_status: components["schemas"]["PaymentStatusEnum"];
             readonly payment_method: (components["schemas"]["PaymentMethodEnum"] | components["schemas"]["NullEnum"]) | null;
             readonly source: components["schemas"]["OrderSourceEnum"];
+            /**
+             * @description delivery (products) or booking (services).
+             *
+             *     * `delivery` - delivery
+             *     * `booking` - booking
+             */
+            readonly kind: components["schemas"]["OrderKindEnum"];
             readonly contact: components["schemas"]["ConversationContact"];
             readonly total_paise: number;
             readonly item_count: number;
+            /** Format: date */
+            readonly requested_date: string | null;
+            /** Format: date-time */
+            readonly appointment_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -3374,8 +3642,35 @@ export interface components {
             readonly subtotal_paise: number;
             readonly shipping_paise: number;
             readonly cod_fee_paise: number;
+            readonly discount_paise: number;
+            /** @description "" when no offer applies. */
+            readonly offer_code: string;
+            /** Format: uuid */
+            readonly offer_claim_id: string | null;
             readonly currency: string;
+            /** @description Null for bookings. */
             readonly address: components["schemas"]["OrderAddress"] | null;
+            readonly requested_window: components["schemas"]["BookingWindow"] | null;
+            /**
+             * Format: date-time
+             * @description When the hours-before reminder was sent.
+             */
+            readonly reminder_sent_at: string | null;
+            /**
+             * Format: date-time
+             * @description When the day-before (18:00) reminder was sent.
+             */
+            readonly day_before_reminder_sent_at: string | null;
+            /**
+             * Format: date-time
+             * @description The buyer tapped I'll be there.
+             */
+            readonly attendance_confirmed_at: string | null;
+            /**
+             * Format: date-time
+             * @description The buyer asked to change the time; cleared when the time is set again.
+             */
+            readonly reschedule_requested_at: string | null;
             readonly courier_name: string;
             readonly awb_number: string;
             readonly tracking_url: string;
@@ -3457,9 +3752,16 @@ export interface components {
          *     * `notification_sent` - notification_sent
          *     * `notification_failed` - notification_failed
          *     * `note` - note
+         *     * `time_requested` - time_requested
+         *     * `appointment_set` - appointment_set
+         *     * `reminder_sent` - reminder_sent
+         *     * `attendance_confirmed` - attendance_confirmed
+         *     * `reschedule_requested` - reschedule_requested
+         *     * `offer_applied` - offer_applied
+         *     * `offer_removed` - offer_removed
          * @enum {string}
          */
-        OrderEventTypeEnum: "created" | "status_changed" | "price_changed" | "address_received" | "payment_link_created" | "payment_received" | "payment_link_expired" | "cod_collected" | "refunded_manual" | "stock_released" | "notification_sent" | "notification_failed" | "note";
+        OrderEventTypeEnum: "created" | "status_changed" | "price_changed" | "address_received" | "payment_link_created" | "payment_received" | "payment_link_expired" | "cod_collected" | "refunded_manual" | "stock_released" | "notification_sent" | "notification_failed" | "note" | "time_requested" | "appointment_set" | "reminder_sent" | "attendance_confirmed" | "reschedule_requested" | "offer_applied" | "offer_removed";
         OrderItem: {
             /** Format: uuid */
             readonly id: string;
@@ -3476,6 +3778,12 @@ export interface components {
             readonly quantity: number;
             readonly line_total_paise: number;
         };
+        /**
+         * @description * `delivery` - delivery
+         *     * `booking` - booking
+         * @enum {string}
+         */
+        OrderKindEnum: "delivery" | "booking";
         OrderListItem: {
             /** Format: uuid */
             readonly id: string;
@@ -3485,9 +3793,20 @@ export interface components {
             readonly payment_status: components["schemas"]["PaymentStatusEnum"];
             readonly payment_method: (components["schemas"]["PaymentMethodEnum"] | components["schemas"]["NullEnum"]) | null;
             readonly source: components["schemas"]["OrderSourceEnum"];
+            /**
+             * @description delivery (products) or booking (services).
+             *
+             *     * `delivery` - delivery
+             *     * `booking` - booking
+             */
+            readonly kind: components["schemas"]["OrderKindEnum"];
             readonly contact: components["schemas"]["ConversationContact"];
             readonly total_paise: number;
             readonly item_count: number;
+            /** Format: date */
+            readonly requested_date: string | null;
+            /** Format: date-time */
+            readonly appointment_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -3542,18 +3861,22 @@ export interface components {
          * @description * `draft` - draft
          *     * `awaiting_confirmation` - awaiting_confirmation
          *     * `awaiting_address` - awaiting_address
+         *     * `awaiting_time` - awaiting_time
          *     * `awaiting_payment_method` - awaiting_payment_method
          *     * `pending_payment` - pending_payment
+         *     * `requested` - requested
          *     * `confirmed` - confirmed
          *     * `packed` - packed
          *     * `shipped` - shipped
          *     * `delivered` - delivered
+         *     * `completed` - completed
+         *     * `no_show` - no_show
          *     * `cancelled` - cancelled
          *     * `expired` - expired
          *     * `needs_attention` - needs_attention
          * @enum {string}
          */
-        OrderStatusEnum: "draft" | "awaiting_confirmation" | "awaiting_address" | "awaiting_payment_method" | "pending_payment" | "confirmed" | "packed" | "shipped" | "delivered" | "cancelled" | "expired" | "needs_attention";
+        OrderStatusEnum: "draft" | "awaiting_confirmation" | "awaiting_address" | "awaiting_time" | "awaiting_payment_method" | "pending_payment" | "requested" | "confirmed" | "packed" | "shipped" | "delivered" | "completed" | "no_show" | "cancelled" | "expired" | "needs_attention";
         OrderSummary: {
             readonly today_count: number;
             readonly today_revenue_paise: number;
@@ -3563,12 +3886,15 @@ export interface components {
         };
         OrderTransitionRequest: {
             /**
-             * @description confirmed only from needs_attention.
+             * @description Deliveries: confirmed only from needs_attention, packed, shipped, delivered. Bookings: requested (from needs_attention), confirmed (needs an appointment; use confirm-booking), completed, no_show.
              *
+             *     * `requested` - requested
              *     * `confirmed` - confirmed
              *     * `packed` - packed
              *     * `shipped` - shipped
              *     * `delivered` - delivered
+             *     * `completed` - completed
+             *     * `no_show` - no_show
              */
             to_status: components["schemas"]["OrderTransitionTargetEnum"];
             courier_name?: string;
@@ -3578,13 +3904,16 @@ export interface components {
             notify_buyer?: boolean;
         };
         /**
-         * @description * `confirmed` - confirmed
+         * @description * `requested` - requested
+         *     * `confirmed` - confirmed
          *     * `packed` - packed
          *     * `shipped` - shipped
          *     * `delivered` - delivered
+         *     * `completed` - completed
+         *     * `no_show` - no_show
          * @enum {string}
          */
-        OrderTransitionTargetEnum: "confirmed" | "packed" | "shipped" | "delivered";
+        OrderTransitionTargetEnum: "requested" | "confirmed" | "packed" | "shipped" | "delivered" | "completed" | "no_show";
         PaginatedAlertRecipientList: {
             /**
              * Format: uri
@@ -3805,6 +4134,32 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["MetaCatalog"][];
+        };
+        PaginatedOfferClaimList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["OfferClaim"][];
+        };
+        PaginatedOfferCodeList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["OfferCode"][];
         };
         PaginatedOrderEventList: {
             /**
@@ -4044,6 +4399,23 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        PatchedOfferCodeRequest: {
+            code?: string;
+            title?: string;
+            reply_text?: string;
+            discount_type?: components["schemas"]["OfferDiscountTypeEnum"];
+            discount_value?: number;
+            max_discount_paise?: number | null;
+            min_order_paise?: number;
+            applies_to?: components["schemas"]["OfferAppliesToEnum"];
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            max_uses?: number | null;
+            max_uses_per_contact?: number;
+            is_active?: boolean;
+        };
         /** @description The caller's onboarding in the workspace of the ``X-Workspace-ID`` header. */
         PatchedOnboardingRequest: {
             /** @description What the workspace wants to do first, in the order sell, marketing, support; empty until chosen. Admins and owners may set it. */
@@ -4081,6 +4453,15 @@ export interface components {
         PatchedProductWriteRequest: {
             /** @description Create only. */
             sku?: string;
+            /**
+             * @description Default product. Services never track stock (stock_qty must be null).
+             *
+             *     * `product` - product
+             *     * `service` - service
+             */
+            kind?: components["schemas"]["ProductKindEnum"];
+            /** @description Services only; must be null for products. */
+            duration_minutes?: number | null;
             name?: string;
             description?: string;
             price_paise?: number;
@@ -4117,6 +4498,23 @@ export interface components {
              */
             phone_number_id?: string | null;
             notification_templates?: components["schemas"]["OrderNotificationTemplatesRequest"];
+            /** @description Bookings may be paid at the shop after the service. */
+            pay_at_shop_enabled?: boolean;
+            /** @description Days buyers can book; Monday is 0. */
+            booking_days?: number[];
+            /** @description 1-10 windows offered each day. */
+            booking_windows?: components["schemas"]["BookingWindowRequest"][];
+            booking_days_ahead?: number;
+            /** @description 0 turns reminders off. */
+            booking_reminder_hours?: number;
+            /** @description Also remind buyers at 18:00 the day before. */
+            booking_day_before_reminder?: boolean;
+            /** Format: uuid */
+            booking_confirmed_template_id?: string | null;
+            /** Format: uuid */
+            booking_cancelled_template_id?: string | null;
+            /** Format: uuid */
+            booking_reminder_template_id?: string | null;
         };
         PatchedTagRequest: {
             name?: string;
@@ -4194,9 +4592,10 @@ export interface components {
         /**
          * @description * `online` - online
          *     * `cod` - cod
+         *     * `pay_at_shop` - pay_at_shop
          * @enum {string}
          */
-        PaymentMethodEnum: "online" | "cod";
+        PaymentMethodEnum: "online" | "cod" | "pay_at_shop";
         /**
          * @description * `test` - test
          *     * `live` - live
@@ -4308,6 +4707,9 @@ export interface components {
             readonly id: string;
             /** @description Meta retailer_id; read-only. */
             readonly sku: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            /** @description Services only; null for products. */
+            readonly duration_minutes: number | null;
             readonly name: string;
             readonly description: string;
             readonly price_paise: number;
@@ -4363,10 +4765,25 @@ export interface components {
              */
             file: string;
         };
+        /**
+         * @description * `product` - product
+         *     * `service` - service
+         * @enum {string}
+         */
+        ProductKindEnum: "product" | "service";
         /** @description Create or PATCH a product. ``sku`` is accepted on create only. */
         ProductWriteRequest: {
             /** @description Create only. */
             sku: string;
+            /**
+             * @description Default product. Services never track stock (stock_qty must be null).
+             *
+             *     * `product` - product
+             *     * `service` - service
+             */
+            kind?: components["schemas"]["ProductKindEnum"];
+            /** @description Services only; must be null for products. */
+            duration_minutes?: number | null;
             name: string;
             description?: string;
             price_paise: number;
@@ -4390,6 +4807,9 @@ export interface components {
          * @enum {string}
          */
         RecipientStatusEnum: "pending" | "skipped" | "queued" | "sent" | "delivered" | "read" | "failed";
+        RedeemClaimRequest: {
+            bill_paise?: number | null;
+        };
         RegisterRequest: {
             /** Format: email */
             email: string;
@@ -4470,7 +4890,7 @@ export interface components {
             readonly items: components["schemas"]["StoreChecklistItem"][];
         };
         StoreChecklistItem: {
-            /** @description whatsapp_connected, products_added, payments_configured, order_templates_ready, alert_number_verified or store_enabled */
+            /** @description whatsapp_connected, products_added, payments_configured, order_templates_ready, booking_templates (only with an active service), alert_number_verified or store_enabled */
             readonly key: string;
             readonly done: boolean;
             readonly detail: string;
@@ -4501,6 +4921,23 @@ export interface components {
             /** Format: uri */
             readonly store_link: string | null;
             notification_templates?: components["schemas"]["OrderNotificationTemplates"];
+            /** @description Bookings may be paid at the shop after the service. */
+            pay_at_shop_enabled?: boolean;
+            /** @description Days buyers can book; Monday is 0. */
+            booking_days?: number[];
+            /** @description 1-10 windows offered each day. */
+            booking_windows?: components["schemas"]["BookingWindow"][];
+            booking_days_ahead?: number;
+            /** @description 0 turns reminders off. */
+            booking_reminder_hours?: number;
+            /** @description Also remind buyers at 18:00 the day before. */
+            booking_day_before_reminder?: boolean;
+            /** Format: uuid */
+            booking_confirmed_template_id?: string | null;
+            /** Format: uuid */
+            booking_cancelled_template_id?: string | null;
+            /** Format: uuid */
+            booking_reminder_template_id?: string | null;
             /** Format: date-time */
             readonly updated_at: string;
         };
@@ -6440,6 +6877,7 @@ export interface operations {
                 /** @description The pagination cursor value. */
                 cursor?: string;
                 is_active?: boolean;
+                kind?: "product" | "service";
                 meta_review_status?: "approved" | "none" | "outdated" | "pending" | "rejected";
                 /** @description Number of results to return per page. */
                 page_size?: number;
@@ -7592,6 +8030,252 @@ export interface operations {
             };
         };
     };
+    offers_claims_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Offer code id. */
+                offer?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Part of the phone number. */
+                phone?: string;
+                status?: "applied" | "claimed" | "expired" | "redeemed";
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOfferClaimList"];
+                };
+            };
+        };
+    };
+    offers_claims_redeem_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RedeemClaimRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RedeemClaimRequest"];
+                "multipart/form-data": components["schemas"]["RedeemClaimRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferClaim"];
+                };
+            };
+        };
+    };
+    offers_codes_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOfferCodeList"];
+                };
+            };
+        };
+    };
+    offers_codes_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferCodeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OfferCodeRequest"];
+                "multipart/form-data": components["schemas"]["OfferCodeRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferCode"];
+                };
+            };
+        };
+    };
+    offers_codes_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferCode"];
+                };
+            };
+        };
+    };
+    offers_codes_destroy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    offers_codes_partial_update: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOfferCodeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOfferCodeRequest"];
+                "multipart/form-data": components["schemas"]["PatchedOfferCodeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferCode"];
+                };
+            };
+        };
+    };
+    offers_codes_stats_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferStats"];
+                };
+            };
+        };
+    };
+    offers_redeem_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CounterRedeemRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CounterRedeemRequest"];
+                "multipart/form-data": components["schemas"]["CounterRedeemRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferClaim"];
+                };
+            };
+        };
+    };
     orders_list: {
         parameters: {
             query?: {
@@ -7602,9 +8286,10 @@ export interface operations {
                 created_before?: string;
                 /** @description The pagination cursor value. */
                 cursor?: string;
+                kind?: "booking" | "delivery";
                 /** @description Number of results to return per page. */
                 page_size?: number;
-                payment_method?: "cod" | "online";
+                payment_method?: "cod" | "online" | "pay_at_shop";
                 payment_status?: "cod_collected" | "cod_pending" | "paid" | "refunded_manual" | "unpaid";
                 /** @description Order number, contact name or phone. */
                 search?: string;
@@ -7702,6 +8387,36 @@ export interface operations {
                 "application/json": components["schemas"]["CancelOrderRequest"];
                 "application/x-www-form-urlencoded": components["schemas"]["CancelOrderRequest"];
                 "multipart/form-data": components["schemas"]["CancelOrderRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_confirm_booking_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmBookingRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ConfirmBookingRequest"];
+                "multipart/form-data": components["schemas"]["ConfirmBookingRequest"];
             };
         };
         responses: {

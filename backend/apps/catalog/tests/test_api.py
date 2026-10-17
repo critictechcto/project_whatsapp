@@ -81,6 +81,7 @@ def test_product_filters(auth_client, workspace):
     in_collection = ProductFactory(workspace=workspace, collection=sweets, sku="LADDU-1")
     loose = ProductFactory(workspace=workspace, name="Masala chai")
     hidden = ProductFactory(workspace=workspace, is_active=False)
+    facial = ProductFactory(workspace=workspace, service=True, duration_minutes=60)
     sold_out = ProductFactory(
         workspace=workspace, availability="out_of_stock", meta_review_status="rejected"
     )
@@ -97,11 +98,12 @@ def test_product_filters(auth_client, workspace):
     }
     assert result_ids(client.get(PRODUCTS, {"search": "laddu"})) == {str(in_collection.pk)}
     assert result_ids(client.get(PRODUCTS, {"search": "CHAI"})) == {str(loose.pk)}
+    assert result_ids(client.get(PRODUCTS, {"kind": "service"})) == {str(facial.pk)}
 
 
 @pytest.mark.parametrize(
     "params",
-    [{"availability": "maybe"}, {"is_active": "perhaps"}, {"collection": "abc"}],
+    [{"availability": "maybe"}, {"is_active": "perhaps"}, {"collection": "abc"}, {"kind": "x"}],
 )
 def test_product_filters_are_validated(auth_client, workspace, params):
     assert auth_client(Role.VIEWER).get(PRODUCTS, params).status_code == 400
