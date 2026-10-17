@@ -24,6 +24,7 @@ api_v1 = [
     path("payments/", include("apps.payments.urls")),
     path("seller-alerts/", include("apps.seller_alerts.urls")),
     path("analytics/", include("apps.analytics.urls")),
+    path("offers/", include("apps.offers.urls")),
     path("developer/", include("apps.developer_api.urls")),
 ]
 

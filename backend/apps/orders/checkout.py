@@ -1374,3 +1374,11 @@ def _links_closed(order: Order) -> bool:
         if result is not None and result.status == "paid":
             return False
     return True
+
+
+def apply_offer_to_active_checkout(conversation_id) -> bool:
+    """Apply a newly claimed offer to the contact's open checkout (services-and-offers contract).
+
+    Stub until the booking checkout lands.
+    """
+    return False

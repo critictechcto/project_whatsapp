@@ -391,3 +391,11 @@ def open_orders_for_workspaces(workspace_ids: Iterable, *, limit: int = 10) -> l
         .select_related("workspace", "contact", "phone_number")
         .order_by("-created_at", "-pk")[: max(int(limit), 0)]
     )
+
+
+def confirm_booking(order, *, appointment_at, actor, user=None):
+    """Confirm or move a booking's appointment (docs/contracts/services-and-offers.md).
+
+    Stub until the booking checkout lands.
+    """
+    raise NotImplementedError

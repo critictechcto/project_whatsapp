@@ -10,6 +10,7 @@ The implementations live in:
 """
 
 from .checkout import (
+    apply_offer_to_active_checkout,
     handle_checkout_reply,
     handle_checkout_text,
     send_recent_orders,
@@ -18,6 +19,7 @@ from .checkout import (
 from .exceptions import CheckoutRejected
 from .lifecycle import (
     cancel_order,
+    confirm_booking,
     mark_cod_collected,
     mark_refunded,
     open_orders_for_workspaces,
@@ -35,7 +37,9 @@ from .store import (
 
 __all__ = [
     "CheckoutRejected",
+    "apply_offer_to_active_checkout",
     "cancel_order",
+    "confirm_booking",
     "derive_order_prefix",
     "get_store_settings",
     "handle_checkout_reply",

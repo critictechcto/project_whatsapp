@@ -63,6 +63,7 @@ LOCAL_APPS = [
     "apps.shop",
     "apps.seller_alerts",
     "apps.analytics",
+    "apps.offers",
     "apps.developer_api",
 ]
 # daphne first so `runserver` serves ASGI (HTTP + WebSockets).
