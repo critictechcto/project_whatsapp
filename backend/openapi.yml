@@ -9511,6 +9511,13 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        reschedule_requested_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: The buyer asked to change the time; cleared when the time is
+            set again.
         created_at:
           type: string
           format: date-time
@@ -9586,13 +9593,6 @@ components:
           readOnly: true
           nullable: true
           description: The buyer tapped I'll be there.
-        reschedule_requested_at:
-          type: string
-          format: date-time
-          readOnly: true
-          nullable: true
-          description: The buyer asked to change the time; cleared when the time is
-            set again.
         courier_name:
           type: string
           readOnly: true
@@ -9766,6 +9766,11 @@ components:
         detail:
           type: string
           readOnly: true
+        reminder:
+          type: string
+          readOnly: true
+          description: 'For reminder_sent: "booking_day_before" or "booking_reminder";
+            else "".'
         message_id:
           type: string
           format: uuid
@@ -9796,6 +9801,7 @@ components:
       - message_error_code
       - message_id
       - message_status
+      - reminder
       - to_status
       - type
       - user
@@ -9963,6 +9969,11 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        reschedule_requested_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         created_at:
           type: string
           format: date-time
@@ -9982,6 +9993,7 @@ components:
       - payment_method
       - payment_status
       - requested_date
+      - reschedule_requested_at
       - source
       - status
       - total_paise

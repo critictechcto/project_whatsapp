@@ -103,6 +103,7 @@ class OrderListItemSerializer(serializers.Serializer):
     item_count = serializers.IntegerField(read_only=True)
     requested_date = serializers.DateField(read_only=True, allow_null=True)
     appointment_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    reschedule_requested_at = serializers.DateTimeField(read_only=True, allow_null=True)
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
@@ -173,6 +174,9 @@ class OrderEventSerializer(serializers.Serializer):
     actor = serializers.ChoiceField(choices=ORDER_EVENT_ACTORS, read_only=True)
     user = UserSummarySerializer(read_only=True, allow_null=True)
     detail = serializers.CharField(read_only=True)
+    reminder = serializers.SerializerMethodField(
+        help_text='For reminder_sent: "booking_day_before" or "booking_reminder"; else "".'
+    )
     message_id = serializers.UUIDField(read_only=True, allow_null=True)
     message_status = serializers.SerializerMethodField(
         help_text="Current delivery status of the event's message; null without a message."
@@ -181,6 +185,10 @@ class OrderEventSerializer(serializers.Serializer):
         help_text='Meta error code when that message failed, else "".'
     )
     created_at = serializers.DateTimeField(read_only=True)
+
+    def get_reminder(self, event) -> str:
+        metadata = event.metadata if isinstance(event.metadata, dict) else {}
+        return str(metadata.get("reminder") or "")
 
     @extend_schema_field(serializers.ChoiceField(choices=Message.Status.values, allow_null=True))
     def get_message_status(self, event) -> str | None:

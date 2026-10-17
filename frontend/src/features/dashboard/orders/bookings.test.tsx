@@ -152,8 +152,8 @@ describe('booking reminders and replies', () => {
   })
 
   it('labels the reminder sent before the appointment', () => {
-    expect(eventTitle({ type: 'reminder_sent', to_status: '', detail: 'Day-before reminder for the appointment at 5 pm' })).toBe('Evening-before reminder sent')
-    expect(eventTitle({ type: 'reminder_sent', to_status: '', detail: 'Reminder for the appointment at 5 pm' })).toBe('Reminder sent before the appointment')
+    expect(eventTitle({ type: 'reminder_sent', to_status: '', reminder: 'booking_day_before' })).toBe('Evening-before reminder sent')
+    expect(eventTitle({ type: 'reminder_sent', to_status: '', reminder: 'booking_reminder' })).toBe('Reminder sent before the appointment')
   })
 
   it('explains a confirm-booking conflict', async () => {

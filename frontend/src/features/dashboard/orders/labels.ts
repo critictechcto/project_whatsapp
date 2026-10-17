@@ -141,19 +141,13 @@ function statusLabel(status: string): string {
   return orderStatusInfo[status as OrderStatus]?.label ?? status.replace(/_/g, ' ')
 }
 
-/**
- * Which reminder a `reminder_sent` event was: the contract keeps it in `metadata.reminder` (`booking_day_before` or
- * `booking_reminder`). `OrderEvent` doesn't expose `metadata` yet, so the backend's detail text ("Day-before
- * reminder for …") is the fallback.
- */
-export function reminderKind(event: Pick<OrderEvent, 'detail'> & { metadata?: { reminder?: string } }): 'day_before' | 'hours_before' {
-  const reminder = event.metadata?.reminder
-  if (reminder) return reminder === 'booking_day_before' ? 'day_before' : 'hours_before'
-  return /^day-before/i.test(event.detail) ? 'day_before' : 'hours_before'
+/** Which reminder a `reminder_sent` event was (`reminder`: `booking_day_before` or `booking_reminder`). */
+export function reminderKind(event: Pick<OrderEvent, 'reminder'>): 'day_before' | 'hours_before' {
+  return event.reminder === 'booking_day_before' ? 'day_before' : 'hours_before'
 }
 
 /** Title of a timeline entry. */
-export function eventTitle(event: Pick<OrderEvent, 'type' | 'to_status' | 'detail'>): string {
+export function eventTitle(event: Pick<OrderEvent, 'type' | 'to_status' | 'reminder'>): string {
   if (event.type === 'status_changed' && event.to_status) return `Moved to ${statusLabel(event.to_status)}`
   if (event.type === 'reminder_sent') {
     return reminderKind(event) === 'day_before' ? 'Evening-before reminder sent' : 'Reminder sent before the appointment'

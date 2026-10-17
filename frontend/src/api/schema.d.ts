@@ -3631,6 +3631,11 @@ export interface components {
             readonly requested_date: string | null;
             /** Format: date-time */
             readonly appointment_at: string | null;
+            /**
+             * Format: date-time
+             * @description The buyer asked to change the time; cleared when the time is set again.
+             */
+            readonly reschedule_requested_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */
@@ -3666,11 +3671,6 @@ export interface components {
              * @description The buyer tapped I'll be there.
              */
             readonly attendance_confirmed_at: string | null;
-            /**
-             * Format: date-time
-             * @description The buyer asked to change the time; cleared when the time is set again.
-             */
-            readonly reschedule_requested_at: string | null;
             readonly courier_name: string;
             readonly awb_number: string;
             readonly tracking_url: string;
@@ -3721,6 +3721,8 @@ export interface components {
             readonly actor: components["schemas"]["OrderEventActorEnum"];
             readonly user: components["schemas"]["UserSummary"] | null;
             readonly detail: string;
+            /** @description For reminder_sent: "booking_day_before" or "booking_reminder"; else "". */
+            readonly reminder: string;
             /** Format: uuid */
             readonly message_id: string | null;
             /** @description Current delivery status of the event's message; null without a message. */
@@ -3807,6 +3809,8 @@ export interface components {
             readonly requested_date: string | null;
             /** Format: date-time */
             readonly appointment_at: string | null;
+            /** Format: date-time */
+            readonly reschedule_requested_at: string | null;
             /** Format: date-time */
             readonly created_at: string;
             /** Format: date-time */

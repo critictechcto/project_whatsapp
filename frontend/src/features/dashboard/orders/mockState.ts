@@ -368,7 +368,7 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     type: EventType,
     actor: EventActor,
     detail = '',
-    options: { from?: OrderStatus; to?: OrderStatus; user?: string; failedCode?: string } = {},
+    options: { from?: OrderStatus; to?: OrderStatus; user?: string; failedCode?: string; reminder?: string } = {},
   ) => {
     // Buyer notifications carry their message and its delivery status.
     const notification = type === 'notification_sent'
@@ -380,6 +380,7 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
       actor,
       user: options.user ? userSummary(options.user) : null,
       detail,
+      reminder: options.reminder ?? '',
       message_id: notification ? `5c6d7e8f-9a0b-4c1d-8e2f-${String(n * 100 + events.length).padStart(12, '0')}` : null,
       message_status: notification ? (options.failedCode ? 'failed' : 'read') : null,
       message_error_code: options.failedCode ?? '',
@@ -427,7 +428,7 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
       // The evening-before reminder went out a couple of hours ago and the buyer tapped a button on it.
       tick(Math.max(0, (now - 2 * HOUR - t) / MINUTE))
       order.day_before_reminder_sent_at = iso()
-      event('reminder_sent', 'system', `Day-before reminder for the appointment at ${formatInZone(order.appointment_at ?? iso(), BOOKING_TIME_ZONE)}.`)
+      event('reminder_sent', 'system', `Day-before reminder for the appointment at ${formatInZone(order.appointment_at ?? iso(), BOOKING_TIME_ZONE)}.`, { reminder: 'booking_day_before' })
       tick(25)
       if (seed.reminderAnswer === 'attend') {
         order.attendance_confirmed_at = iso()
@@ -645,6 +646,7 @@ export function addEvent(
     actor,
     user: options.userId ? userSummary(options.userId) : null,
     detail: options.detail ?? '',
+    reminder: '',
     message_id: null,
     message_status: null,
     message_error_code: '',
