@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '../../../api/client'
 import { workspaceKeys } from '../../../api/queryKeys'
 import type { Schemas } from '../../../api/types'
+import type { StoreSettings, StoreSettingsPatch } from './bookingTypes'
 
-export type StoreSettings = Schemas['StoreSettings']
-export type StoreSettingsPatch = Schemas['PatchedStoreSettingsRequest']
+export type { BookingTemplateField, BookingWindow, StoreSettings, StoreSettingsPatch } from './bookingTypes'
 export type StoreChecklistItem = Schemas['StoreChecklistItem']
 export type PaymentAccount = Schemas['PaymentAccount']
 export type PaymentAccountPatch = Schemas['PatchedPaymentAccountRequest']
@@ -28,10 +28,19 @@ export const storeQueryKeys = {
   phoneNumbers: (workspaceId: string) => storeKeys.custom(workspaceId, 'phone-numbers'),
 }
 
+// TODO(api:types): the generated StoreSettings lacks the booking fields; these casts isolate that.
+export function fetchStoreSettings(signal?: AbortSignal): Promise<StoreSettings> {
+  return unwrap(api.GET('/api/v1/store/settings/', { signal })) as Promise<StoreSettings>
+}
+
+export function patchStoreSettings(body: StoreSettingsPatch): Promise<StoreSettings> {
+  return unwrap(api.PATCH('/api/v1/store/settings/', { body: body as Schemas['PatchedStoreSettingsRequest'] })) as Promise<StoreSettings>
+}
+
 export function useStoreSettings(workspaceId: string) {
   return useQuery({
     queryKey: storeQueryKeys.settings(workspaceId),
-    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/store/settings/', { signal })),
+    queryFn: ({ signal }) => fetchStoreSettings(signal),
   })
 }
 

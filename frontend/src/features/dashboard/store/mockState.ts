@@ -5,8 +5,11 @@
 import type { Schemas } from '../../../api/types'
 import { db, type Mutable } from '../../../mocks/db'
 import { daysAgo, ids, seedPhoneNumber, seedTemplates } from '../../../mocks/seed'
+import { DEFAULT_BOOKING_WINDOWS, type BookingSettingsFields, type BookingTemplateField } from './bookingTypes'
 
-export type MockStoreSettings = Mutable<Schemas['StoreSettings']> & { notification_templates: Schemas['OrderNotificationTemplates'] }
+// TODO(api:types): the booking fields come from ./bookingTypes until schema.d.ts has them.
+export type MockStoreSettings = Mutable<Schemas['StoreSettings']> &
+  Required<BookingSettingsFields> & { notification_templates: Schemas['OrderNotificationTemplates'] }
 export type MockPaymentAccount = Mutable<Schemas['PaymentAccount']> & {
   /** Kept only in the mock; never returned. */
   key_secret: string
@@ -21,6 +24,8 @@ export type WorkspaceStore = {
   recipients: MockRecipient[]
   /** Active products in the catalog (the catalog area owns the real list). */
   activeProducts: number
+  /** Active services among them; the `booking_templates` checklist step shows only when > 0. */
+  activeServices: number
   /** Starter template names already created in the WABA. */
   starterTemplates: string[]
 }
@@ -33,7 +38,16 @@ export const STARTER_TEMPLATE_NAMES = [
   'upc_order_delivered',
   'upc_order_cancelled',
   'upc_payment_reminder',
+  'upc_booking_confirmed',
+  'upc_booking_cancelled',
+  'upc_booking_reminder',
 ] as const
+
+export const BOOKING_TEMPLATE_FIELDS: readonly BookingTemplateField[] = [
+  'booking_confirmed_template_id',
+  'booking_cancelled_template_id',
+  'booking_reminder_template_id',
+]
 
 export const recipientIds = {
   rohit: 'e1a7c000-0000-4000-8000-000000000001',
@@ -100,6 +114,14 @@ function defaultSettings(workspaceId: string): MockStoreSettings {
     phone_number_id: null,
     store_link: hasNumber ? `https://wa.me/${seedPhoneNumber.phone_e164.slice(1)}?text=Hi` : null,
     notification_templates: { confirmed: null, packed: null, shipped: null, delivered: null, cancelled: null, payment_reminder: null },
+    pay_at_shop_enabled: true,
+    booking_days: [0, 1, 2, 3, 4, 5, 6],
+    booking_windows: DEFAULT_BOOKING_WINDOWS.map((window) => ({ ...window })),
+    booking_days_ahead: 7,
+    booking_reminder_hours: 3,
+    booking_confirmed_template_id: null,
+    booking_cancelled_template_id: null,
+    booking_reminder_template_id: null,
     updated_at: daysAgo(3),
   }
 }
@@ -137,6 +159,7 @@ function build(): Map<string, WorkspaceStore> {
         settings: sharma,
         account,
         activeProducts: 12,
+        activeServices: 1,
         starterTemplates: [],
         recipients: [
           {
@@ -169,7 +192,7 @@ export function storeState(workspaceId: string): WorkspaceStore {
   const { stores } = state()
   let entry = stores.get(workspaceId)
   if (!entry) {
-    entry = { settings: defaultSettings(workspaceId), account: emptyAccount(), recipients: [], activeProducts: 0, starterTemplates: [] }
+    entry = { settings: defaultSettings(workspaceId), account: emptyAccount(), recipients: [], activeProducts: 0, activeServices: 0, starterTemplates: [] }
     stores.set(workspaceId, entry)
   }
   return entry

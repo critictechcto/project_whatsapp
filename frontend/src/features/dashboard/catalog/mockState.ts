@@ -1,17 +1,21 @@
 /**
  * In-memory catalog data for the mock API (mock mode and tests): Sharma Sweets with 3 collections,
- * 12 products (one rejected in Meta review, one out of stock) and a connected Meta catalog.
+ * 12 products (one rejected in Meta review, one out of stock), one service and a connected Meta catalog.
  * Rebuilt whenever the shared mock database is reset (`db.users` changes identity).
  */
 import type { Schemas } from '../../../api/types'
 import { db, type Mutable } from '../../../mocks/db'
 import { daysAgo, ids, seedPhoneNumber, seedWaba } from '../../../mocks/seed'
+import type { ProductKind } from './lib/types'
 
 export type MockCollection = Omit<Mutable<Schemas['Collection']>, 'product_count'> & { workspace_id: string }
 export type MockProduct = Omit<Mutable<Schemas['Product']>, 'collection' | 'effective_price_paise' | 'meta_rejection_reasons'> & {
   workspace_id: string
   collection_id: string | null
   meta_rejection_reasons: string[]
+  // TODO(api:types): services contract fields, not in the generated Product yet.
+  kind: ProductKind
+  duration_minutes: number | null
 }
 export type MockMetaCatalog = Omit<Mutable<Schemas['MetaCatalog']>, 'product_counts' | 'phone_numbers'> & {
   workspace_id: string
@@ -59,6 +63,8 @@ type Seed = {
   review?: Schemas['MetaReviewStatusEnum']
   reasons?: string[]
   hue: number
+  /** A service (booked, not shipped) with its length in minutes. */
+  durationMinutes?: number
 }
 
 const seeds: Seed[] = [
@@ -84,6 +90,16 @@ const seeds: Seed[] = [
   { sku: 'METHI-MATHRI-250', name: 'Methi mathri 250 g', description: 'Flaky fenugreek mathri, perfect with chai.', price: 15000, sale: 13000, collection: 3, review: 'approved', hue: 70 },
   { sku: 'DIWALI-HAMPER-L', name: 'Diwali gift hamper (large)', description: 'Kaju katli, soan papdi, dry fruits and diyas in a gift box.', price: 249900, collection: 3, stock: 8, image: false, review: 'none', hue: 10 },
   { sku: 'MALAI-GHEWAR-4', name: 'Malai ghewar (4 pcs)', description: 'Seasonal Jaipur ghewar topped with rabri. Available in Sawan.', price: 54000, collection: null, active: false, review: 'approved', hue: 35 },
+  // A service: booked for a day and time, never stocked or synced to Meta.
+  {
+    sku: 'DIWALI-GLOW-60',
+    name: 'Diwali Glow facial',
+    description: 'A 60-minute festive facial with a cleanse, scrub, massage and glow mask. Pay at the shop.',
+    price: 149900,
+    collection: 3,
+    durationMinutes: 60,
+    hue: 15,
+  },
 ]
 
 function build(): CatalogMockState {
@@ -109,10 +125,12 @@ function build(): CatalogMockState {
       collection_id: seed.collection ? collectionId(seed.collection) : null,
       availability: seed.availability ?? 'in_stock',
       stock_qty: seed.stock ?? null,
+      kind: seed.durationMinutes ? 'service' : 'product',
+      duration_minutes: seed.durationMinutes ?? null,
       max_qty_per_order: 10,
       position: index,
       is_active: seed.active ?? true,
-      meta_sync_status: image ? 'synced' : 'not_synced',
+      meta_sync_status: image && !seed.durationMinutes ? 'synced' : 'not_synced',
       meta_review_status: review,
       meta_rejection_reasons: seed.reasons ?? [],
       created_at: daysAgo(75 - index),

@@ -3,21 +3,18 @@
  * the shared mock database is reset (tests reset it before each test).
  */
 import type { Schemas } from '../../../api/types'
-import { formatInZone } from '../../../lib/datetime'
+import { formatInZone, fromZonedParts } from '../../../lib/datetime'
 import { formatPaise } from '../../../lib/money'
 import { db, type Mutable } from '../../../mocks/db'
 import { ids, indianMobile, indianName, seedPhoneNumber } from '../../../mocks/seed'
-import { orderTransitions, stageStatuses } from './labels'
+import type { BookingWindow, EventType, Order, OrderListItem, OrderEvent, OrderStatus, PaymentMethod } from './bookingTypes'
+import { stageStatuses, transitionsFor } from './labels'
 
-type Order = Schemas['Order']
-type OrderStatus = Schemas['OrderStatusEnum']
-type PaymentMethod = Schemas['PaymentMethodEnum']
 type OrderSource = Schemas['OrderSourceEnum']
-type EventType = Schemas['OrderEventTypeEnum']
 type EventActor = Schemas['OrderEventActorEnum']
 
 export type MockOrder = Mutable<Omit<Order, 'allowed_transitions'>>
-export type MockOrderEvent = Mutable<Schemas['OrderEvent']>
+export type MockOrderEvent = Mutable<OrderEvent>
 export type OrderRecord = { workspaceId: string; order: MockOrder; events: MockOrderEvent[] }
 
 const MINUTE = 60_000
@@ -41,6 +38,18 @@ const products: MockProduct[] = [
   // Kabir's shop bot order in the inbox mock (SS-1042).
   { sku: 'SS-KAJU-250', name: 'Kaju Katli 250 g', price: 22_000, color: '#d9c7a1', image: true },
   { sku: 'SS-SOAN-250', name: 'Soan Papdi 250 g', price: 10_000, color: '#e9d9a6', image: false },
+  // Services, booked rather than shipped (index 12 onwards).
+  { sku: 'DIWALI-GLOW-60', name: 'Diwali Glow facial', price: 149_900, color: '#e8b4a0', image: true },
+  { sku: 'HAIR-SPA-45', name: 'Hair spa', price: 89_900, color: '#b9a3c9', image: false },
+]
+
+const DIWALI_GLOW = 12
+const HAIR_SPA = 13
+
+const bookingWindows: BookingWindow[] = [
+  { label: 'Morning', start: '09:00', end: '12:00' },
+  { label: 'Afternoon', start: '12:00', end: '16:00' },
+  { label: 'Evening', start: '16:00', end: '20:00' },
 ]
 
 function productImage(product: MockProduct): string | null {
@@ -129,6 +138,10 @@ type Seed = {
   confirmationFailedCode?: string
   priceChanged?: boolean
   notes?: string
+  /** A booking for a service: the requested day (days from now) and window index. */
+  booking?: { inDays: number; window: number }
+  /** An offer code applied at checkout. */
+  offer?: [code: string, discountPaise: number]
 }
 
 /** Seeds in chronological order; numbers are assigned from SS-1001 in this order. */
@@ -230,11 +243,25 @@ const seeds: Seed[] = [
   { hoursAgo: 0.3, contact: 22, lines: [[0, 1]], status: 'awaiting_confirmation', priceChanged: true, source: 'native_cart' },
   { key: 'pendingPayment', hoursAgo: 0.2, contact: 8, lines: [[5, 1], [8, 1]], status: 'pending_payment', method: 'online' },
   { hoursAgo: 0.1, contact: 23, lines: [[7, 1]], status: 'draft' },
+  // Bookings for services (salon-style), created after the delivery orders so seeded numbers stay put.
+  {
+    key: 'bookingConfirmed',
+    hoursAgo: 28,
+    contact: 3,
+    lines: [[DIWALI_GLOW, 1]],
+    status: 'confirmed',
+    method: 'pay_at_shop',
+    booking: { inDays: 1, window: 0 },
+    offer: ['DIWALI10', 15_000],
+  },
+  { key: 'bookingRequested', hoursAgo: 0.5, contact: 4, lines: [[DIWALI_GLOW, 1]], status: 'requested', method: 'pay_at_shop', booking: { inDays: 2, window: 2 } },
+  { key: 'bookingCompleted', hoursAgo: 70, contact: 9, lines: [[HAIR_SPA, 1]], status: 'completed', method: 'pay_at_shop', booking: { inDays: -1, window: 1 }, codCollected: true },
 ]
 
 const SHIPPING_PAISE = 6_000
 const FREE_SHIPPING_ABOVE_PAISE = 99_900
 const COD_FEE_PAISE = 3_000
+const BOOKING_TIME_ZONE = 'Asia/Kolkata'
 const CHECKOUT_TTL_MINUTES = 35
 const LINK_EXPIRY_MINUTES = 30
 
@@ -267,9 +294,10 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     }
   })
   const subtotal = items.reduce((sum, item) => sum + item.line_total_paise, 0)
-  const shipping = seed.freeShipping || subtotal >= FREE_SHIPPING_ABOVE_PAISE ? 0 : SHIPPING_PAISE
+  const shipping = seed.booking || seed.freeShipping || subtotal >= FREE_SHIPPING_ABOVE_PAISE ? 0 : SHIPPING_PAISE
   const codFee = seed.method === 'cod' ? COD_FEE_PAISE : 0
-  const total = subtotal + shipping + codFee
+  const discount = seed.offer?.[1] ?? 0
+  const total = subtotal - discount + shipping + codFee
   const person = contact(seed.contact)
 
   const order: MockOrder = {
@@ -308,6 +336,14 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     shipped_at: null,
     delivered_at: null,
     cancelled_at: null,
+    kind: seed.booking ? 'booking' : 'delivery',
+    requested_date: null,
+    requested_window: null,
+    appointment_at: null,
+    reminder_sent_at: null,
+    discount_paise: discount,
+    offer_code: seed.offer?.[0] ?? '',
+    offer_claim_id: seed.offer ? `6d7e8f9a-0b1c-4d2e-8f3a-${String(n).padStart(12, '0')}` : null,
   }
 
   const events: MockOrderEvent[] = []
@@ -345,6 +381,42 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
 
   event('created', 'buyer', order.source === 'native_cart' ? 'Sent a cart from the WhatsApp catalog.' : 'Checked out from the shop menu.')
   if (seed.status === 'draft') return finish()
+
+  if (seed.offer) {
+    tick(1)
+    event('offer_applied', 'buyer', `${seed.offer[0]}: ${formatPaise(seed.offer[1])} off.`)
+  }
+
+  if (seed.booking) {
+    order.status = 'awaiting_time'
+    if (seed.status === 'awaiting_time') return finish()
+    tick(2)
+    const window = bookingWindows[seed.booking.window]
+    const date = formatInZone(new Date(now + seed.booking.inDays * 24 * HOUR).toISOString(), BOOKING_TIME_ZONE, 'yyyy-MM-dd')
+    order.requested_date = date
+    order.requested_window = window
+    event('time_requested', 'buyer', `${formatInZone(`${date}T12:00:00Z`, 'UTC', 'EEE d MMM')}, ${window.label.toLowerCase()} (${window.start}–${window.end})`)
+    order.payment_method = seed.method ?? 'pay_at_shop'
+    if (order.payment_method === 'pay_at_shop') order.payment_status = 'cod_pending'
+    move('requested', 'buyer', order.payment_method === 'pay_at_shop' ? 'Chose to pay at the shop.' : '')
+    if (seed.status === 'requested') return finish()
+
+    tick(20)
+    order.appointment_at = fromZonedParts(date, window.start, BOOKING_TIME_ZONE)
+    order.confirmed_at = iso()
+    event('appointment_set', 'dashboard', formatInZone(order.appointment_at ?? iso(), BOOKING_TIME_ZONE), { user: ids.demoUser })
+    move('confirmed', 'dashboard', '', ids.demoUser)
+    event('notification_sent', 'system', 'Sent the booking confirmation.')
+    if (seed.status === 'confirmed') return finish()
+
+    tick(Math.max(60, (Date.parse(order.appointment_at ?? iso()) - t) / MINUTE + 60))
+    move(seed.status, 'dashboard', '', ids.priya)
+    if (seed.codCollected && order.payment_method === 'pay_at_shop') {
+      order.payment_status = 'cod_collected'
+      event('cod_collected', 'dashboard', 'Paid at the shop.', { user: ids.priya })
+    }
+    return finish()
+  }
 
   order.status = 'awaiting_confirmation'
   if (seed.priceChanged) {
@@ -509,12 +581,12 @@ export function seededOrder(key: string): OrderRecord {
 }
 
 export function toOrder(record: OrderRecord): Order {
-  return { ...record.order, allowed_transitions: [...orderTransitions[record.order.status]] }
+  return { ...record.order, allowed_transitions: [...transitionsFor(record.order.kind, record.order.status)] }
 }
 
-export function toListItem({ order }: OrderRecord): Schemas['OrderListItem'] {
-  const { id, number, status, payment_status, payment_method, source, contact, total_paise, item_count, created_at, updated_at } = order
-  return { id, number, status, payment_status, payment_method, source, contact, total_paise, item_count, created_at, updated_at }
+export function toListItem({ order }: OrderRecord): OrderListItem {
+  const { id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count, created_at, updated_at } = order
+  return { id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count, created_at, updated_at }
 }
 
 /** Appends a timeline event stamped now. */
@@ -542,6 +614,7 @@ export function addEvent(
 }
 
 export type ListFilters = {
+  kind?: string | null
   status?: string | null
   stage?: string | null
   payment_status?: string | null
@@ -566,6 +639,7 @@ export function filterOrders(workspaceId: string, filters: ListFilters): OrderRe
       if (ws !== workspaceId) return false
       if (statuses ? !statuses.includes(order.status) : order.status === 'draft') return false
       if (stage && !stage.includes(order.status)) return false
+      if (filters.kind && order.kind !== filters.kind) return false
       if (filters.payment_status && order.payment_status !== filters.payment_status) return false
       if (filters.payment_method && order.payment_method !== filters.payment_method) return false
       if (filters.contact && order.contact.id !== filters.contact) return false
@@ -591,7 +665,7 @@ export function orderSummary(workspaceId: string, now = Date.now()): Schemas['Or
   const orders = orderRecords()
     .filter((record) => record.workspaceId === workspaceId)
     .map((record) => record.order)
-  const confirmedOrLater = ['confirmed', 'packed', 'shipped', 'delivered', 'needs_attention']
+  const confirmedOrLater = ['confirmed', 'packed', 'shipped', 'delivered', 'completed', 'needs_attention']
   const todays = orders.filter(
     (order) => confirmedOrLater.includes(order.status) && formatInZone(order.created_at, timeZone, 'yyyy-MM-dd') === today,
   )

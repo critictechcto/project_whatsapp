@@ -43,13 +43,13 @@ describe('store access', () => {
 })
 
 describe('setup checklist', () => {
-  it('lists the six steps with links, the store link and the Meta charges note', async () => {
+  it('lists the seven steps with links, the store link and the Meta charges note', async () => {
     signIn()
     renderDashboard(storePath)
 
     const steps = await screen.findByRole('list', { name: 'Store setup steps' }, lazy)
-    expect(within(steps).getAllByRole('listitem')).toHaveLength(6)
-    expect(screen.getByText('4 of 6 steps done')).toBeInTheDocument()
+    expect(within(steps).getAllByRole('listitem')).toHaveLength(7)
+    expect(screen.getByText('4 of 7 steps done')).toBeInTheDocument()
     expect(within(steps).getByText('+91 98290 11223 is connected.')).toBeInTheDocument()
     expect(within(steps).getByText('1 of 6 order updates have a template.')).toBeInTheDocument()
     expect(within(steps).getByRole('link', { name: 'Choose templates' })).toHaveAttribute('href', `${storePath}/notifications`)

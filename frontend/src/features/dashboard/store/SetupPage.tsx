@@ -18,6 +18,7 @@ const checklistSteps: Record<string, { title: string; to: string; action: string
   products_added: { title: 'Add products', to: 'catalog', action: 'Add products' },
   payments_configured: { title: 'Choose how buyers pay', to: 'store/payments', action: 'Set up payments' },
   order_templates_ready: { title: 'Pick order update templates', to: 'store/notifications', action: 'Choose templates' },
+  booking_templates: { title: 'Pick booking update templates', to: 'store/notifications', action: 'Choose booking templates' },
   alert_number_verified: { title: 'Get new-order alerts on WhatsApp', to: 'store/alerts', action: 'Add alert number' },
   store_enabled: { title: 'Turn on the store', to: 'store/settings', action: 'Open store settings' },
 }

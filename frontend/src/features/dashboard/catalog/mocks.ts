@@ -6,14 +6,15 @@ import { parseRupeesToPaise } from '../../../lib/money'
 import type { AreaMockHandlers } from '../registry/types'
 import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseCsv } from './lib/csv'
 import { IMAGE_TYPES, MAX_IMAGE_BYTES } from './lib/image'
-import { DESCRIPTION_MAX, MAX_QTY_LIMIT, MIN_PRICE_PAISE, NAME_MAX, SKU_RE } from './lib/productForm'
+import { DESCRIPTION_MAX, MAX_DURATION_MINUTES, MAX_QTY_LIMIT, MIN_DURATION_MINUTES, MIN_PRICE_PAISE, NAME_MAX, SKU_RE } from './lib/productForm'
+import type { ProductWriteRequest } from './lib/types'
 import { catalogMock, mockProductImage, type MockCollection, type MockMetaCatalog, type MockProduct } from './mockState'
 
 const COLLECTION_NAME_MAX = 24
 const COLLECTION_DESCRIPTION_MAX = 72
 const SYNC_DELAY_MS = 1500
 
-type ProductBody = Partial<Schemas['ProductWriteRequest']>
+type ProductBody = Partial<ProductWriteRequest>
 type CollectionBody = Partial<Schemas['CollectionWriteRequest']>
 
 const byPosition = <T extends { position: number; name: string }>(items: T[]) =>
@@ -66,6 +67,11 @@ const permissionsMissing = () =>
 /** Marks a changed product for the next sync when a catalog is connected (products need a public image). */
 function queueSync(product: MockProduct) {
   if (!catalogsOf(product.workspace_id).length) return
+  // Services never go to Meta's catalog.
+  if (product.kind === 'service') {
+    product.meta_sync_status = 'not_synced'
+    return
+  }
   product.meta_sync_status = product.image_url ? 'pending' : 'not_synced'
   if (product.image_url && product.meta_review_status !== 'none') product.meta_review_status = 'outdated'
 }
@@ -94,6 +100,18 @@ function validateProduct(workspaceId: string, body: ProductBody, existing?: Mock
   if (body.collection_id && !collectionsOf(workspaceId).some((c) => c.id === body.collection_id)) {
     errors.collection_id = [`Invalid pk "${body.collection_id}" - object does not exist.`]
   }
+  if (body.kind !== undefined && body.kind !== 'product' && body.kind !== 'service') errors.kind = [`"${String(body.kind)}" is not a valid choice.`]
+  const kind = body.kind ?? existing?.kind ?? 'product'
+  const stock = body.stock_qty !== undefined ? body.stock_qty : existing?.stock_qty
+  const duration = body.duration_minutes !== undefined ? body.duration_minutes : existing?.duration_minutes
+  if (kind === 'service') {
+    if (stock != null) errors.stock_qty = ['Services have no stock. Leave it empty.']
+    if (duration == null || !Number.isInteger(duration) || duration < MIN_DURATION_MINUTES || duration > MAX_DURATION_MINUTES) {
+      errors.duration_minutes = [`Ensure this value is between ${MIN_DURATION_MINUTES} and ${MAX_DURATION_MINUTES}.`]
+    }
+  } else if (body.duration_minutes != null) {
+    errors.duration_minutes = ['Only services have a duration.']
+  }
   if (body.stock_qty != null && (!Number.isInteger(body.stock_qty) || body.stock_qty < 0)) errors.stock_qty = ['Ensure this value is greater than or equal to 0.']
   if (body.max_qty_per_order !== undefined && (!Number.isInteger(body.max_qty_per_order) || body.max_qty_per_order < 1 || body.max_qty_per_order > MAX_QTY_LIMIT)) {
     errors.max_qty_per_order = [`Ensure this value is between 1 and ${MAX_QTY_LIMIT}.`]
@@ -109,6 +127,9 @@ function applyProduct(product: MockProduct, body: ProductBody) {
   if (body.collection_id !== undefined) product.collection_id = body.collection_id
   if (body.availability !== undefined) product.availability = body.availability
   if (body.stock_qty !== undefined) product.stock_qty = body.stock_qty
+  if (body.kind !== undefined) product.kind = body.kind
+  if (body.duration_minutes !== undefined) product.duration_minutes = body.duration_minutes
+  if (product.kind === 'product') product.duration_minutes = null
   if (body.max_qty_per_order !== undefined) product.max_qty_per_order = body.max_qty_per_order
   if (body.position !== undefined) product.position = body.position
   if (body.is_active !== undefined) product.is_active = body.is_active
@@ -252,6 +273,8 @@ function newProduct(workspaceId: string, body: ProductBody): MockProduct {
     collection_id: null,
     availability: 'in_stock',
     stock_qty: null,
+    kind: 'product',
+    duration_minutes: null,
     max_qty_per_order: 10,
     position: products.length ? Math.max(...products.map((p) => p.position)) + 1 : 0,
     is_active: true,
@@ -276,13 +299,15 @@ export const handlers: AreaMockHandlers = [
     const active = query.get('is_active')
     const availability = query.get('availability')
     const review = query.get('meta_review_status')
+    const kind = new URL(request.url).searchParams.get('kind') // TODO(api:types): typed query has no kind yet
     const items = productsOf(ctx.workspace.id).filter(
       (p) =>
         (!search || p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search)) &&
         (!collection || (collection === 'none' ? p.collection_id === null : p.collection_id === collection)) &&
         (active === null || String(p.is_active) === active) &&
         (!availability || p.availability === availability) &&
-        (!review || p.meta_review_status === review),
+        (!review || p.meta_review_status === review) &&
+        (!kind || p.kind === kind),
     )
     return response(200).json(paginate(request, byPosition(items).map(toProduct), 25))
   }),

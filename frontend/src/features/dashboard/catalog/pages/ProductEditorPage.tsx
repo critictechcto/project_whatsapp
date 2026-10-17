@@ -23,7 +23,8 @@ import {
 } from '../../../../components/app'
 import { parseRupeesToPaise } from '../../../../lib/money'
 import { useWorkspace } from '../../../../lib/workspace'
-import { catalogKeys, uploadProductImage, useCollections, useMetaCatalogs, useProduct } from '../api'
+import { SegmentedControl } from '../../settings/ui/SegmentedControl'
+import { catalogKeys, createProduct, fetchProduct, updateProduct, uploadProductImage, useCollections, useMetaCatalogs, useProduct } from '../api'
 import { ImageField } from '../components/ImageField'
 import { ReviewBadge } from '../components/ReviewBadge'
 import { CharCount, ConfirmDialog, FormError, Note } from '../components/shared'
@@ -88,7 +89,12 @@ function ProductEditor({ product }: { product: Product | undefined }) {
     reset,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<ProductFormValues>({ resolver: zodResolver(productSchema(mode)), defaultValues: productDefaults(product) })
-  const [name, price, salePrice, description, trackStock] = useWatch({ control, name: ['name', 'price', 'salePrice', 'description', 'trackStock'] })
+  const [name, price, salePrice, description, trackStock, kind, duration] = useWatch({
+    control,
+    name: ['name', 'price', 'salePrice', 'description', 'trackStock', 'kind', 'duration'],
+  })
+  const service = kind === 'service'
+  const noun = service ? 'Service' : 'Product'
 
   // Photo: uploaded right away when editing; kept until the product exists when creating.
   const [pending, setPending] = useState<{ file: File; url: string | null } | null>(null)
@@ -142,7 +148,7 @@ function ProductEditor({ product }: { product: Product | undefined }) {
     try {
       // The schema answers 204; refetch the product rather than relying on a body.
       await unwrap(api.DELETE('/api/v1/catalog/products/{id}/image/', { params: { path: { id: product.id } } }))
-      storeProduct(await unwrap(api.GET('/api/v1/catalog/products/{id}/', { params: { path: { id: product.id } } })))
+      storeProduct(await fetchProduct(product.id))
       toast({ title: 'Photo removed', tone: 'success' })
     } catch (error) {
       setImageError(uploadError(error))
@@ -155,22 +161,22 @@ function ProductEditor({ product }: { product: Product | undefined }) {
     const body = toProductBody(values, mode)
     try {
       if (product) {
-        const saved = await unwrap(api.PATCH('/api/v1/catalog/products/{id}/', { params: { path: { id: product.id } }, body }))
+        const saved = await updateProduct(product.id, body)
         storeProduct(saved)
         reset(productDefaults(saved))
-        toast({ title: 'Product saved', tone: 'success' })
+        toast({ title: `${noun} saved`, tone: 'success' })
         return
       }
-      let saved = await unwrap(api.POST('/api/v1/catalog/products/', { body }))
+      let saved = await createProduct(body)
       if (pending) {
         try {
           saved = await uploadProductImage(saved.id, pending.file)
         } catch (error) {
-          toast({ title: "Product added, but the photo didn't upload", description: uploadError(error), tone: 'error' })
+          toast({ title: `${noun} added, but the photo didn't upload`, description: uploadError(error), tone: 'error' })
         }
       }
       storeProduct(saved)
-      toast({ title: 'Product added', tone: 'success' })
+      toast({ title: `${noun} added`, tone: 'success' })
       navigate(`${base}/products/${saved.id}`, { replace: true })
     } catch (error) {
       applyApiErrorToForm(error, setError, { fieldMap: productFieldMap, fields: productFormFields })
@@ -203,6 +209,8 @@ function ProductEditor({ product }: { product: Product | undefined }) {
     salePricePaise: salePrice ? parseRupeesToPaise(salePrice) : null,
     description,
     imageUrl,
+    kind,
+    durationMinutes: /^\d+$/.test(duration) ? Number(duration) : null,
   })
 
   return (
@@ -235,6 +243,31 @@ function ProductEditor({ product }: { product: Product | undefined }) {
               <h2 id="product-details" className="font-display text-base font-semibold text-ink">
                 Details
               </h2>
+              <div className="flex flex-col gap-1.5">
+                <Controller
+                  control={control}
+                  name="kind"
+                  render={({ field }) => (
+                    <SegmentedControl
+                      label="Type"
+                      className="w-fit"
+                      options={[
+                        { value: 'product', label: 'Product' },
+                        { value: 'service', label: 'Service' },
+                      ]}
+                      value={field.value}
+                      onValueChange={(value) => {
+                        if (canManage) field.onChange(value)
+                      }}
+                    />
+                  )}
+                />
+                <p className="text-[12.5px] text-muted">
+                  {service
+                    ? 'Buyers book a service for a day and time and you confirm it. Services have no stock and stay out of the Meta catalog.'
+                    : 'Buyers add products to a cart and you deliver them.'}
+                </p>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Name" required error={errors.name?.message}>
                   <Input placeholder="Kaju katli 500 g" {...register('name')} />
@@ -266,7 +299,7 @@ function ProductEditor({ product }: { product: Product | undefined }) {
 
             <section aria-labelledby="product-pricing" className="flex flex-col gap-4 rounded-xl border border-line bg-card p-5">
               <h2 id="product-pricing" className="font-display text-base font-semibold text-ink">
-                Price and stock
+                {service ? 'Price and length' : 'Price and stock'}
               </h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Price (₹)" required error={errors.price?.message} hint="Including GST.">
@@ -281,12 +314,21 @@ function ProductEditor({ product }: { product: Product | undefined }) {
                 <Field label="Max quantity per order" error={errors.maxQty?.message} hint="1 to 99.">
                   <Input inputMode="numeric" {...register('maxQty')} />
                 </Field>
+                {service && (
+                  <Field label="Duration (minutes)" required error={errors.duration?.message} hint="5 to 600. Shown on the card.">
+                    <Input inputMode="numeric" placeholder="60" {...register('duration')} />
+                  </Field>
+                )}
               </div>
-              <Checkbox label="Track stock" description="Buyers see the product as out of stock when the count reaches 0." {...register('trackStock')} />
-              {trackStock && (
-                <Field label="Stock quantity" required error={errors.stockQty?.message} className="sm:max-w-[calc(50%-0.5rem)]">
-                  <Input inputMode="numeric" {...register('stockQty')} />
-                </Field>
+              {!service && (
+                <>
+                  <Checkbox label="Track stock" description="Buyers see the product as out of stock when the count reaches 0." {...register('trackStock')} />
+                  {trackStock && (
+                    <Field label="Stock quantity" required error={errors.stockQty?.message} className="sm:max-w-[calc(50%-0.5rem)]">
+                      <Input inputMode="numeric" {...register('stockQty')} />
+                    </Field>
+                  )}
+                </>
               )}
             </section>
 
@@ -334,11 +376,11 @@ function ProductEditor({ product }: { product: Product | undefined }) {
 
         <aside aria-label="WhatsApp preview" className="flex flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
           <div className="flex flex-col gap-2">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">Product card in WhatsApp</h2>
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">{noun} card in WhatsApp</h2>
             <InteractiveMessagePreview message={preview} time="10:42" />
             {!imageUrl && <p className="text-[12.5px] text-muted">Add a photo to show it at the top of the card.</p>}
           </div>
-          {product && catalogConnected && <MetaStatusCard product={product} />}
+          {product && catalogConnected && product.kind !== 'service' && <MetaStatusCard product={product} />}
         </aside>
       </div>
 

@@ -6,7 +6,8 @@ import { formatDateTime } from '../../../../lib/datetime'
 import { formatPaise } from '../../../../lib/money'
 import { useWorkspace } from '../../../../lib/workspace'
 import type { Order } from '../api'
-import { displayUrl, formatPhone, itemsLabel } from '../format'
+import { isBooking } from '../bookingTypes'
+import { displayUrl, formatDay, formatPhone, formatWindow, itemsLabel } from '../format'
 import { isCheckoutStatus, paymentMethodLabels } from '../labels'
 import { PaymentBadge, PaymentLinkBadge } from './OrderBadges'
 import { DetailList, SectionCard } from './SectionCard'
@@ -14,10 +15,12 @@ import { DetailList, SectionCard } from './SectionCard'
 const externalLinkClass = 'inline-flex items-center gap-1 break-all text-accent-2 underline-offset-4 hover:underline'
 
 export function ItemsCard({ order }: { order: Order }) {
-  const totals: { label: string; value: string }[] = [
-    { label: 'Subtotal', value: formatPaise(order.subtotal_paise) },
-    { label: 'Shipping', value: order.shipping_paise ? formatPaise(order.shipping_paise) : 'Free' },
-  ]
+  const booking = isBooking(order)
+  const totals: { label: string; value: string }[] = [{ label: 'Subtotal', value: formatPaise(order.subtotal_paise) }]
+  if (order.discount_paise > 0) {
+    totals.push({ label: order.offer_code ? `Offer ${order.offer_code}` : 'Offer', value: `−${formatPaise(order.discount_paise)}` })
+  }
+  if (!booking) totals.push({ label: 'Shipping', value: order.shipping_paise ? formatPaise(order.shipping_paise) : 'Free' })
   if (order.cod_fee_paise || order.payment_method === 'cod') totals.push({ label: 'COD fee', value: formatPaise(order.cod_fee_paise) })
 
   return (
@@ -109,7 +112,7 @@ export function PaymentCard({ order }: { order: Order }) {
   const link = order.payment_link
   const items: { label: string; value: ReactNode }[] = [
     { label: 'Method', value: order.payment_method ? paymentMethodLabels[order.payment_method] : 'Not chosen yet' },
-    { label: 'Payment', value: <PaymentBadge status={order.payment_status} /> },
+    { label: 'Payment', value: <PaymentBadge status={order.payment_status} method={order.payment_method} /> },
   ]
   if (link) {
     items.push(
@@ -137,8 +140,33 @@ export function PaymentCard({ order }: { order: Order }) {
       <p className="mt-3 border-t border-line-2 pt-3 text-[13px] text-muted">
         {order.payment_method === 'cod'
           ? `Collect ${formatPaise(order.total_paise)} in cash when the parcel is delivered.`
-          : "Online payments go straight to your own payment gateway account (Razorpay or Cashfree). Refunds are made there."}
+          : order.payment_method === 'pay_at_shop'
+            ? `The buyer pays ${formatPaise(order.total_paise)} at the shop after the service. Mark it paid here once they do.`
+            : "Online payments go straight to your own payment gateway account (Razorpay or Cashfree). Refunds are made there."}
       </p>
+    </SectionCard>
+  )
+}
+
+/** For bookings, in place of the address and tracking cards: what the buyer asked for and the agreed time. */
+export function BookingCard({ order }: { order: Order }) {
+  const { timeZone } = useWorkspace()
+  const items: { label: string; value: ReactNode }[] = [
+    { label: 'Requested day', value: order.requested_date ? formatDay(order.requested_date) : 'Not chosen yet' },
+    { label: 'Requested time', value: order.requested_window ? formatWindow(order.requested_window) : 'Not chosen yet' },
+    { label: 'Appointment', value: order.appointment_at ? formatDateTime(order.appointment_at, timeZone) : 'Not confirmed yet' },
+    { label: 'Payment', value: order.payment_method === 'pay_at_shop' ? 'Pay at the shop' : order.payment_method ? 'Online' : 'Not chosen yet' },
+  ]
+  if (order.reminder_sent_at) items.push({ label: 'Reminder sent', value: formatDateTime(order.reminder_sent_at, timeZone) })
+
+  return (
+    <SectionCard title="Booking">
+      <DetailList items={items} />
+      {order.status === 'requested' && (
+        <p className="mt-3 border-t border-line-2 pt-3 text-[13px] text-muted">
+          Confirm a time to accept the booking. The buyer gets a WhatsApp message with it, and a reminder before the appointment.
+        </p>
+      )}
     </SectionCard>
   )
 }

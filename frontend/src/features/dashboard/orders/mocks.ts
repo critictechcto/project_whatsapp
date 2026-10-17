@@ -1,9 +1,13 @@
+import { HttpResponse } from 'msw'
 import type { Schemas } from '../../../api/types'
+import { formatInZone } from '../../../lib/datetime'
+import { db } from '../../../mocks/db'
 import { mockRealtime } from '../../../mocks/realtime'
 import { ids } from '../../../mocks/seed'
-import { authorize, errorResponse, http, mockDelay, notFound, paginate, validationError, type MockErrorResponse } from '../../../mocks/utils'
+import { apiUrl, authorize, errorResponse, http, mockDelay, notFound, paginate, validationError, type MockErrorResponse } from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
-import { orderStatusInfo, orderTransitions } from './labels'
+import type { ConfirmBookingBody, OrderStatus, TransitionBody } from './bookingTypes'
+import { orderStatusInfo, transitionsFor } from './labels'
 import {
   addEvent,
   createMockOrder,
@@ -15,22 +19,27 @@ import {
   type OrderRecord,
 } from './mockState'
 
-type OrderStatus = Schemas['OrderStatusEnum']
+const transitionTargets: readonly string[] = ['confirmed', 'packed', 'shipped', 'delivered', 'completed', 'no_show']
 
-const transitionTargets: readonly string[] = ['confirmed', 'packed', 'shipped', 'delivered']
+// TODO(api:types): the generated Order enums don't have the booking statuses yet; drop these casts after regeneration.
+function orderBody(record: OrderRecord): Schemas['Order'] {
+  return toOrder(record) as unknown as Schemas['Order']
+}
 
 function emitUpdated(record: OrderRecord) {
   const { id, status, payment_status } = record.order
-  mockRealtime.emit('order.updated', { order_id: id, status, payment_status }, record.workspaceId)
+  // TODO(api:types): realtime payload status enum lacks the booking statuses.
+  mockRealtime.emit('order.updated', { order_id: id, status: status as Schemas['OrderStatusEnum'], payment_status }, record.workspaceId)
 }
 
-function invalidTransition(record: OrderRecord, to: OrderStatus, message?: string): MockErrorResponse {
-  const from = record.order.status
+function invalidTransition(record: OrderRecord, to: OrderStatus, message?: string, code = 'invalid_order_transition'): MockErrorResponse {
+  const { kind, status: from } = record.order
+  const noun = kind === 'booking' ? 'booking' : 'order'
   return errorResponse(
     409,
-    'invalid_order_transition',
-    message ?? `A ${orderStatusInfo[from].label.toLowerCase()} order can't be moved to ${orderStatusInfo[to].label.toLowerCase()}.`,
-    { from_status: from, to_status: to, allowed: [...orderTransitions[from]] },
+    code,
+    message ?? `A ${orderStatusInfo[from].label.toLowerCase()} ${noun} can't be moved to ${orderStatusInfo[to].label.toLowerCase()}.`,
+    { from_status: from, to_status: to, allowed: [...transitionsFor(kind, from)] },
   )
 }
 
@@ -61,6 +70,7 @@ export const handlers: AreaMockHandlers = [
     const ctx = authorize(request)
     if (ctx instanceof Response) return response.untyped(ctx)
     const items = filterOrders(ctx.workspace.id, {
+      kind: new URL(request.url).searchParams.get('kind'), // TODO(api:types): typed query has no kind yet
       status: query.get('status'),
       stage: query.get('stage'),
       payment_status: query.get('payment_status'),
@@ -69,7 +79,7 @@ export const handlers: AreaMockHandlers = [
       search: query.get('search'),
       created_after: query.get('created_after'),
       created_before: query.get('created_before'),
-    }).map(toListItem)
+    }).map(toListItem) as unknown as Schemas['OrderListItem'][] // TODO(api:types): booking statuses and kind
     return response(200).json(paginate(request, items))
   }),
 
@@ -81,7 +91,7 @@ export const handlers: AreaMockHandlers = [
 
   http.get('/api/v1/orders/{id}/', ({ request, params, response }) => {
     const loaded = load(request, params.id, 'viewer')
-    return 'error' in loaded ? response.untyped(loaded.error) : response(200).json(toOrder(loaded.record))
+    return 'error' in loaded ? response.untyped(loaded.error) : response(200).json(orderBody(loaded.record))
   }),
 
   http.patch('/api/v1/orders/{id}/', async ({ request, params, response }) => {
@@ -93,14 +103,14 @@ export const handlers: AreaMockHandlers = [
     if (notes.length > 2000) return response.untyped(validationError({ notes: ['Ensure this field has no more than 2000 characters.'] }))
     loaded.record.order.notes = notes
     addEvent(loaded.record, 'note', 'dashboard', { detail: 'Updated the seller notes.', userId: loaded.userId })
-    return response(200).json(toOrder(loaded.record))
+    return response(200).json(orderBody(loaded.record))
   }),
 
   http.get('/api/v1/orders/{id}/events/', ({ request, params, response }) => {
     const loaded = load(request, params.id, 'viewer')
     if ('error' in loaded) return response.untyped(loaded.error)
     const events = [...loaded.record.events].sort((a, b) => a.created_at.localeCompare(b.created_at))
-    return response(200).json(paginate(request, events))
+    return response(200).json(paginate(request, events as unknown as Schemas['OrderEvent'][])) // TODO(api:types): new event types
   }),
 
   http.post('/api/v1/orders/{id}/transition/', async ({ request, params, response }) => {
@@ -109,13 +119,16 @@ export const handlers: AreaMockHandlers = [
     if ('error' in loaded) return response.untyped(loaded.error)
     const { record, userId } = loaded
     const order = record.order
-    const body = (await request.json()) as Partial<Schemas['OrderTransitionRequest']>
+    const body = (await request.json()) as Partial<TransitionBody>
     const to = body.to_status as OrderStatus | undefined
 
     if (!to || !transitionTargets.includes(to)) {
       return response.untyped(validationError({ to_status: [`"${String(to)}" is not a valid choice.`] }))
     }
-    if (!orderTransitions[order.status].includes(to)) return response.untyped(invalidTransition(record, to))
+    if (!transitionsFor(order.kind, order.status).includes(to)) return response.untyped(invalidTransition(record, to))
+    if (order.kind === 'booking' && to === 'confirmed') {
+      return response.untyped(invalidTransition(record, to, 'Confirm a booking with a time (confirm-booking).'))
+    }
 
     if (to === 'shipped') {
       const errors: Record<string, string[]> = {}
@@ -141,9 +154,9 @@ export const handlers: AreaMockHandlers = [
     }
     order.status = to
     addEvent(record, 'status_changed', 'dashboard', { from, to, detail, userId })
-    notifyEvent(record, body.notify_buyer, `Told the buyer the order is ${orderStatusInfo[to].label.toLowerCase()}.`)
+    notifyEvent(record, body.notify_buyer, `Told the buyer the ${order.kind === 'booking' ? 'booking' : 'order'} is ${orderStatusInfo[to].label.toLowerCase()}.`)
     emitUpdated(record)
-    return response(200).json(toOrder(record))
+    return response(200).json(orderBody(record))
   }),
 
   http.post('/api/v1/orders/{id}/cancel/', async ({ request, params, response }) => {
@@ -156,7 +169,7 @@ export const handlers: AreaMockHandlers = [
     const reason = body.reason ?? ''
 
     if (reason.length > 200) return response.untyped(validationError({ reason: ['Ensure this field has no more than 200 characters.'] }))
-    if (!orderTransitions[order.status].includes('cancelled')) return response.untyped(invalidTransition(record, 'cancelled'))
+    if (!transitionsFor(order.kind, order.status).includes('cancelled')) return response.untyped(invalidTransition(record, 'cancelled'))
 
     const from = order.status
     order.status = 'cancelled'
@@ -167,10 +180,10 @@ export const handlers: AreaMockHandlers = [
       order.payment_link = { ...order.payment_link, status: 'cancelled' }
     }
     addEvent(record, 'status_changed', 'dashboard', { from, to: 'cancelled', detail: reason, userId })
-    if (body.restock !== false) addEvent(record, 'stock_released', 'system', { detail: 'Items went back to stock.' })
-    notifyEvent(record, body.notify_buyer, 'Told the buyer the order was cancelled.')
+    if (body.restock !== false && order.kind !== 'booking') addEvent(record, 'stock_released', 'system', { detail: 'Items went back to stock.' })
+    notifyEvent(record, body.notify_buyer, `Told the buyer the ${order.kind === 'booking' ? 'booking' : 'order'} was cancelled.`)
     emitUpdated(record)
-    return response(200).json(toOrder(record))
+    return response(200).json(orderBody(record))
   }),
 
   http.post('/api/v1/orders/{id}/mark-cod-collected/', async ({ request, params, response }) => {
@@ -179,14 +192,58 @@ export const handlers: AreaMockHandlers = [
     if ('error' in loaded) return response.untyped(loaded.error)
     const { record, userId } = loaded
     const order = record.order
-    const eligible = order.payment_method === 'cod' && order.payment_status === 'cod_pending' && ['shipped', 'delivered'].includes(order.status)
+    const atShop = order.payment_method === 'pay_at_shop'
+    const eligible =
+      order.payment_status === 'cod_pending' &&
+      ((order.payment_method === 'cod' && ['shipped', 'delivered'].includes(order.status)) ||
+        (atShop && ['confirmed', 'completed'].includes(order.status)))
     if (!eligible) {
-      return response.untyped(invalidTransition(record, order.status, 'Only cash on delivery orders that are shipped or delivered and not yet collected can be marked collected.'))
+      return response.untyped(
+        invalidTransition(
+          record,
+          order.status,
+          atShop
+            ? 'Only confirmed or completed bookings that are not paid yet can be marked paid at the shop.'
+            : 'Only cash on delivery orders that are shipped or delivered and not yet collected can be marked collected.',
+        ),
+      )
     }
     order.payment_status = 'cod_collected'
-    addEvent(record, 'cod_collected', 'dashboard', { userId })
+    addEvent(record, 'cod_collected', 'dashboard', { userId, detail: atShop ? 'Paid at the shop.' : '' })
     emitUpdated(record)
-    return response(200).json(toOrder(record))
+    return response(200).json(orderBody(record))
+  }),
+
+  // TODO(api:types): not in the generated schema yet, hence the untyped handler.
+  http.untyped.post(apiUrl('/api/v1/orders/:id/confirm-booking/'), async ({ request, params }) => {
+    await mockDelay()
+    const loaded = load(request, String(params.id), 'agent')
+    if ('error' in loaded) return loaded.error
+    const { record, userId } = loaded
+    const order = record.order
+    const body = (await request.json()) as Partial<ConfirmBookingBody>
+    const at = body.appointment_at ? Date.parse(body.appointment_at) : Number.NaN
+    if (Number.isNaN(at)) return validationError({ appointment_at: ['Enter a valid date and time.'] })
+    if (order.kind !== 'booking' || (order.status !== 'requested' && order.status !== 'confirmed')) {
+      return invalidTransition(record, 'confirmed', 'Only requested or confirmed bookings can be given a time.', 'invalid_transition')
+    }
+
+    const timeZone = db.workspaces.find((workspace) => workspace.id === record.workspaceId)?.time_zone || 'Asia/Kolkata'
+    const when = formatInZone(new Date(at).toISOString(), timeZone)
+    const from = order.status
+    order.appointment_at = new Date(at).toISOString()
+    order.reminder_sent_at = null
+    addEvent(record, 'appointment_set', 'dashboard', { detail: when, userId })
+    if (from === 'requested') {
+      order.status = 'confirmed'
+      order.confirmed_at = new Date().toISOString()
+      addEvent(record, 'status_changed', 'dashboard', { from, to: 'confirmed', userId })
+      addEvent(record, 'notification_sent', 'system', { detail: `Sent the booking confirmation for ${when}.` })
+    } else {
+      addEvent(record, 'notification_sent', 'system', { detail: `Told the buyer the new time, ${when}.` })
+    }
+    emitUpdated(record)
+    return HttpResponse.json(toOrder(record))
   }),
 
   http.post('/api/v1/orders/{id}/mark-refunded/', async ({ request, params, response }) => {
@@ -201,7 +258,7 @@ export const handlers: AreaMockHandlers = [
     order.payment_status = 'refunded_manual'
     addEvent(record, 'refunded_manual', 'dashboard', { detail: 'Refunded in the payment gateway.', userId })
     emitUpdated(record)
-    return response(200).json(toOrder(record))
+    return response(200).json(orderBody(record))
   }),
 ]
 
@@ -215,6 +272,6 @@ if (import.meta.env.MODE !== 'test' && typeof window !== 'undefined') {
     if (!mockRealtime.isConnected(ids.sharmaSweets)) return
     const record = createMockOrder(ids.sharmaSweets)
     const { id, number, status } = record.order
-    mockRealtime.emit('order.created', { order_id: id, number, status }, ids.sharmaSweets)
+    mockRealtime.emit('order.created', { order_id: id, number, status: status as Schemas['OrderStatusEnum'] }, ids.sharmaSweets) // TODO(api:types)
   }, 45_000)
 }

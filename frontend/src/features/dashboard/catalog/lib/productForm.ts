@@ -8,6 +8,8 @@ export const NAME_MAX = 200
 export const DESCRIPTION_MAX = 1000
 export const MIN_PRICE_PAISE = 100
 export const MAX_QTY_LIMIT = 99
+export const MIN_DURATION_MINUTES = 5
+export const MAX_DURATION_MINUTES = 600
 
 const INTEGER_RE = /^\d+$/
 
@@ -16,6 +18,7 @@ export type ProductFormMode = 'create' | 'edit'
 export function productSchema(mode: ProductFormMode) {
   return z
     .object({
+      kind: z.enum(['product', 'service']),
       sku: z.string().trim(),
       name: z.string().trim().min(1, 'Enter a product name.').max(NAME_MAX, `Use at most ${NAME_MAX} characters.`),
       description: z.string().max(DESCRIPTION_MAX, `Use at most ${DESCRIPTION_MAX} characters.`),
@@ -25,6 +28,7 @@ export function productSchema(mode: ProductFormMode) {
       availability: z.enum(['in_stock', 'out_of_stock']),
       trackStock: z.boolean(),
       stockQty: z.string().trim(),
+      duration: z.string().trim(),
       maxQty: z.string().trim(),
       isActive: z.boolean(),
     })
@@ -52,7 +56,15 @@ export function productSchema(mode: ProductFormMode) {
         }
       }
 
-      if (values.trackStock && !INTEGER_RE.test(values.stockQty)) {
+      const service = values.kind === 'service'
+      if (service) {
+        const duration = Number(values.duration)
+        if (!INTEGER_RE.test(values.duration) || duration < MIN_DURATION_MINUTES || duration > MAX_DURATION_MINUTES) {
+          ctx.addIssue({ code: 'custom', path: ['duration'], message: `Enter the length in minutes, from ${MIN_DURATION_MINUTES} to ${MAX_DURATION_MINUTES}.` })
+        }
+      }
+
+      if (!service && values.trackStock && !INTEGER_RE.test(values.stockQty)) {
         ctx.addIssue({ code: 'custom', path: ['stockQty'], message: 'Enter a whole number of 0 or more.' })
       }
 
@@ -67,6 +79,7 @@ export type ProductFormValues = z.infer<ReturnType<typeof productSchema>>
 
 export function productDefaults(product?: Product): ProductFormValues {
   return {
+    kind: product?.kind ?? 'product',
     sku: product?.sku ?? '',
     name: product?.name ?? '',
     description: product?.description ?? '',
@@ -76,6 +89,7 @@ export function productDefaults(product?: Product): ProductFormValues {
     availability: product?.availability ?? 'in_stock',
     trackStock: product ? product.stock_qty !== null : false,
     stockQty: product?.stock_qty != null ? String(product.stock_qty) : '',
+    duration: String(product?.duration_minutes ?? 60),
     maxQty: String(product?.max_qty_per_order ?? 10),
     isActive: product?.is_active ?? true,
   }
@@ -91,7 +105,10 @@ export function toProductBody(values: ProductFormValues, mode: ProductFormMode):
     sale_price_paise: values.salePrice ? parseRupeesToPaise(values.salePrice) : null,
     collection_id: values.collectionId || null,
     availability: values.availability,
-    stock_qty: values.trackStock ? Number(values.stockQty) : null,
+    kind: values.kind,
+    // Services are booked, not stocked: no stock count, and a length instead.
+    stock_qty: values.kind === 'product' && values.trackStock ? Number(values.stockQty) : null,
+    duration_minutes: values.kind === 'service' ? Number(values.duration) : null,
     max_qty_per_order: Number(values.maxQty),
     is_active: values.isActive,
   }
@@ -109,6 +126,7 @@ export const productFieldMap: Record<string, string> = {
   sale_price_paise: 'salePrice',
   collection_id: 'collectionId',
   stock_qty: 'stockQty',
+  duration_minutes: 'duration',
   max_qty_per_order: 'maxQty',
   is_active: 'isActive',
 }
@@ -122,6 +140,8 @@ export const productFormFields = [
   'collectionId',
   'availability',
   'stockQty',
+  'duration',
+  'kind',
   'maxQty',
   'isActive',
 ] as const

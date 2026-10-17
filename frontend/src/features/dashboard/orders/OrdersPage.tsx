@@ -8,7 +8,7 @@ import { formatPaise } from '../../../lib/money'
 import { useWorkspace } from '../../../lib/workspace'
 import { useNewOrderAlerts, useOrders, useOrderSummary, useOrderUpdates, type OrderListItem } from './api'
 import { OrderFiltersBar } from './components/OrderFiltersBar'
-import { OrderStatusBadge, PaymentBadge } from './components/OrderBadges'
+import { KindBadge, OrderStatusBadge, PaymentBadge } from './components/OrderBadges'
 import { Notice } from './components/Notice'
 import { SummaryStrip } from './components/SummaryStrip'
 import { hasActiveFilters, orderListQuery, orderTabs, useOrderFilters, type OrderTab } from './filters'
@@ -45,6 +45,7 @@ export function OrdersPage() {
             {order.number}
           </Link>
           <span className="block whitespace-nowrap text-[12px] text-muted">{formatDateTime(order.created_at, timeZone)}</span>
+          {order.kind === 'booking' && <KindBadge kind="booking" />}
         </div>
       ),
     },
@@ -76,7 +77,7 @@ export function OrdersPage() {
       cell: (order) => (
         <div className="flex flex-col items-start gap-1">
           <OrderStatusBadge status={order.status} />
-          <PaymentBadge status={order.payment_status} />
+          <PaymentBadge status={order.payment_status} method={order.payment_method} />
         </div>
       ),
     },
@@ -103,7 +104,7 @@ export function OrdersPage() {
         title="No orders match these filters"
         description="Try a different search, payment filter or date range."
         action={
-          <Button variant="secondary" onClick={() => setFilters({ payment: '', method: '', from: '', to: '', q: '' })}>
+          <Button variant="secondary" onClick={() => setFilters({ kind: '', payment: '', method: '', from: '', to: '', q: '' })}>
             Clear filters
           </Button>
         }
@@ -116,7 +117,7 @@ export function OrdersPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Orders"
-        description="Orders your buyers place on WhatsApp. Mark them packed, shipped and delivered here; each change notifies the buyer."
+        description="Orders and bookings your buyers place on WhatsApp. Mark orders packed, shipped and delivered, and confirm booking times here; each change notifies the buyer."
       />
 
       <SummaryStrip workspaceId={workspaceId} onShowAttention={() => setFilters({ tab: 'attention' })} />

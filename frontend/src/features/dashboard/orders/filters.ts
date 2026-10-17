@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { fromZonedParts } from '../../../lib/datetime'
-import type { OrderListQuery, PaymentMethod, PaymentStatus } from './api'
+import type { OrderKind, OrderListQuery, PaymentMethod, PaymentStatus } from './api'
 import { stageStatuses } from './labels'
 
 export type OrderTab = 'all' | 'checkout' | 'open' | 'closed' | 'attention'
@@ -25,9 +25,17 @@ export const paymentStatusOptions: { value: PaymentStatus; label: string }[] = [
 export const paymentMethodOptions: { value: PaymentMethod; label: string }[] = [
   { value: 'online', label: 'Online' },
   { value: 'cod', label: 'Cash on delivery' },
+  { value: 'pay_at_shop', label: 'Pay at the shop' },
+]
+
+export const kindOptions: { value: OrderKind; label: string }[] = [
+  { value: 'delivery', label: 'Deliveries' },
+  { value: 'booking', label: 'Bookings' },
 ]
 
 export type OrderFilters = {
+  /** Empty for deliveries and bookings. */
+  kind: OrderKind | ''
   tab: OrderTab
   payment: PaymentStatus | ''
   method: PaymentMethod | ''
@@ -57,6 +65,7 @@ export function orderListQuery(filters: OrderFilters, timeZone: string): Omit<Or
     attention: { status: 'needs_attention' },
   }
   const query: Omit<OrderListQuery, 'cursor'> = { ...byTab[filters.tab] }
+  if (filters.kind) query.kind = filters.kind
   if (filters.payment) query.payment_status = filters.payment
   if (filters.method) query.payment_method = filters.method
   if (DATE.test(filters.from)) query.created_after = fromZonedParts(filters.from, '00:00', timeZone) ?? undefined
@@ -66,7 +75,7 @@ export function orderListQuery(filters: OrderFilters, timeZone: string): Omit<Or
 }
 
 export function hasActiveFilters(filters: OrderFilters): boolean {
-  return Boolean(filters.payment || filters.method || filters.from || filters.to || filters.q.trim())
+  return Boolean(filters.kind || filters.payment || filters.method || filters.from || filters.to || filters.q.trim())
 }
 
 function pick<T extends string>(value: string | null, options: readonly { value: T }[]): T | '' {
@@ -74,7 +83,7 @@ function pick<T extends string>(value: string | null, options: readonly { value:
 }
 
 /**
- * Order filters in the URL: `?tab=open&payment=cod_pending&method=cod&from=2026-09-01&to=2026-09-14&q=ananya`.
+ * Order filters in the URL: `?tab=open&kind=booking&payment=cod_pending&method=cod&from=2026-09-01&to=2026-09-14&q=ananya`.
  * Defaults are omitted, and updates replace the history entry.
  */
 export function useOrderFilters() {
@@ -83,6 +92,7 @@ export function useOrderFilters() {
   const filters = useMemo<OrderFilters>(
     () => ({
       tab: pick(params.get('tab'), orderTabs) || 'all',
+      kind: pick(params.get('kind'), kindOptions),
       payment: pick(params.get('payment'), paymentStatusOptions),
       method: pick(params.get('method'), paymentMethodOptions),
       from: DATE.test(params.get('from') ?? '') ? params.get('from')! : '',
@@ -103,6 +113,7 @@ export function useOrderFilters() {
             else next.delete(key)
           }
           apply('tab', patch.tab === 'all' ? '' : patch.tab)
+          apply('kind', patch.kind)
           apply('payment', patch.payment)
           apply('method', patch.method)
           apply('from', patch.from)

@@ -3,7 +3,9 @@ import { ids, seedPhoneNumber } from '../../../mocks/seed'
 import { mockRealtime } from '../../../mocks/realtime'
 import { authorize, errorResponse, http, mockDelay, notFound, nowIso, paginate, uuid, validationError } from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
+import type { StoreSettings, StoreSettingsPatch } from './bookingTypes'
 import {
+  BOOKING_TEMPLATE_FIELDS,
   emptyAccount,
   platformState,
   STARTER_TEMPLATE_NAMES,
@@ -39,14 +41,65 @@ function isMoney(value: unknown) {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0
 }
 
+// TODO(api:types): the booking fields aren't in the generated StoreSettings yet, hence the cast.
 function settingsResponse(store: WorkspaceStore): Schemas['StoreSettings'] {
   const { settings } = store
-  return { ...settings, menu_keywords: [...(settings.menu_keywords ?? [])], serviceable_pincodes: [...(settings.serviceable_pincodes ?? [])], notification_templates: { ...settings.notification_templates } }
+  const body: StoreSettings = {
+    ...settings,
+    menu_keywords: [...(settings.menu_keywords ?? [])],
+    serviceable_pincodes: [...(settings.serviceable_pincodes ?? [])],
+    notification_templates: { ...settings.notification_templates },
+    booking_days: [...settings.booking_days],
+    booking_windows: settings.booking_windows.map((window) => ({ ...window })),
+  }
+  return body as Schemas['StoreSettings']
+}
+
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
+
+function isWholeNumber(value: unknown, min: number, max: number) {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max
+}
+
+function bookingErrors(body: StoreSettingsPatch): Record<string, string[]> {
+  const errors: Record<string, string[]> = {}
+  if (body.booking_days !== undefined) {
+    if (!body.booking_days.length) errors.booking_days = ['Choose at least one day.']
+    else if (body.booking_days.some((day) => !isWholeNumber(day, 0, 6))) errors.booking_days = ['Days are numbers from 0 (Monday) to 6 (Sunday).']
+  }
+  if (body.booking_windows !== undefined) {
+    const windows = body.booking_windows
+    if (windows.length < 1 || windows.length > 10) errors.booking_windows = ['Use 1 to 10 time windows.']
+    else {
+      const bad = windows.find(
+        (window) => !window.label.trim() || window.label.length > 24 || !TIME.test(window.start) || !TIME.test(window.end) || window.start >= window.end,
+      )
+      if (bad) errors.booking_windows = [`“${bad.label}” needs a name of up to 24 characters and an end after its start.`]
+    }
+  }
+  if (body.booking_days_ahead !== undefined && !isWholeNumber(body.booking_days_ahead, 1, 30)) {
+    errors.booking_days_ahead = ['Ensure this value is between 1 and 30.']
+  }
+  if (body.booking_reminder_hours !== undefined && !isWholeNumber(body.booking_reminder_hours, 0, 48)) {
+    errors.booking_reminder_hours = ['Ensure this value is between 0 and 48.']
+  }
+  return errors
 }
 
 function checklist(workspaceId: string, store: WorkspaceStore): Schemas['StoreChecklist'] {
-  const { settings, account, recipients, activeProducts } = store
+  const { settings, account, recipients, activeProducts, activeServices } = store
   const mapped = Object.values(settings.notification_templates).filter(Boolean).length
+  const bookingMapped = BOOKING_TEMPLATE_FIELDS.filter((field) => settings[field]).length
+  const bookingStep: Schemas['StoreChecklistItem'][] =
+    activeServices > 0
+      ? [
+          {
+            key: 'booking_templates',
+            done: bookingMapped === 3,
+            detail: bookingMapped === 3 ? 'Every booking update has a template.' : `${bookingMapped} of 3 booking updates have a template.`,
+          },
+        ]
+      : []
   const verifiedGateway = account.status === 'verified'
   const verifiedRecipients = recipients.filter((recipient) => recipient.status === 'verified')
   const paymentsDetail = verifiedGateway
@@ -72,6 +125,7 @@ function checklist(workspaceId: string, store: WorkspaceStore): Schemas['StoreCh
         done: mapped === 6,
         detail: mapped === 6 ? 'Every order update has a template.' : `${mapped} of 6 order updates have a template.`,
       },
+      ...bookingStep,
       {
         key: 'alert_number_verified',
         done: verifiedRecipients.length > 0,
@@ -153,8 +207,8 @@ export const handlers: AreaMockHandlers = [
     const ctx = authorize(request, 'admin')
     if (ctx instanceof Response) return response.untyped(ctx)
     const store = storeState(ctx.workspace.id)
-    const body = (await request.json()) as Schemas['PatchedStoreSettingsRequest']
-    const errors = settingsErrors(ctx.workspace.id, body)
+    const body = (await request.json()) as StoreSettingsPatch // TODO(api:types)
+    const errors = { ...settingsErrors(ctx.workspace.id, body), ...bookingErrors(body) }
     if (Object.keys(errors).length) return response.untyped(validationError(errors))
 
     if (body.shop_mode === 'native_catalog' && store.settings.shop_mode !== 'native_catalog') {
@@ -172,8 +226,10 @@ export const handlers: AreaMockHandlers = [
       }
     }
 
-    const { notification_templates: templates, ...fields } = body
+    const { notification_templates: templates, booking_days: days, booking_windows: windows, ...fields } = body
     Object.assign(store.settings, fields)
+    if (days) store.settings.booking_days = [...new Set(days)].sort((a, b) => a - b)
+    if (windows) store.settings.booking_windows = windows.map(({ label, start, end }) => ({ label: label.trim(), start, end }))
     if (typeof fields.store_name === 'string') store.settings.store_name = fields.store_name.trim()
     if (templates) store.settings.notification_templates = { ...store.settings.notification_templates, ...templates }
     store.settings.updated_at = nowIso()

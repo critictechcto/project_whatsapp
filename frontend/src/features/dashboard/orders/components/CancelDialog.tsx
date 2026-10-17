@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { applyApiErrorToForm, isApiError } from '../../../../api/errors'
 import { Button, Checkbox, Dialog, Field, Textarea } from '../../../../components/app'
 import { orderMutations, type Order } from '../api'
+import { isBooking } from '../bookingTypes'
 import { Notice } from './Notice'
 
 const MAX_REASON = 200
@@ -38,6 +39,7 @@ export function CancelDialog({ order, onClose, onCancelled, onFailed }: CancelDi
     defaultValues: { reason: '', restock: true, notify_buyer: true },
   })
   const reasonLength = useWatch({ control, name: 'reason' }).length
+  const booking = isBooking(order)
 
   const onSubmit = handleSubmit(async (values) => {
     try {
@@ -63,10 +65,10 @@ export function CancelDialog({ order, onClose, onCancelled, onFailed }: CancelDi
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
-            Keep order
+            {booking ? 'Keep booking' : 'Keep order'}
           </Button>
           <Button type="submit" form={formId} variant="danger" loading={isSubmitting}>
-            Cancel order
+            {booking ? 'Cancel booking' : 'Cancel order'}
           </Button>
         </>
       }
@@ -85,7 +87,9 @@ export function CancelDialog({ order, onClose, onCancelled, onFailed }: CancelDi
         >
           <Textarea rows={3} placeholder="Out of stock" {...register('reason')} />
         </Field>
-        <Checkbox label="Return items to stock" description="Adds the ordered quantities back to your products." {...register('restock')} />
+        {!booking && (
+          <Checkbox label="Return items to stock" description="Adds the ordered quantities back to your products." {...register('restock')} />
+        )}
         <Checkbox label="Notify the buyer on WhatsApp" {...register('notify_buyer')} />
       </form>
     </Dialog>

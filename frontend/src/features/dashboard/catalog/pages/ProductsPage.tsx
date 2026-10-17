@@ -25,11 +25,21 @@ import { ImportDialog } from '../components/ImportDialog'
 import { ReorderDialog } from '../components/ReorderDialog'
 import { ReviewBadge } from '../components/ReviewBadge'
 import { availabilityLabels, reviewInfo } from '../lib/labels'
-import { availabilityValues, reviewValues, type Product, type ProductAvailability, type MetaReviewStatus } from '../lib/types'
+import { formatDuration } from '../lib/preview'
+import {
+  availabilityValues,
+  productKindValues,
+  reviewValues,
+  type MetaReviewStatus,
+  type Product,
+  type ProductAvailability,
+  type ProductKind,
+} from '../lib/types'
 import { useDebouncedValue } from '../lib/useDebouncedValue'
 
 const isAvailability = (value: string): value is ProductAvailability => (availabilityValues as readonly string[]).includes(value)
 const isReview = (value: string): value is MetaReviewStatus => (reviewValues as readonly string[]).includes(value)
+const isKind = (value: string): value is ProductKind => (productKindValues as readonly string[]).includes(value)
 
 export function ProductsPage() {
   const { workspaceId, can } = useWorkspace()
@@ -40,6 +50,7 @@ export function ProductsPage() {
   const active = params.get('active') ?? ''
   const rawAvailability = params.get('availability') ?? ''
   const rawReview = params.get('review') ?? ''
+  const rawKind = params.get('kind') ?? ''
 
   const metaCatalogs = useMetaCatalogs()
   const catalogConnected = Boolean(metaCatalogs.data?.length)
@@ -51,8 +62,11 @@ export function ProductsPage() {
     isActive: active === 'true' ? true : active === 'false' ? false : undefined,
     availability: isAvailability(rawAvailability) ? rawAvailability : undefined,
     review: catalogConnected && isReview(rawReview) ? rawReview : undefined,
+    kind: isKind(rawKind) ? rawKind : undefined,
   }
-  const hasFilters = Boolean(filters.search || filters.collection || filters.isActive !== undefined || filters.availability || filters.review)
+  const hasFilters = Boolean(
+    filters.search || filters.collection || filters.isActive !== undefined || filters.availability || filters.review || filters.kind,
+  )
   const products = useProducts(filters)
 
   const [searchText, setSearchText] = useState(q)
@@ -124,7 +138,14 @@ export function ProductsPage() {
             <Link to={`/app/w/${workspaceId}/catalog/products/${product.id}`} className="font-medium text-ink underline-offset-2 hover:underline">
               {product.name}
             </Link>
-            <p className="font-mono text-[12px] text-muted">{product.sku}</p>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[12px] text-muted">
+              {product.sku}
+              {product.kind === 'service' && (
+                <StatusBadge tone="neutral">
+                  Service{product.duration_minutes ? ` · ${formatDuration(product.duration_minutes)}` : ''}
+                </StatusBadge>
+              )}
+            </p>
           </div>
         </div>
       ),
@@ -135,7 +156,13 @@ export function ProductsPage() {
       header: 'Stock',
       hideOnMobile: true,
       cell: (product) =>
-        product.stock_qty === null ? <span className="text-muted">Not tracked</span> : <span className="font-mono text-[13px] text-ink">{product.stock_qty}</span>,
+        product.kind === 'service' ? (
+          <span className="text-muted">Not stocked</span>
+        ) : product.stock_qty === null ? (
+          <span className="text-muted">Not tracked</span>
+        ) : (
+          <span className="font-mono text-[13px] text-ink">{product.stock_qty}</span>
+        ),
     },
     {
       id: 'availability',
@@ -190,7 +217,7 @@ export function ProductsPage() {
 
   return (
     <CatalogLayout tab="products" actions={actions}>
-      <section aria-label="Filters" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
+      <section aria-label="Filters" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]">
         <Field label="Search products" hideLabel>
           <Input
             type="search"
@@ -219,6 +246,17 @@ export function ProductsPage() {
             options={[
               { value: 'true', label: 'Active only' },
               { value: 'false', label: 'Inactive only' },
+            ]}
+          />
+        </Field>
+        <Field label="Type" hideLabel>
+          <Select
+            value={filters.kind ?? ''}
+            onChange={(event) => updateParam('kind', event.target.value)}
+            placeholder="Products and services"
+            options={[
+              { value: 'product', label: 'Products only' },
+              { value: 'service', label: 'Services only' },
             ]}
           />
         </Field>

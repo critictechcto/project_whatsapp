@@ -4,6 +4,7 @@ import type {
   EventActor,
   EventType,
   OrderEvent,
+  OrderKind,
   OrderSource,
   OrderStatus,
   PaymentLinkStatus,
@@ -17,12 +18,16 @@ export const orderStatusInfo: Record<OrderStatus, Info> = {
   draft: { label: 'Cart started', tone: 'neutral' },
   awaiting_confirmation: { label: 'Confirming prices', tone: 'amber' },
   awaiting_address: { label: 'Awaiting address', tone: 'amber' },
+  awaiting_time: { label: 'Choosing a time', tone: 'amber' },
   awaiting_payment_method: { label: 'Choosing payment', tone: 'amber' },
   pending_payment: { label: 'Awaiting payment', tone: 'amber' },
+  requested: { label: 'Booking requested', tone: 'amber' },
   confirmed: { label: 'Confirmed', tone: 'blue' },
   packed: { label: 'Packed', tone: 'blue' },
   shipped: { label: 'Shipped', tone: 'blue' },
   delivered: { label: 'Delivered', tone: 'green' },
+  completed: { label: 'Completed', tone: 'green' },
+  no_show: { label: 'No-show', tone: 'neutral' },
   cancelled: { label: 'Cancelled', tone: 'neutral' },
   expired: { label: 'Expired', tone: 'neutral' },
   needs_attention: { label: 'Needs attention', tone: 'red' },
@@ -39,6 +44,12 @@ export const paymentStatusInfo: Record<PaymentStatus, Info> = {
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
   online: 'Paid online',
   cod: 'Cash on delivery',
+  pay_at_shop: 'Pay at the shop',
+}
+
+export const orderKindLabels: Record<OrderKind, string> = {
+  delivery: 'Delivery',
+  booking: 'Booking',
 }
 
 export const sourceLabels: Record<OrderSource, string> = {
@@ -57,29 +68,50 @@ export const paymentLinkStatusInfo: Record<PaymentLinkStatus, Info> = {
 
 /** Stage filter of `GET orders/`, as in the contract. */
 export const stageStatuses = {
-  checkout: ['draft', 'awaiting_confirmation', 'awaiting_address', 'awaiting_payment_method', 'pending_payment'],
-  open: ['confirmed', 'packed', 'shipped', 'needs_attention'],
-  closed: ['delivered', 'cancelled', 'expired'],
+  checkout: ['draft', 'awaiting_confirmation', 'awaiting_address', 'awaiting_time', 'awaiting_payment_method', 'pending_payment'],
+  open: ['requested', 'confirmed', 'packed', 'shipped', 'needs_attention'],
+  closed: ['delivered', 'completed', 'no_show', 'cancelled', 'expired'],
 } as const satisfies Record<string, readonly OrderStatus[]>
 
 export function isCheckoutStatus(status: OrderStatus): boolean {
   return (stageStatuses.checkout as readonly OrderStatus[]).includes(status)
 }
 
-/** The contract's transitions table: every status a seller may move an order to. */
+/** The contract's transitions table for deliveries: every status a seller may move an order to. */
 export const orderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
   draft: ['cancelled'],
   awaiting_confirmation: ['cancelled'],
   awaiting_address: ['cancelled'],
+  awaiting_time: ['cancelled'],
   awaiting_payment_method: ['cancelled'],
   pending_payment: ['cancelled'],
+  requested: [],
   confirmed: ['packed', 'shipped', 'cancelled'],
   packed: ['shipped', 'cancelled'],
   shipped: ['delivered'],
   needs_attention: ['confirmed', 'cancelled'],
   delivered: [],
+  completed: [],
+  no_show: [],
   cancelled: [],
   expired: [],
+}
+
+/**
+ * Bookings: `requested → confirmed | cancelled` and `confirmed → completed | no_show | cancelled`; they are
+ * never packed, shipped or delivered. `confirmed` from `requested` goes through `confirm-booking`.
+ */
+export const bookingTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
+  ...orderTransitions,
+  requested: ['confirmed', 'cancelled'],
+  confirmed: ['completed', 'no_show', 'cancelled'],
+  packed: [],
+  shipped: [],
+  needs_attention: ['requested', 'cancelled'],
+}
+
+export function transitionsFor(kind: OrderKind | undefined, status: OrderStatus): readonly OrderStatus[] {
+  return (kind === 'booking' ? bookingTransitions : orderTransitions)[status]
 }
 
 export const eventTypeLabels: Record<EventType, string> = {
@@ -87,6 +119,11 @@ export const eventTypeLabels: Record<EventType, string> = {
   status_changed: 'Status changed',
   price_changed: 'Prices changed at checkout',
   address_received: 'Delivery address received',
+  time_requested: 'Booking day and time chosen',
+  appointment_set: 'Appointment time set',
+  reminder_sent: 'Appointment reminder sent',
+  offer_applied: 'Offer applied',
+  offer_removed: 'Offer removed',
   payment_link_created: 'Payment link sent',
   payment_received: 'Payment received',
   payment_link_expired: 'Payment link expired',
@@ -129,7 +166,7 @@ type TransitionDetails = { from_status?: string; to_status?: string; allowed?: s
 
 /** A readable message for a failed order action, with `invalid_order_transition` details spelled out. */
 export function orderActionError(error: unknown): string {
-  if (!isApiError(error, 'invalid_order_transition')) return errorMessage(error)
+  if (!isApiError(error, 'invalid_order_transition') && !isApiError(error, 'invalid_transition')) return errorMessage(error)
   const details = (error.details ?? {}) as TransitionDetails
   const from = details.from_status ? statusLabel(details.from_status) : ''
   const to = details.to_status ? statusLabel(details.to_status) : ''

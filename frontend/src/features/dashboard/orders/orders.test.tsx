@@ -106,7 +106,7 @@ describe('orders list', () => {
         v: 1,
         type: 'order.created',
         workspace_id: ids.sharmaSweets,
-        data: { order_id: record.order.id, number: record.order.number, status: record.order.status },
+        data: { order_id: record.order.id, number: record.order.number, status: 'confirmed' },
       })
     })
 

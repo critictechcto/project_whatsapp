@@ -5,7 +5,19 @@ import { cursorFromUrl, useCursorQuery } from '../../../api/pagination'
 import { workspaceKeys } from '../../../api/queryKeys'
 import { useRealtimeEvent } from '../../../lib/realtime/hooks'
 import { useWorkspace } from '../../../lib/workspace'
-import type { Collection, MetaCatalog, MetaReviewStatus, Product, ProductAvailability, ProductImportResult, WhatsAppAccount } from './lib/types'
+import type { paths } from '../../../api/schema'
+import type { Schemas } from '../../../api/types'
+import type {
+  Collection,
+  MetaCatalog,
+  MetaReviewStatus,
+  Product,
+  ProductAvailability,
+  ProductImportResult,
+  ProductKind,
+  ProductWriteRequest,
+  WhatsAppAccount,
+} from './lib/types'
 
 /** Every catalog query key starts with `['ws', workspaceId, 'catalog']`. */
 export const catalogKeys = workspaceKeys('catalog')
@@ -17,6 +29,28 @@ export type ProductFilters = {
   isActive?: boolean
   availability?: ProductAvailability
   review?: MetaReviewStatus
+  kind?: ProductKind
+}
+
+type ProductPage = { next?: string | null; previous?: string | null; results: Product[] }
+
+// TODO(api:types): the generated Product has no `kind`/`duration_minutes` and the list query no `kind` yet.
+// These casts isolate that; delete them after `npm run api:types`.
+type GeneratedProductQuery = NonNullable<paths['/api/v1/catalog/products/']['get']['parameters']['query']>
+const asProduct = (product: Schemas['Product']) => product as Product
+const asProductPage = (page: { next?: string | null; previous?: string | null; results: Schemas['Product'][] }) => page as ProductPage
+const asWriteBody = (body: ProductWriteRequest) => body as Schemas['ProductWriteRequest']
+
+export function fetchProduct(id: string, signal?: AbortSignal): Promise<Product> {
+  return unwrap(api.GET('/api/v1/catalog/products/{id}/', { params: { path: { id } }, signal })).then(asProduct)
+}
+
+export function createProduct(body: ProductWriteRequest): Promise<Product> {
+  return unwrap(api.POST('/api/v1/catalog/products/', { body: asWriteBody(body) })).then(asProduct)
+}
+
+export function updateProduct(id: string, body: ProductWriteRequest): Promise<Product> {
+  return unwrap(api.PATCH('/api/v1/catalog/products/{id}/', { params: { path: { id } }, body: asWriteBody(body) })).then(asProduct)
 }
 
 const MAX_PAGES = 50
@@ -43,10 +77,14 @@ export function useProducts(filters: ProductFilters) {
     is_active: filters.isActive,
     availability: filters.availability,
     meta_review_status: filters.review,
+    kind: filters.kind,
   }
   return useCursorQuery<Product>({
     queryKey: catalogKeys.list(workspaceId, { resource: 'products', ...query }),
-    queryFn: ({ cursor, signal }) => unwrap(api.GET('/api/v1/catalog/products/', { params: { query: { ...query, cursor } }, signal })),
+    queryFn: ({ cursor, signal }) =>
+      unwrap(
+        api.GET('/api/v1/catalog/products/', { params: { query: { ...query, cursor } as GeneratedProductQuery }, signal }),
+      ).then(asProductPage),
   })
 }
 
@@ -56,7 +94,9 @@ export function useAllProducts(enabled: boolean) {
   return useQuery({
     queryKey: catalogKeys.list(workspaceId, { resource: 'products', all: true }),
     queryFn: ({ signal }) =>
-      fetchAll((cursor) => unwrap(api.GET('/api/v1/catalog/products/', { params: { query: { page_size: 200, cursor } }, signal }))),
+      fetchAll((cursor) =>
+        unwrap(api.GET('/api/v1/catalog/products/', { params: { query: { page_size: 200, cursor } }, signal })).then(asProductPage),
+      ),
     enabled,
   })
 }
@@ -65,7 +105,7 @@ export function useProduct(id: string | undefined) {
   const { workspaceId } = useWorkspace()
   return useQuery({
     queryKey: catalogKeys.detail(workspaceId, id ?? ''),
-    queryFn: ({ signal }) => unwrap(api.GET('/api/v1/catalog/products/{id}/', { params: { path: { id: id ?? '' } }, signal })),
+    queryFn: ({ signal }) => fetchProduct(id ?? '', signal),
     enabled: Boolean(id),
   })
 }

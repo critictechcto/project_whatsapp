@@ -3,8 +3,10 @@ import { useState } from 'react'
 import { Button, Checkbox, Dialog, useToast } from '../../../../components/app'
 import { useWorkspace } from '../../../../lib/workspace'
 import { orderKeys, orderMutations, storeOrder, type Order } from '../api'
-import { actionLabels, availableOrderActions, progressActions, simpleActionCopy, type OrderAction, type SimpleAction } from '../actions'
+import { actionLabel, availableOrderActions, progressActions, simpleActionCopy, type OrderAction, type SimpleAction } from '../actions'
 import { orderActionError } from '../labels'
+import { isBooking } from '../bookingTypes'
+import { AppointmentDialog } from './AppointmentDialog'
 import { CancelDialog } from './CancelDialog'
 import { ShipDialog } from './ShipDialog'
 
@@ -15,8 +17,14 @@ type OrderActionsProps = {
   onSuccess: () => void
 }
 
+const dialogActions: readonly OrderAction[] = ['shipped', 'cancel', 'confirm_time', 'change_time']
+
+function isSimple(action: OrderAction): action is SimpleAction {
+  return !dialogActions.includes(action)
+}
+
 function runSimple(order: Order, action: SimpleAction, notify: boolean): Promise<Order> {
-  if (action === 'cod') return orderMutations.markCodCollected(order.id)
+  if (action === 'cod' || action === 'paid_at_shop') return orderMutations.markCodCollected(order.id)
   if (action === 'refund') return orderMutations.markRefunded(order.id)
   return orderMutations.transition(order.id, { to_status: action, notify_buyer: notify })
 }
@@ -101,13 +109,28 @@ export function OrderActions({ order, onError, onSuccess }: OrderActionsProps) {
     <>
       {actions.map((action) => (
         <Button key={action} variant={action === primary ? 'primary' : 'secondary'} onClick={() => setOpen(action)}>
-          {actionLabels[action]}
+          {actionLabel(action, order)}
         </Button>
       ))}
 
       {open === 'shipped' && <ShipDialog order={order} onClose={close} onShipped={(updated) => done(updated, 'Marked shipped')} onFailed={failed} />}
-      {open === 'cancel' && <CancelDialog order={order} onClose={close} onCancelled={(updated) => done(updated, 'Order cancelled')} onFailed={failed} />}
-      {open && open !== 'shipped' && open !== 'cancel' && (
+      {open === 'cancel' && (
+        <CancelDialog
+          order={order}
+          onClose={close}
+          onCancelled={(updated) => done(updated, isBooking(updated) ? 'Booking cancelled' : 'Order cancelled')}
+          onFailed={failed}
+        />
+      )}
+      {(open === 'confirm_time' || open === 'change_time') && (
+        <AppointmentDialog
+          order={order}
+          onClose={close}
+          onSaved={(updated) => done(updated, open === 'change_time' ? 'Appointment time changed' : 'Booking confirmed')}
+          onFailed={failed}
+        />
+      )}
+      {open && isSimple(open) && (
         <SimpleActionDialog order={order} action={open} onClose={close} onDone={done} onFailed={failed} />
       )}
     </>

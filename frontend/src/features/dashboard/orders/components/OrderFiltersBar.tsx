@@ -1,8 +1,8 @@
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button, Field, Input, Select } from '../../../../components/app'
-import type { PaymentMethod, PaymentStatus } from '../api'
-import { hasActiveFilters, paymentMethodOptions, paymentStatusOptions, type OrderFilters } from '../filters'
+import type { OrderKind, PaymentMethod, PaymentStatus } from '../api'
+import { hasActiveFilters, kindOptions, paymentMethodOptions, paymentStatusOptions, type OrderFilters } from '../filters'
 
 type OrderFiltersBarProps = {
   filters: OrderFilters
@@ -40,7 +40,15 @@ export function OrderFiltersBar({ filters, setFilters }: OrderFiltersBarProps) {
           prefix={<Search className="size-4" aria-hidden="true" />}
         />
       </Field>
-      <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <Field label="Type">
+          <Select
+            value={filters.kind}
+            onChange={(event) => setFilters({ kind: event.target.value as OrderKind | '' })}
+            placeholder="All"
+            options={kindOptions}
+          />
+        </Field>
         <Field label="Payment status">
           <Select
             value={filters.payment}
@@ -70,7 +78,7 @@ export function OrderFiltersBar({ filters, setFilters }: OrderFiltersBarProps) {
           className="self-start lg:mt-[26px]"
           onClick={() => {
             setSearch('')
-            setFilters({ payment: '', method: '', from: '', to: '', q: '' })
+            setFilters({ kind: '', payment: '', method: '', from: '', to: '', q: '' })
           }}
         >
           Clear filters

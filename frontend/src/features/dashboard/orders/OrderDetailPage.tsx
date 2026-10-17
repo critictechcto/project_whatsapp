@@ -5,11 +5,12 @@ import { buttonClasses, EmptyState, PageHeader, PageSpinner } from '../../../com
 import { formatDateTime } from '../../../lib/datetime'
 import { useWorkspace } from '../../../lib/workspace'
 import { useOrder, useOrderUpdates } from './api'
-import { AddressCard, CustomerCard, ItemsCard, PaymentCard, TrackingCard } from './components/DetailCards'
+import { isBooking } from './bookingTypes'
+import { AddressCard, BookingCard, CustomerCard, ItemsCard, PaymentCard, TrackingCard } from './components/DetailCards'
 import { NotesCard } from './components/NotesCard'
 import { Notice } from './components/Notice'
 import { OrderActions } from './components/OrderActions'
-import { OrderStatusBadge, PaymentBadge } from './components/OrderBadges'
+import { KindBadge, OrderStatusBadge, PaymentBadge } from './components/OrderBadges'
 import { OrderTimeline } from './components/OrderTimeline'
 import { isCheckoutStatus, sourceLabels } from './labels'
 
@@ -43,6 +44,7 @@ export function OrderDetailPage() {
   }
 
   const data = order.data
+  const booking = isBooking(data)
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,8 +59,9 @@ export function OrderDetailPage() {
       />
 
       <div className="-mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted">
+        {booking && <KindBadge kind="booking" />}
         <OrderStatusBadge status={data.status} />
-        <PaymentBadge status={data.payment_status} />
+        <PaymentBadge status={data.payment_status} method={data.payment_method} />
         <span>
           Placed <time dateTime={data.created_at}>{formatDateTime(data.created_at, timeZone)}</time>
         </span>
@@ -79,8 +82,12 @@ export function OrderDetailPage() {
       {isCheckoutStatus(data.status) && (
         <Notice title="The buyer is still checking out">
           {data.expires_at
-            ? `If they don't finish by ${formatDateTime(data.expires_at, timeZone)}, the checkout expires and reserved items go back to stock.`
-            : 'The order is confirmed once they pay or choose cash on delivery.'}
+            ? booking
+              ? `If they don't finish by ${formatDateTime(data.expires_at, timeZone)}, the checkout expires.`
+              : `If they don't finish by ${formatDateTime(data.expires_at, timeZone)}, the checkout expires and reserved items go back to stock.`
+            : booking
+              ? 'The booking request arrives once they pick a time and how to pay.'
+              : 'The order is confirmed once they pay or choose cash on delivery.'}
         </Notice>
       )}
       {data.status === 'expired' && <Notice title="Checkout expired">The buyer didn&apos;t finish paying in time, so the order wasn&apos;t placed.</Notice>}
@@ -94,9 +101,9 @@ export function OrderDetailPage() {
         </div>
         <div className="flex flex-col gap-6 lg:col-start-3 lg:row-span-2 lg:row-start-1">
           <CustomerCard order={data} />
-          <AddressCard order={data} />
+          {booking ? <BookingCard order={data} /> : <AddressCard order={data} />}
           <PaymentCard order={data} />
-          <TrackingCard order={data} />
+          {!booking && <TrackingCard order={data} />}
           <NotesCard key={data.notes} order={data} />
         </div>
         <div className="lg:col-span-2">

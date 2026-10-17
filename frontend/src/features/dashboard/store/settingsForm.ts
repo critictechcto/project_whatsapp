@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { paiseToRupeesString, parseRupeesToPaise } from '../../../lib/money'
 import type { StoreSettings, StoreSettingsPatch } from './api'
+import { DEFAULT_BOOKING_WINDOWS } from './bookingTypes'
 
 export const MAX_MENU_KEYWORDS = 20
 export const PINCODE = /^[1-9]\d{5}$/
@@ -17,6 +18,29 @@ function rupees({ optional }: { optional: boolean }) {
     }
     if (parseRupeesToPaise(value) === null) ctx.addIssue({ code: 'custom', message: AMOUNT_MESSAGE })
   })
+}
+
+export const MAX_BOOKING_WINDOWS = 10
+export const WINDOW_LABEL_MAX = 24
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** Monday = 0, as the API numbers days. */
+export const weekdays = [
+  { value: 0, label: 'Mon' },
+  { value: 1, label: 'Tue' },
+  { value: 2, label: 'Wed' },
+  { value: 3, label: 'Thu' },
+  { value: 4, label: 'Fri' },
+  { value: 5, label: 'Sat' },
+  { value: 6, label: 'Sun' },
+] as const
+
+/** A whole number typed into a text input, kept as a string in the form. */
+function wholeNumber(min: number, max: number) {
+  return z
+    .string()
+    .trim()
+    .refine((value) => /^\d+$/.test(value) && Number(value) >= min && Number(value) <= max, `Enter a whole number from ${min} to ${max}.`)
 }
 
 export const settingsSchema = z.object({
@@ -39,6 +63,27 @@ export const settingsSchema = z.object({
   powered_by_footer: z.boolean(),
   /** Empty uses the workspace default number. */
   phone_number_id: z.string(),
+  // Bookings (services).
+  pay_at_shop_enabled: z.boolean(),
+  booking_days: z.array(z.number().int().min(0).max(6)).min(1, 'Pick at least one day you take bookings.'),
+  booking_windows: z
+    .array(
+      z
+        .object({
+          label: z.string().trim().min(1, 'Name the window.').max(WINDOW_LABEL_MAX, `Use ${WINDOW_LABEL_MAX} characters or fewer.`),
+          start: z.string().regex(TIME, 'Pick a start time.'),
+          end: z.string().regex(TIME, 'Pick an end time.'),
+        })
+        .superRefine((window, ctx) => {
+          if (TIME.test(window.start) && TIME.test(window.end) && window.start >= window.end) {
+            ctx.addIssue({ code: 'custom', path: ['end'], message: 'End after the start time.' })
+          }
+        }),
+    )
+    .min(1, 'Add at least one time window.')
+    .max(MAX_BOOKING_WINDOWS, `Use ${MAX_BOOKING_WINDOWS} windows or fewer.`),
+  booking_days_ahead: wholeNumber(1, 30),
+  booking_reminder_hours: wholeNumber(0, 48),
 })
 
 export type SettingsFormValues = z.infer<typeof settingsSchema>
@@ -71,6 +116,11 @@ export function settingsToForm(settings: StoreSettings): SettingsFormValues {
     support_message: settings.support_message ?? '',
     powered_by_footer: settings.powered_by_footer ?? true,
     phone_number_id: settings.phone_number_id ?? '',
+    pay_at_shop_enabled: settings.pay_at_shop_enabled ?? true,
+    booking_days: [...(settings.booking_days ?? [0, 1, 2, 3, 4, 5, 6])].sort((a, b) => a - b),
+    booking_windows: (settings.booking_windows ?? DEFAULT_BOOKING_WINDOWS).map((window) => ({ ...window })),
+    booking_days_ahead: String(settings.booking_days_ahead ?? 7),
+    booking_reminder_hours: String(settings.booking_reminder_hours ?? 3),
   }
 }
 
@@ -94,5 +144,10 @@ export function formToPatch(values: SettingsFormValues): StoreSettingsPatch {
     support_message: values.support_message.trim(),
     powered_by_footer: values.powered_by_footer,
     phone_number_id: values.phone_number_id || null,
+    pay_at_shop_enabled: values.pay_at_shop_enabled,
+    booking_days: [...values.booking_days].sort((a, b) => a - b),
+    booking_windows: values.booking_windows.map(({ label, start, end }) => ({ label: label.trim(), start, end })),
+    booking_days_ahead: Number(values.booking_days_ahead),
+    booking_reminder_hours: Number(values.booking_reminder_hours),
   }
 }

@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { Link } from 'react-router'
-import { api, unwrap } from '../../../api/client'
 import { applyApiErrorToForm, errorMessage, isApiError } from '../../../api/errors'
 import {
   Button,
@@ -23,11 +22,12 @@ import { KeywordChipsInput } from '../automations/components/KeywordChipsInput'
 import { RadioCards } from '../campaigns/components/RadioCards'
 import { Notice } from '../settings/ui/Notice'
 import { SectionCard } from '../settings/ui/SectionCard'
-import { storeQueryKeys, useStorePhoneNumbers, useStoreSettings, type StoreSettings } from './api'
+import { patchStoreSettings, storeQueryKeys, useStorePhoneNumbers, useStoreSettings, type StoreSettings } from './api'
+import { BookingsSection } from './components/BookingsSection'
 import { StoreFrame } from './components/StoreNav'
 import { formToPatch, MAX_MENU_KEYWORDS, PINCODE, settingsFieldMap, settingsSchema, settingsToForm, type SettingsFormValues } from './settingsForm'
 
-const DESCRIPTION = 'How your store greets buyers, what orders cost and where you deliver.'
+const DESCRIPTION = 'How your store greets buyers, what orders cost, where you deliver and when you take bookings.'
 
 export function StoreSettingsPage() {
   const { workspaceId } = useWorkspace()
@@ -67,7 +67,7 @@ function StoreStatusCard({ settings }: { settings: StoreSettings }) {
   const enabled = Boolean(settings.enabled)
 
   const toggle = useMutation({
-    mutationFn: (next: boolean) => unwrap(api.PATCH('/api/v1/store/settings/', { body: { enabled: next } })),
+    mutationFn: (next: boolean) => patchStoreSettings({ enabled: next }),
     onSuccess: (saved) => {
       queryClient.setQueryData(storeQueryKeys.settings(workspaceId), saved)
       void queryClient.invalidateQueries({ queryKey: storeQueryKeys.checklist(workspaceId) })
@@ -158,7 +158,7 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const saved = await unwrap(api.PATCH('/api/v1/store/settings/', { body: formToPatch(values) }))
+      const saved = await patchStoreSettings(formToPatch(values))
       queryClient.setQueryData(storeQueryKeys.settings(workspaceId), saved)
       void queryClient.invalidateQueries({ queryKey: storeQueryKeys.checklist(workspaceId) })
       reset(settingsToForm(saved))
@@ -336,6 +336,8 @@ function SettingsForm({ settings }: { settings: StoreSettings }) {
           </p>
         </div>
       </SectionCard>
+
+      <BookingsSection control={control} register={register} errors={errors} />
 
       {errors.root?.server?.message && (
         <Notice tone="danger" role="alert">
