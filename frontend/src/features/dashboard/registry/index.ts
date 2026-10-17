@@ -19,6 +19,8 @@ import { nav as homeNav } from '../home/nav'
 import { routes as homeRoutes } from '../home/routes'
 import { nav as inboxNav } from '../inbox/nav'
 import { routes as inboxRoutes } from '../inbox/routes'
+import { nav as offersNav } from '../offers/nav'
+import { routes as offersRoutes } from '../offers/routes'
 import { nav as ordersNav } from '../orders/nav'
 import { routes as ordersRoutes } from '../orders/routes'
 import { nav as settingsNav } from '../settings/nav'
@@ -43,6 +45,7 @@ export const areaRoutes: AreaRoute[] = [
   ...catalogRoutes,
   ...ordersRoutes,
   ...storeRoutes,
+  ...offersRoutes,
   ...analyticsRoutes,
   ...whatsappRoutes,
   ...teamRoutes,
@@ -60,6 +63,7 @@ export const navItems: NavItem[] = [
   ...catalogNav,
   ...ordersNav,
   ...storeNav,
+  ...offersNav,
   ...analyticsNav,
   ...whatsappNav,
   ...teamNav,
