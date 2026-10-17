@@ -11,7 +11,8 @@ from apps.whatsapp.client import GraphAPIError
 
 class Command(BaseCommand):
     help = (
-        "Create the platform templates upc_seller_verify, upc_new_order and upc_order_attention "
+        "Create the platform templates upc_seller_verify, upc_new_order, upc_order_attention "
+        "and upc_new_booking "
         "in PLATFORM_WA_WABA_ID when missing, edit the ones that differ from their definition "
         "where Meta allows it, and print their Meta review statuses. Safe to re-run."
     )

@@ -46,11 +46,16 @@ ERROR_MESSAGE_MAX_LENGTH = 1000
 RECIPIENT_UPDATED_FRAME = "alert_recipient.updated"
 
 NEW_ORDER = "new_order"
+NEW_BOOKING = "new_booking"
 NEEDS_ATTENTION = "needs_attention"
 ORDER_CANCELLED = "order_cancelled"
 # Cancellations the seller made themselves (dashboard or WhatsApp) don't alert, and neither do
 # checkouts the seller never got a new-order alert for (superseded carts, Edit cart, buyer cancel).
 CANCELLED_ALERT_ACTORS = frozenset({"buyer", "system"})
+# A booking checkout ends in ``requested`` (the seller then confirms the time); deliveries end
+# in ``confirmed``. ``awaiting_time`` is the booking-only checkout step.
+BOOKING_REQUESTED = "requested"
+BOOKING_CHECKOUT_STATUSES = frozenset({"awaiting_time"})
 
 
 def ensure_platform_available() -> None:
@@ -309,8 +314,11 @@ def alert_event_for(event: OrderStatusChanged) -> str | None:
     new, old = event.new_status, event.old_status
     if new == old:
         return None
-    if new == Order.Status.CONFIRMED and (old == "" or old in Order.CHECKOUT_STATUSES):
+    from_checkout = old == "" or old in Order.CHECKOUT_STATUSES or old in BOOKING_CHECKOUT_STATUSES
+    if new == Order.Status.CONFIRMED and from_checkout:
         return NEW_ORDER
+    if new == BOOKING_REQUESTED and from_checkout:
+        return NEW_BOOKING
     if new == Order.Status.NEEDS_ATTENTION:
         return NEEDS_ATTENTION
     if (
@@ -340,6 +348,8 @@ def build_alert(order: Order, event: str, *, actor: str = "") -> Outbound:
     name = store_name(order.workspace)
     if event == NEW_ORDER:
         return content.new_order(order, name)
+    if event == NEW_BOOKING:
+        return content.new_booking(order, name)
     if event == NEEDS_ATTENTION:
         return content.needs_attention(order, name, attention_reason(order))
     if event == ORDER_CANCELLED:

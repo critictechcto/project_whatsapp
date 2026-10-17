@@ -8,7 +8,9 @@ ids. ``services.deliver`` picks one by the recipient's service window.
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import date, datetime, time
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from apps.inbox.interactive import ListRow, ListSection, list_message, reply_buttons
 from apps.orders.models import Order
@@ -28,6 +30,12 @@ AWB_EXAMPLE = "Delhivery 1234567890 https://www.delhivery.com/track/package/1234
 ACTION_TITLES = {"pack": "Mark packed", "ship": "Mark shipped", "cancel": "Cancel"}
 # Order transition target -> seller alert action.
 TRANSITION_ACTIONS = {"packed": "pack", "shipped": "ship", "cancelled": "cancel"}
+# Booking requests: *Accept* confirms the appointment at the start of the requested window.
+BOOKING_ACTION_TITLES = {"accept": "Accept", "cancel": "Cancel"}
+BOOKING = "booking"
+REQUESTED = "requested"
+PAY_AT_SHOP = "pay_at_shop"
+DEFAULT_TIME_ZONE = "Asia/Kolkata"
 
 
 # --- Platform templates -------------------------------------------------------------------------
@@ -119,7 +127,28 @@ ORDER_ATTENTION = PlatformTemplate(
     ),
     body_example=("Sharma Sweets", "SS-1001", "the payment arrived after the order expired"),
 )
-PLATFORM_TEMPLATES = (SELLER_VERIFY, NEW_ORDER, ORDER_ATTENTION)
+NEW_BOOKING = PlatformTemplate(
+    name="upc_new_booking",
+    body=(
+        "New booking request at {{1}}\n\n"
+        "Booking: {{2}}\n"
+        "Customer: {{3}}\n"
+        "Services: {{4}}\n"
+        "Requested: {{5}}\n"
+        "Payment: {{6}}\n\n"
+        "Tap Accept to confirm it at the start of the requested time, or Cancel to decline it."
+    ),
+    body_example=(
+        "Glow Salon",
+        "GS-1001",
+        "Priya Sharma",
+        "1 x Haircut, 1 x Hair spa",
+        "Sat 18 Oct, Morning (09:00-12:00)",
+        "Pay at the shop",
+    ),
+    buttons=(BOOKING_ACTION_TITLES["accept"], BOOKING_ACTION_TITLES["cancel"]),
+)
+PLATFORM_TEMPLATES = (SELLER_VERIFY, NEW_ORDER, ORDER_ATTENTION, NEW_BOOKING)
 
 
 # --- Outbound messages --------------------------------------------------------------------------
@@ -249,6 +278,8 @@ def item_summary(order: Order) -> str:
 def payment_label(order: Order) -> str:
     if order.payment_method == Order.PaymentMethod.COD:
         return "Cash on delivery"
+    if order.payment_method == PAY_AT_SHOP:
+        return "Pay at the shop"
     if order.payment_status == Order.PaymentStatus.PAID:
         return "Paid online"
     return "Not paid yet"
@@ -258,16 +289,108 @@ def status_label(status: str) -> str:
     try:
         return str(Order.Status(status).label)
     except ValueError:
-        return status
+        return status.replace("_", " ").capitalize()
+
+
+# --- Bookings -----------------------------------------------------------------------------------
+
+
+def is_booking(order: Order) -> bool:
+    return getattr(order, "kind", "delivery") == BOOKING
+
+
+def workspace_zone(order: Order) -> ZoneInfo:
+    name = getattr(order.workspace, "time_zone", "") or DEFAULT_TIME_ZONE
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo(DEFAULT_TIME_ZONE)
+
+
+def _parse_hhmm(value: object) -> time | None:
+    try:
+        hours, minutes = str(value).split(":")
+        return time(int(hours), int(minutes))
+    except (TypeError, ValueError):
+        return None
+
+
+def requested_window(order: Order) -> tuple[str, time, time] | None:
+    """The booking's requested window as ``(label, start, end)``, or None when unset."""
+    window = getattr(order, "requested_window", None)
+    if not isinstance(window, Mapping):
+        return None
+    start, end = _parse_hhmm(window.get("start")), _parse_hhmm(window.get("end"))
+    if start is None or end is None:
+        return None
+    return str(window.get("label") or "").strip(), start, end
+
+
+def window_start(order: Order) -> datetime | None:
+    """The start of the requested window on the requested day, in the workspace time zone."""
+    day = getattr(order, "requested_date", None)
+    window = requested_window(order)
+    if not isinstance(day, date) or window is None:
+        return None
+    return datetime.combine(day, window[1], tzinfo=workspace_zone(order))
+
+
+def format_day(day: date) -> str:
+    """``"Sat 18 Oct"``."""
+    return f"{day:%a} {day.day} {day:%b}"
+
+
+def requested_label(order: Order) -> str:
+    """``"Sat 18 Oct, Morning (09:00-12:00)"``; "" when the day is unset."""
+    day = getattr(order, "requested_date", None)
+    if not isinstance(day, date):
+        return ""
+    window = requested_window(order)
+    if window is None:
+        return format_day(day)
+    label, start, end = window
+    span = f"{start:%H:%M}-{end:%H:%M}"
+    return f"{format_day(day)}, {label} ({span})" if label else f"{format_day(day)}, {span}"
+
+
+def appointment_label(order: Order) -> str:
+    """``"Sat 18 Oct, 09:00"`` in the workspace time zone; "" when not confirmed."""
+    appointment_at = getattr(order, "appointment_at", None)
+    if not isinstance(appointment_at, datetime):
+        return ""
+    return format_local(appointment_at, workspace_zone(order))
+
+
+def format_local(moment: datetime, zone: ZoneInfo) -> str:
+    """``"Sat 18 Oct, 09:00"`` in ``zone``."""
+    local = moment.astimezone(zone)
+    return f"{format_day(local.date())}, {local:%H:%M}"
+
+
+def booking_time_label(order: Order) -> str:
+    appointment = appointment_label(order)
+    return appointment or requested_label(order)
+
+
+def buyer_name(order: Order) -> str:
+    contact = order.contact
+    return (contact.name or "").strip() or contact.phone_e164
 
 
 def order_action_buttons(order: Order) -> list[tuple[str, str]]:
-    """Reply buttons for the seller actions the order's status allows, in pack/ship/cancel
-    order."""
+    """Reply buttons for the seller actions the order's status allows: *Accept* on a booking
+    request, then pack/ship/cancel in that order."""
+    buttons = []
+    if (
+        is_booking(order)
+        and order.status == REQUESTED
+        and Order.Status.CONFIRMED in order.allowed_transitions
+    ):
+        buttons.append((build_reply_id("alerts", "accept", order.pk), "Accept"))
     allowed = {
         TRANSITION_ACTIONS[to] for to in order.allowed_transitions if to in TRANSITION_ACTIONS
     }
-    return [
+    return buttons + [
         (build_reply_id("alerts", action, order.pk), title)
         for action, title in ACTION_TITLES.items()
         if action in allowed
@@ -301,6 +424,22 @@ def new_order(order: Order, store_name: str) -> Outbound:
     return _template_outbound(Kind.NEW_ORDER, NEW_ORDER, params, buttons)
 
 
+def new_booking(order: Order, store_name: str) -> Outbound:
+    buttons = [
+        (build_reply_id("alerts", action, order.pk), title)
+        for action, title in BOOKING_ACTION_TITLES.items()
+    ]
+    params = [
+        store_name,
+        order.number,
+        buyer_name(order),
+        item_summary(order),
+        requested_label(order),
+        payment_label(order),
+    ]
+    return _template_outbound(Kind.NEW_BOOKING, NEW_BOOKING, params, buttons)
+
+
 def needs_attention(order: Order, store_name: str, reason: str) -> Outbound:
     reason = reason or "please check it in UpChatz"
     return _template_outbound(
@@ -328,8 +467,14 @@ HELP_TEXT = (
     "ORDERS - see your open orders\n"
     "HELP - show this list\n"
     "STOP - stop order alerts\n\n"
-    "Use the buttons on an order alert to mark it packed or shipped, or to cancel it."
+    "Use the buttons on an order alert to mark it packed or shipped, or to cancel it. "
+    "On a booking request, tap Accept to confirm it."
 )
+
+
+def booking_accepted(order: Order, appointment_at: datetime) -> Outbound:
+    when = format_local(appointment_at, workspace_zone(order))
+    return text(f"Booking {order.number} is confirmed for {when}. The customer will be told.")
 
 
 def help_message(prefix: str = "") -> Outbound:
@@ -358,8 +503,13 @@ def stale_option() -> Outbound:
 
 def cancel_confirmation(order: Order) -> Outbound:
     """Asked after *Cancel*; the order changes only on *Yes, cancel*."""
+    question = (
+        f"Cancel booking {order.number}? The customer will be told."
+        if is_booking(order)
+        else f"Cancel order {order.number}? The buyer will be told and items go back to stock."
+    )
     return _reply(
-        f"Cancel order {order.number}? The buyer will be told and items go back to stock.",
+        question,
         [
             (build_reply_id("alerts", "cancel_yes", order.pk), "Yes, cancel"),
             (build_reply_id("alerts", "cancel_no", order.pk), "Keep order"),
@@ -384,6 +534,8 @@ def order_list(orders: Iterable[Order], store_names: Mapping[Any, str]) -> Outbo
     rows = []
     for order in orders:
         description = status_label(order.status)
+        if is_booking(order) and (when := booking_time_label(order)):
+            description = f"{description} · {when}"
         if several_stores:
             description = f"{description} · {store_names.get(order.workspace_id, '')}"
         rows.append(
@@ -399,6 +551,19 @@ def order_list(orders: Iterable[Order], store_names: Mapping[Any, str]) -> Outbo
 
 
 def order_details(order: Order, store_name: str) -> Outbound:
+    if is_booking(order):
+        lines = [
+            f"Booking {order.number} · {store_name}",
+            f"Status: {status_label(order.status)}",
+            f"Customer: {buyer_name(order)}",
+            f"Services: {item_summary(order)}",
+        ]
+        if appointment := appointment_label(order):
+            lines.append(f"Appointment: {appointment}")
+        elif requested := requested_label(order):
+            lines.append(f"Requested: {requested}")
+        lines.append(f"Total: {format_inr(order.total_paise)} ({payment_label(order)})")
+        return _reply("\n".join(lines), order_action_buttons(order))
     lines = [
         f"Order {order.number} · {store_name}",
         f"Status: {status_label(order.status)}",

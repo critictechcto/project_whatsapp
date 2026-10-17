@@ -26,7 +26,7 @@ from common.commerce import ReplyId, parse_reply_id
 from common.events import PlatformInboundMessage
 
 from . import content, services
-from .content import AWB_EXAMPLE, Outbound, status_label
+from .content import AWB_EXAMPLE, REQUESTED, Outbound, status_label
 from .models import AlertInboundMessage, AlertRecipient, PendingSellerReply
 
 logger = logging.getLogger(__name__)
@@ -46,8 +46,13 @@ RecipientStatus = AlertRecipient.Status
 # *Cancel* only asks for confirmation; *Yes, cancel* (``cancel_yes``) cancels and *Keep order*
 # (``cancel_no``) leaves the order alone.
 # *Skip tracking* (``ship_now``) on the courier question ships without courier or AWB.
-ORDER_ACTIONS = ("pack", "ship", "ship_now", "cancel", "cancel_yes", "cancel_no")
-DONE_TEXT = {"packed": "marked as packed", "shipped": "marked as shipped", "cancelled": "cancelled"}
+ORDER_ACTIONS = ("accept", "pack", "ship", "ship_now", "cancel", "cancel_yes", "cancel_no")
+DONE_TEXT = {
+    "confirmed": "confirmed",
+    "packed": "marked as packed",
+    "shipped": "marked as shipped",
+    "cancelled": "cancelled",
+}
 
 
 # --- Courier and AWB replies --------------------------------------------------------------------
@@ -258,6 +263,8 @@ def _handle_reply(ctx: _Context, verified: list[AlertRecipient], reply: ReplyId)
         order, recipient = _find_order(verified, reply.args[0])
         if order is None:
             ctx.reply(verified[0], content.stale_option())
+        elif reply.action == "accept":
+            _accept(ctx, recipient, order)
         elif reply.action == "pack":
             _pack(ctx, recipient, order)
         elif reply.action == "ship":
@@ -299,6 +306,25 @@ def _failure_text(order: Order, to_status: str, exc: APIException) -> str:
             f"{status_label(current or order.status).lower()}."
         )
     return f"Couldn't update order {order.number}. {_first_message(exc)}"
+
+
+def _accept(ctx: _Context, recipient: AlertRecipient, order: Order) -> None:
+    """*Accept* on a booking request: confirm the appointment at the start of the requested
+    window (workspace time zone). Anything but a ``requested`` booking with a day and window is
+    stale (an old tap, or the booking was already handled)."""
+    appointment_at = content.window_start(order)
+    if not content.is_booking(order) or order.status != REQUESTED or appointment_at is None:
+        ctx.reply(recipient, content.stale_option())
+        return
+    error = _run(
+        lambda: order_services.confirm_booking(
+            order, appointment_at=appointment_at, actor=SELLER_ACTOR
+        )
+    )
+    if error is None:
+        ctx.reply(recipient, content.booking_accepted(order, appointment_at))
+    else:
+        ctx.reply(recipient, content.text(_failure_text(order, "confirmed", error)))
 
 
 def _pack(ctx: _Context, recipient: AlertRecipient, order: Order) -> None:

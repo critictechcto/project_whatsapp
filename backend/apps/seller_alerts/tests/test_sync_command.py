@@ -30,6 +30,7 @@ def test_creates_the_missing_templates(fake_graph):
         "upc_seller_verify",
         "upc_new_order",
         "upc_order_attention",
+        "upc_new_booking",
     ]
     assert {call.kwargs["waba_id"] for call in creates} == {settings.PLATFORM_WA_WABA_ID}
     assert {call.access_token for call in fake_graph.calls} == {settings.PLATFORM_WA_ACCESS_TOKEN}
@@ -48,6 +49,13 @@ def test_creates_the_missing_templates(fake_graph):
     assert [c["type"] for c in creates[0].kwargs["template"]["components"]] == ["BODY", "BUTTONS"]
     assert [c["type"] for c in creates[2].kwargs["template"]["components"]] == ["BODY"]
     assert "upc_new_order (en, UTILITY): PENDING [created]" in output
+    new_booking = creates[3].kwargs["template"]
+    assert new_booking["category"] == "UTILITY"
+    [body, buttons] = new_booking["components"]
+    assert body["text"].count("{{") == 6
+    assert len(body["example"]["body_text"][0]) == 6
+    assert [button["text"] for button in buttons["buttons"]] == ["Accept", "Cancel"]
+    assert "upc_new_booking (en, UTILITY): PENDING [created]" in output
 
 
 def test_is_idempotent_and_prints_statuses(fake_graph):
@@ -58,7 +66,7 @@ def test_is_idempotent_and_prints_statuses(fake_graph):
 
     output = run()
 
-    assert len(fake_graph.calls_to("create_template")) == 3
+    assert len(fake_graph.calls_to("create_template")) == 4
     assert "upc_seller_verify (en, UTILITY): PENDING [unchanged]" in output
     assert "upc_new_order (en, UTILITY): APPROVED [unchanged]" in output
     assert "upc_order_attention (en, UTILITY): PENDING [unchanged]" in output
@@ -92,7 +100,8 @@ def test_edits_a_template_that_differs(fake_graph, old_template):
     output = run()
 
     assert [call.kwargs["template"]["name"] for call in fake_graph.calls_to("create_template")] == [
-        "upc_new_order"
+        "upc_new_order",
+        "upc_new_booking",
     ]
     [edit] = fake_graph.calls_to("edit_message_template")
     assert edit.kwargs == {

@@ -7,7 +7,7 @@ from django.db import transaction
 
 from apps.orders.models import Order
 
-from . import services
+from . import content, services
 from .models import AlertMessage, AlertRecipient
 from .platform import platform_alerts_available
 
@@ -41,7 +41,8 @@ def send_alert(
             .filter(pk=order_id, workspace_id=recipient.workspace_id)
             .first()
         )
-        if order is None:
+        if order is None or (event == services.NEW_ORDER and content.is_booking(order)):
+            # Bookings alert as ``new_booking``, never as ``new_order``.
             return "skipped"
         key = services.alert_dedupe_key(recipient.pk, order.pk, event, new_status)
         AlertMessage.objects.bulk_create(

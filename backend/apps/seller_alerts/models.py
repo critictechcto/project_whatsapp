@@ -9,7 +9,7 @@ from django.db import models
 from common.models import TenantScopedModel, UUIDTimeStampedModel
 
 MAX_RECIPIENTS_PER_WORKSPACE = 3
-ALL_ALERT_EVENTS = ("new_order", "needs_attention", "order_cancelled")
+ALL_ALERT_EVENTS = ("new_order", "new_booking", "needs_attention", "order_cancelled")
 
 
 def default_alert_events() -> list[str]:
@@ -54,6 +54,7 @@ class AlertMessage(UUIDTimeStampedModel):
     class Kind(models.TextChoices):
         VERIFY = "verify", "Verification"
         NEW_ORDER = "new_order", "New order"
+        NEW_BOOKING = "new_booking", "New booking"
         NEEDS_ATTENTION = "needs_attention", "Needs attention"
         ORDER_CANCELLED = "order_cancelled", "Order cancelled"
         REPLY = "reply", "Command reply"
