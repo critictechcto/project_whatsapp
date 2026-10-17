@@ -6,9 +6,11 @@ from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 
 from . import images, sync
-from .models import Collection, Product
+from .models import Collection, Product, kind_field_errors
 
 PRODUCT_FIELDS = (
+    "kind",
+    "duration_minutes",
     "name",
     "description",
     "price_paise",
@@ -49,6 +51,12 @@ def _check_sale_price(product: Product) -> None:
         )
 
 
+def _check_kind(product: Product) -> None:
+    errors = kind_field_errors(product.kind, product.stock_qty, product.duration_minutes)
+    if errors:
+        raise serializers.ValidationError(errors)
+
+
 # --- Products ---------------------------------------------------------------------------------
 
 
@@ -67,6 +75,7 @@ def create_product(workspace, data: dict) -> Product:
     if "position" not in data:
         product.position = _next_position(products)
     _check_sale_price(product)
+    _check_kind(product)
     try:
         with transaction.atomic():
             product.save()
@@ -89,6 +98,7 @@ def update_product(product: Product, data: dict) -> Product:
         product.collection = _collection(product.workspace, data["collection_id"])
         changed.append("collection")
     _check_sale_price(product)
+    _check_kind(product)
     product.save(update_fields=[*changed, "updated_at"])
     sync.queue_sync(product.workspace_id)
     return product

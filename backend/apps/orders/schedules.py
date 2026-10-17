@@ -7,4 +7,8 @@ BEAT_SCHEDULE = {
         "task": "orders.expire_checkouts",
         "schedule": crontab(minute="*/5"),
     },
+    "orders.send_booking_reminders": {
+        "task": "orders.send_booking_reminders",
+        "schedule": crontab(minute="*/10"),
+    },
 }

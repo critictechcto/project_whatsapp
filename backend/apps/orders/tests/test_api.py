@@ -74,6 +74,9 @@ def test_list_item_shape(auth_client, workspace):
         },
         "total_paise": order.total_paise,
         "item_count": order.item_count,
+        "kind": "delivery",
+        "requested_date": None,
+        "appointment_at": None,
         "created_at": item["created_at"],
         "updated_at": item["updated_at"],
     }

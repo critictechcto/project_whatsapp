@@ -4,6 +4,14 @@ Inside the 24-hour customer service window the buyer gets a session message (tex
 interactive). Outside it, the template mapped in ``StoreSettings.notification_templates`` is sent
 with body parameters in the contract order. Every attempt writes an ``OrderEvent``:
 ``notification_sent`` (with the message) or ``notification_failed``.
+
+Bookings (docs/contracts/services-and-offers.md) use their own keys: ``booking_confirmed`` (with
+the appointment time), ``booking_rescheduled`` (the time changed; same template as confirmed),
+``booking_cancelled``, ``booking_reminder`` (hours before) and ``booking_day_before`` (18:00 the
+day before; same template as the reminder). ``confirmed``/``cancelled`` of a booking map to them.
+Reminders carry *I'll be there* / *Change time* / *Cancel booking* (``ord:attend``,
+``ord:resched``, ``ord:bcancel``): reply buttons in the window, the template's QUICK_REPLY buttons
+with per-send payloads outside it.
 """
 
 from apps.inbox import interactive, sending
@@ -11,7 +19,7 @@ from apps.inbox.models import Message
 from apps.message_templates.models import MessageTemplate
 from common.commerce import build_reply_id
 
-from . import buyer
+from . import booking, buyer
 from .models import Order, OrderEvent, StoreSettings
 from .money import format_inr
 from .store import footer_for, get_store_settings
@@ -20,11 +28,78 @@ EMPTY_PARAM = "—"
 # The shipped template names a courier; without one the parcel goes "with our delivery partner".
 NO_COURIER = "our delivery partner"
 NOTIFIED_STATUSES = ("confirmed", "packed", "shipped", "delivered", "cancelled")
+BOOKING_NOTIFICATIONS = {"confirmed": "booking_confirmed", "cancelled": "booking_cancelled"}
+REMINDERS = ("booking_reminder", "booking_day_before")
+PAID_BOOKING_NOTE = "Your booking is paid."
+
+
+def reminder_buttons(order: Order) -> list[tuple[str, str]]:
+    """The reminder's answers, in the order of the starter template's QUICK_REPLY buttons."""
+    return [
+        (build_reply_id("ord", "attend", order.pk), "I'll be there"),
+        (build_reply_id("ord", "resched", order.pk), "Change time"),
+        (build_reply_id("ord", "bcancel", order.pk), "Cancel booking"),
+    ]
+
+
+def booking_payment_note(order: Order) -> str:
+    """``Pay at the shop after your service: ₹X.`` while a pay-at-shop booking is unpaid."""
+    if (
+        order.payment_method == Order.PaymentMethod.PAY_AT_SHOP
+        and order.payment_status == Order.PaymentStatus.COD_PENDING
+    ):
+        return f"Pay at the shop after your service: {format_inr(order.total_paise)}."
+    return PAID_BOOKING_NOTE
+
+
+def quick_reply_payloads(template, order: Order) -> dict[int, str]:
+    """Per-send payloads for the template's QUICK_REPLY buttons (by button index), matched in
+    order to :func:`reminder_buttons`; none when the template has no quick replies."""
+    ids = [reply_id for reply_id, _ in reminder_buttons(order)]
+    payloads: dict[int, str] = {}
+    for component in template.components or []:
+        if not isinstance(component, dict) or str(component.get("type", "")).upper() != "BUTTONS":
+            continue
+        buttons = component.get("buttons") if isinstance(component.get("buttons"), list) else []
+        for index, button in enumerate(buttons):
+            if (
+                isinstance(button, dict)
+                and str(button.get("type", "")).upper() == "QUICK_REPLY"
+                and len(payloads) < len(ids)
+            ):
+                payloads[index] = ids[len(payloads)]
+        break
+    return payloads
+
+
+def notification_key(order: Order, notification: str) -> str:
+    """The notification key for ``order``: bookings use the ``booking_*`` variants."""
+    if order.is_booking:
+        return BOOKING_NOTIFICATIONS.get(notification, notification)
+    return notification
+
+
+def template_field(notification: str) -> str | None:
+    return StoreSettings.NOTIFICATION_TEMPLATE_FIELDS.get(
+        notification
+    ) or StoreSettings.BOOKING_TEMPLATE_FIELDS.get(notification)
 
 
 def template_params(order: Order, notification: str, *, payment_url: str = "") -> list[str]:
     """Body parameters of the ``upc_order_*`` starter template for ``notification``."""
     name, number = buyer.buyer_name(order), order.number
+    if notification in REMINDERS:
+        return [
+            name,
+            number,
+            booking.service_names(order),
+            booking.appointment_text(order),
+            booking_payment_note(order),
+        ]
+    if notification in ("booking_confirmed", "booking_rescheduled"):
+        return [name, number, booking.service_names(order), booking.appointment_text(order)]
+    if notification == "booking_cancelled":
+        return [name, number, order.cancel_reason or EMPTY_PARAM]
     if notification == "confirmed":
         return [name, number, format_inr(order.total_paise), payment_phrase(order)]
     if notification == "shipped":
@@ -54,6 +129,8 @@ def shipped_text(name: str, order: Order) -> str:
 def payment_phrase(order: Order) -> str:
     if order.payment_method == Order.PaymentMethod.COD:
         return "Cash on delivery"
+    if order.payment_method == Order.PaymentMethod.PAY_AT_SHOP:
+        return buyer.payment_label(order)
     return "Paid online"
 
 
@@ -62,6 +139,8 @@ def session_content(order: Order, notification: str):
     footer = footer_for(get_store_settings(order.workspace))
     view = [(build_reply_id("ord", "view", order.pk), "View order")]
     name = buyer.buyer_name(order)
+    if notification.startswith("booking_"):
+        return booking_session_content(order, notification, name=name, view=view, footer=footer)
     if notification == "confirmed":
         body = "\n".join(
             [
@@ -97,8 +176,56 @@ def session_content(order: Order, notification: str):
     raise ValueError(f"Unknown order notification {notification!r}.")
 
 
+def booking_session_content(order: Order, notification: str, *, name, view, footer):
+    when = booking.appointment_text(order)
+    services = booking.service_names(order)
+    if notification == "booking_confirmed":
+        body = "\n".join(
+            [
+                f"Thank you, {name}! Your booking {order.number} is confirmed.",
+                "",
+                f"*{services}*",
+                f"*When:* {when}",
+                f"Payment: {payment_phrase(order)}",
+                "",
+                "See you then!",
+            ]
+        )
+        return interactive.reply_buttons(buyer.truncate(body), view, footer=footer)
+    if notification == "booking_rescheduled":
+        body = (
+            f"Hi {name}, the time of your booking {order.number} ({services}) has changed. "
+            f"New time: {when}."
+        )
+        return interactive.reply_buttons(buyer.truncate(body), view, footer=footer)
+    if notification in REMINDERS:
+        lead = "see you tomorrow" if notification == "booking_day_before" else "see you soon"
+        body = "\n".join(
+            [
+                f"Hi {name}, a reminder of your booking {order.number}: {lead}!",
+                "",
+                f"*{services}*",
+                f"*When:* {when}",
+                booking_payment_note(order),
+                "",
+                "Will you be there?",
+            ]
+        )
+        return interactive.reply_buttons(
+            buyer.truncate(body), reminder_buttons(order), footer=footer
+        )
+    if notification == "booking_cancelled":
+        reason = f" Reason: {order.cancel_reason}." if order.cancel_reason else ""
+        body = f"Hi {name}, your booking {order.number} has been cancelled.{reason}"
+        if order.payment_status == Order.PaymentStatus.PAID:
+            body += " The store will refund your payment."
+        return sending.TextContent(body)
+    raise ValueError(f"Unknown order notification {notification!r}.")
+
+
 def notify_buyer(order: Order, notification: str, *, actor: str, user=None) -> Message | None:
     """Tell the buyer about a status change. Call inside the transaction that changed it."""
+    notification = notification_key(order, notification)
     idempotency_key = buyer.key(order.pk, "notify", notification, order.updated_at.timestamp())
     if sending.window_open(order.contact, order.phone_number):
         content = session_content(order, notification)
@@ -108,7 +235,7 @@ def notify_buyer(order: Order, notification: str, *, actor: str, user=None) -> M
         return _sent(order, notification, actor, user, message, "session message")
 
     store_settings = get_store_settings(order.workspace)
-    field = StoreSettings.NOTIFICATION_TEMPLATE_FIELDS.get(notification)
+    field = template_field(notification)
     template = getattr(store_settings, field) if field else None
     if template is None:
         return _failed(
@@ -122,7 +249,10 @@ def notify_buyer(order: Order, notification: str, *, actor: str, user=None) -> M
         return _failed(
             order, notification, actor, user, f"The template {template.name} is not approved."
         )
-    content = sending.TemplateContent(template, template_params(order, notification))
+    button_params = quick_reply_payloads(template, order) if notification in REMINDERS else None
+    content = sending.TemplateContent(
+        template, template_params(order, notification), button_params=button_params or None
+    )
     message = buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
     if message is None:
         return _failed(

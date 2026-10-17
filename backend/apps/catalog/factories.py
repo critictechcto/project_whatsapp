@@ -29,6 +29,15 @@ class ProductFactory(factory.django.DjangoModelFactory):
     price_paise = 24900
     position = factory.Sequence(lambda n: n)
 
+    class Params:
+        # ``ProductFactory(service=True)``: a 45-minute bookable service (no stock).
+        service = factory.Trait(
+            kind=Product.Kind.SERVICE,
+            name=factory.Sequence(lambda n: f"Haircut {n}"),
+            duration_minutes=45,
+            stock_qty=None,
+        )
+
 
 class MetaCatalogFactory(factory.django.DjangoModelFactory):
     class Meta:

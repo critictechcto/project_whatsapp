@@ -5,7 +5,8 @@ The import runs inside the request (the file is at most 2 MB and 5,000 rows) and
 - Columns (case-insensitive, any order, unknown ones ignored): ``sku`` (required), ``name``,
   ``description``, ``price`` and ``sale_price`` (rupees, e.g. ``249`` or ``249.50``),
   ``collection`` (by name, created when missing), ``stock_qty``, ``max_qty_per_order``,
-  ``availability`` (``in_stock``/``out_of_stock``) and ``is_active`` (``true``/``false``).
+  ``availability`` (``in_stock``/``out_of_stock``), ``is_active`` (``true``/``false``), ``kind``
+  (``product``/``service``) and ``duration_minutes`` (services, 5-600).
 - New products need ``name`` and ``price``. For existing products an empty cell keeps the
   current value.
 - A bad row is skipped with an error (``row`` counts the header as row 1); a problem with the
@@ -22,7 +23,15 @@ from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from .models import MAX_QTY_PER_ORDER, MIN_PRICE_PAISE, Collection, Product
+from .models import (
+    MAX_DURATION_MINUTES,
+    MAX_QTY_PER_ORDER,
+    MIN_DURATION_MINUTES,
+    MIN_PRICE_PAISE,
+    Collection,
+    Product,
+    kind_field_errors,
+)
 
 MAX_IMPORT_BYTES = 2 * 1024 * 1024
 MAX_IMPORT_ROWS = 5000
@@ -41,11 +50,14 @@ COLUMNS = (
     "max_qty_per_order",
     "availability",
     "is_active",
+    "kind",
+    "duration_minutes",
 )
 SKU_RE = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 TRUE_VALUES = frozenset({"true", "yes", "1"})
 FALSE_VALUES = frozenset({"false", "no", "0"})
 AVAILABILITIES = frozenset(Product.Availability.values)
+KINDS = frozenset(Product.Kind.values)
 UPDATE_FIELDS = (
     "name",
     "description",
@@ -56,6 +68,8 @@ UPDATE_FIELDS = (
     "max_qty_per_order",
     "availability",
     "is_active",
+    "kind",
+    "duration_minutes",
     "updated_at",
 )
 
@@ -174,6 +188,17 @@ def _parse_row(row: list[str], columns: dict[str, int]) -> dict:
         if is_active not in TRUE_VALUES | FALSE_VALUES:
             raise RowError("is_active must be true or false.")
         fields["is_active"] = is_active in TRUE_VALUES
+    if kind := _cell(row, columns, "kind").lower():
+        if kind not in KINDS:
+            raise RowError("kind must be product or service.")
+        fields["kind"] = kind
+    if duration := _cell(row, columns, "duration_minutes"):
+        fields["duration_minutes"] = _integer(
+            duration,
+            "duration_minutes",
+            minimum=MIN_DURATION_MINUTES,
+            maximum=MAX_DURATION_MINUTES,
+        )
     return fields
 
 
@@ -248,6 +273,20 @@ def _write(workspace, parsed: list[tuple[int, str, dict]], result: ImportResult)
         sale_price = fields.get("sale_price_paise", product.sale_price_paise)
         if sale_price is not None and sale_price >= price:
             result.skip(line, sku, "sale_price must be lower than price.")
+            continue
+        kind = fields.get("kind", product.kind or Product.Kind.PRODUCT)
+        # An empty cell keeps the current value, so switching kind clears what can't carry over.
+        if kind == Product.Kind.SERVICE and "stock_qty" not in fields:
+            fields["stock_qty"] = None
+        if kind == Product.Kind.PRODUCT and "duration_minutes" not in fields:
+            fields["duration_minutes"] = None
+        kind_errors = kind_field_errors(
+            kind,
+            fields.get("stock_qty", product.stock_qty),
+            fields.get("duration_minutes", product.duration_minutes),
+        )
+        if kind_errors:
+            result.skip(line, sku, next(iter(kind_errors.values()))[0])
             continue
 
         collection_name = fields.pop("collection", None)

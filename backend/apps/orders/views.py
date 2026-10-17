@@ -23,9 +23,16 @@ from common.tenancy import WorkspaceScopedGenericViewSet
 
 from . import services, store_setup, transitions
 from .models import Order, OrderEvent
-from .schema_enums import ORDER_STAGES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES
+from .schema_enums import (
+    ORDER_KINDS,
+    ORDER_STAGES,
+    ORDER_STATUSES,
+    PAYMENT_METHODS,
+    PAYMENT_STATUSES,
+)
 from .serializers import (
     CancelOrderSerializer,
+    ConfirmBookingSerializer,
     OrderEventSerializer,
     OrderListItemSerializer,
     OrderNotesSerializer,
@@ -38,9 +45,12 @@ from .serializers import (
     with_request_defaults,
 )
 
-# Orders that count as sales in the summary: confirmed or later, not cancelled or expired.
+# Orders that count as sales in the summary: confirmed or later (a booking from its request),
+# not cancelled, expired or a no-show.
 SALE_STATUSES = (
+    transitions.REQUESTED,
     transitions.CONFIRMED,
+    transitions.COMPLETED,
     transitions.PACKED,
     transitions.SHIPPED,
     transitions.DELIVERED,
@@ -135,6 +145,7 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
                 ),
             ),
             OpenApiParameter("stage", OpenApiTypes.STR, enum=ORDER_STAGES),
+            OpenApiParameter("kind", OpenApiTypes.STR, enum=ORDER_KINDS),
             OpenApiParameter("payment_status", OpenApiTypes.STR, enum=PAYMENT_STATUSES),
             OpenApiParameter("payment_method", OpenApiTypes.STR, enum=PAYMENT_METHODS),
             OpenApiParameter("contact", OpenApiTypes.UUID),
@@ -165,6 +176,8 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
             queryset = queryset.exclude(status=transitions.DRAFT)
         if stage := _query_choice(request, "stage", ORDER_STAGES):
             queryset = queryset.filter(status__in=transitions.STAGE_STATUSES[stage])
+        if kind := _query_choice(request, "kind", ORDER_KINDS):
+            queryset = queryset.filter(kind=kind)
         if payment_status := _query_choice(request, "payment_status", PAYMENT_STATUSES):
             queryset = queryset.filter(payment_status=payment_status)
         if payment_method := _query_choice(request, "payment_method", PAYMENT_METHODS):
@@ -265,11 +278,35 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
         return _order_response(order)
 
     @extend_schema(
+        operation_id="orders_confirm_booking_create",
+        request=ConfirmBookingSerializer,
+        responses=OrderSerializer,
+        description=(
+            "Confirm a requested booking at `appointment_at`, or change the time of a confirmed "
+            "one; the buyer is notified each time. 409 invalid_order_transition otherwise."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="confirm-booking")
+    def confirm_booking(self, request, pk=None):
+        order = self.get_object()
+        serializer = ConfirmBookingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.confirm_booking(
+            order,
+            appointment_at=serializer.validated_data["appointment_at"],
+            actor=DASHBOARD,
+            user=request.user,
+        )
+        return _order_response(order)
+
+    @extend_schema(
         operation_id="orders_mark_cod_collected_create",
         request=None,
         responses=OrderSerializer,
         description=(
-            "Only COD orders that are shipped or delivered; otherwise 409 invalid_order_transition."
+            "COD orders that are shipped or delivered, and pay-at-shop bookings that are "
+            "confirmed or completed (mark paid at the shop); otherwise 409 "
+            "invalid_order_transition."
         ),
     )
     @action(detail=True, methods=["post"], url_path="mark-cod-collected")

@@ -89,6 +89,23 @@ def price_text(product: Product) -> str:
     return format_inr(price)
 
 
+def duration_text(product: Product) -> str:
+    """``"45 min"`` / ``"1 hr 30 min"`` for a service with a duration, else ``""``."""
+    minutes = product.duration_minutes if product.kind == Product.Kind.SERVICE else None
+    if not minutes:
+        return ""
+    hours, rest = divmod(int(minutes), 60)
+    if not hours:
+        return f"{rest} min"
+    return f"{hours} hr {rest} min" if rest else f"{hours} hr"
+
+
+def price_line(product: Product) -> str:
+    """The price, followed by the duration for services."""
+    duration = duration_text(product)
+    return f"{price_text(product)} · {duration}" if duration else price_text(product)
+
+
 def quantity_cap(product: Product) -> int:
     """Most a buyer can order of ``product``: ``max_qty_per_order`` and tracked stock."""
     cap = product.max_qty_per_order
@@ -154,7 +171,7 @@ def products_content(
         ListRow(
             shop_id("prod", product.pk),
             one_line(product.name, interactive.MAX_ROW_TITLE),
-            one_line(price_text(product), interactive.MAX_ROW_DESCRIPTION),
+            one_line(price_line(product), interactive.MAX_ROW_DESCRIPTION),
         )
         for product in page
     ]
@@ -176,9 +193,9 @@ def products_content(
 
 
 def product_card(product: Product, *, back_id: str) -> InteractiveContent:
-    """Image (when public), name, price and a short description with *Add to cart*,
-    *Change qty* and *Back*."""
-    parts = [f"*{one_line(product.name, 200)}*", price_text(product)]
+    """Image (when public), name, price (and duration for services) and a short description with
+    *Add to cart* (*Book* for services), *Change qty* and *Back*."""
+    parts = [f"*{one_line(product.name, 200)}*", price_line(product)]
     description = clip(product.description, DESCRIPTION_PREVIEW)
     body = "\n".join(parts) + (f"\n\n{description}" if description else "")
     image_url = catalog.public_image_url(product)
@@ -190,7 +207,7 @@ def product_card(product: Product, *, back_id: str) -> InteractiveContent:
     return interactive.reply_buttons(
         clip(body, interactive.MAX_BODY),
         [
-            (shop_id("add", product.pk, 1), "Add to cart"),
+            (shop_id("add", product.pk, 1), "Book" if product.is_service else "Add to cart"),
             (shop_id("qty", product.pk), "Change qty"),
             (back_id, "Back"),
         ],
@@ -301,6 +318,24 @@ def cart_content(priced, *, notes: Sequence[str] = ()) -> InteractiveContent:
             (shop_id("clear"), "Clear cart"),
             (shop_id("browse"), "Keep shopping"),
         ],
+    )
+
+
+def mixed_cart_content(product: Product) -> InteractiveContent:
+    """Adding a service to a cart of products (or the other way round): check out or clear."""
+    if product.is_service:
+        body = (
+            "Your cart has products. Services are booked separately, so please check out your "
+            f"cart first, or clear it to book {one_line(product.name, 200)}."
+        )
+    else:
+        body = (
+            "Your cart has services to book. Products are ordered separately, so please check "
+            f"out your booking first, or clear your cart to add {one_line(product.name, 200)}."
+        )
+    return interactive.reply_buttons(
+        clip(body, interactive.MAX_BODY),
+        [(shop_id("checkout"), "Checkout"), (shop_id("clear"), "Clear cart")],
     )
 
 

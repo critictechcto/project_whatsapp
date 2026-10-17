@@ -2,7 +2,8 @@
 
 - ``MessageRecorded`` (inbound, enabled store): queue ``shop.handle_inbound``, which is idempotent
   on the wamid because webhook retries re-emit events.
-- ``OrderStatusChanged`` (checkout → ``confirmed``): empty the buyer's bot cart.
+- ``OrderStatusChanged`` (checkout → ``confirmed``, or ``requested`` for a booking): empty the
+  buyer's bot cart.
 """
 
 from functools import partial
@@ -44,7 +45,7 @@ def on_message_recorded(sender, event: MessageRecorded, **kwargs) -> None:
 @receiver(order_status_changed, dispatch_uid="shop.on_order_status_changed")
 def on_order_status_changed(sender, event: OrderStatusChanged, **kwargs) -> None:
     if (
-        event.new_status != Order.Status.CONFIRMED
+        event.new_status not in (Order.Status.CONFIRMED, Order.Status.REQUESTED)
         or event.old_status not in Order.CHECKOUT_STATUSES
     ):
         return

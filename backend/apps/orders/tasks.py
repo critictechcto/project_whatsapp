@@ -1,4 +1,5 @@
-"""Orders Celery tasks: payment links for online checkouts and checkout expiry."""
+"""Orders Celery tasks: payment links for online checkouts, checkout expiry and booking
+reminders."""
 
 import logging
 
@@ -10,7 +11,7 @@ from apps.payments.exceptions import (
     PaymentProviderError,
 )
 
-from . import checkout
+from . import checkout, lifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -47,3 +48,9 @@ def send_payment_link(self, order_id: str, attempt: int) -> None:
 def expire_checkouts() -> int:
     """Expire checkouts past their deadline (beat, every 5 minutes)."""
     return checkout.expire_checkouts()
+
+
+@shared_task(name="orders.send_booking_reminders")
+def send_booking_reminders() -> int:
+    """Remind buyers of confirmed bookings (beat, every 10 minutes)."""
+    return lifecycle.send_booking_reminders()

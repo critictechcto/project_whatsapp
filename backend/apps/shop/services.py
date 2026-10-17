@@ -27,6 +27,7 @@ from apps.catalog import services as catalog
 from apps.catalog.models import Collection, Product
 from apps.inbox import sending
 from apps.inbox.models import Conversation, Message
+from apps.offers import services as offers
 from apps.orders import services as orders
 from apps.orders.models import StoreSettings
 from apps.whatsapp.models import PhoneNumber
@@ -249,6 +250,21 @@ def _decimal(value: Any) -> Decimal | None:
     return number if number.is_finite() and number >= 0 else None
 
 
+def is_offer_code(workspace_id, text: str | None) -> bool:
+    """Whether ``text`` is exactly an active offer code (the offers app answers it)."""
+    return offers.match_code(workspace_id, text) is not None
+
+
+def other_kind_in_cart(workspace, lines, product: Product) -> bool:
+    """Whether the cart already holds items of the other kind than ``product``."""
+    ids = [line.product_id for line in lines if line.product_id != product.pk]
+    if not ids:
+        return False
+    return (
+        Product.objects.filter(workspace=workspace, pk__in=ids).exclude(kind=product.kind).exists()
+    )
+
+
 def reply_id_from_payload(payload: Mapping[str, Any]) -> str | None:
     """The interactive reply id stored in Meta's raw message (when the event didn't carry it)."""
     if not isinstance(payload, Mapping):
@@ -451,6 +467,8 @@ class _Turn:
             self.reset_state()
             self.send(content.menu_content(self.store))
             return True
+        if is_offer_code(self.workspace.pk, self.message.text):
+            return False  # the offers app answers codes; never a quantity or an address
         if self.session.state == BotSession.State.AWAITING_QUANTITY:
             text = normalize_text(self.message.text)
             if QUANTITY_RE.fullmatch(text):
@@ -564,6 +582,11 @@ class _Turn:
         if cap < 1:
             return False
         lines = self.cart_lines()
+        if other_kind_in_cart(self.workspace, lines, product):
+            # A cart holds products or services, never both (one order is a delivery or a
+            # booking): nothing is added.
+            self.send(content.mixed_cart_content(product))
+            return True
         existing = sum(line.quantity for line in lines if line.product_id == product.pk)
         in_cart = min(existing + requested, cap)
         others = [line for line in lines if line.product_id != product.pk]

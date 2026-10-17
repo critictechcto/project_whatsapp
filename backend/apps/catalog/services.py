@@ -150,7 +150,8 @@ def price_items(workspace, lines: Iterable[CartLine]) -> PricedCart:
     Lines for the same product (by id or SKU) are merged. Unknown and inactive products and
     products buyers see as out of stock are dropped. Quantities are capped at
     ``max_qty_per_order`` and at tracked stock; a capped line is also reported in ``dropped``.
-    Prices are ``effective_price_paise`` (the sale price when set).
+    Prices are ``effective_price_paise`` (the sale price when set). Services never track stock,
+    so they are never dropped or capped for stock; ``line.product.kind`` tells them apart.
     """
     wanted = [line for line in lines if isinstance(line.quantity, int) and line.quantity > 0]
     ids = {pid for line in wanted if (pid := _as_uuid(line.product_id)) is not None}
@@ -207,6 +208,18 @@ def price_items(workspace, lines: Iterable[CartLine]) -> PricedCart:
     )
 
 
+def _without_services(workspace, merged: dict[uuid.UUID, int]) -> dict[uuid.UUID, int]:
+    """Services never track stock: drop their lines."""
+    if not merged:
+        return merged
+    service_ids = set(
+        Product.objects.filter(
+            workspace=workspace, pk__in=list(merged), kind=Product.Kind.SERVICE
+        ).values_list("pk", flat=True)
+    )
+    return {pk: quantity for pk, quantity in merged.items() if pk not in service_ids}
+
+
 def _merge_stock_lines(lines: Iterable[tuple[uuid.UUID, int]]) -> dict[uuid.UUID, int]:
     merged: dict[uuid.UUID, int] = {}
     for product_id, quantity in lines:
@@ -225,9 +238,10 @@ def reserve_stock(workspace, lines: Iterable[tuple[uuid.UUID, int]]) -> None:
     Each product is decremented with a conditional ``UPDATE ... WHERE stock_qty >= n``, so
     concurrent checkouts can never oversell. Untracked products are skipped. When any line
     can't be reserved, nothing is (a savepoint is rolled back) and :class:`OutOfStock` is
-    raised with every failing item. Call inside the caller's ``transaction.atomic``.
+    raised with every failing item. Services are skipped. Call inside the caller's
+    ``transaction.atomic``.
     """
-    merged = _merge_stock_lines(lines)
+    merged = _without_services(workspace, _merge_stock_lines(lines))
     if not merged:
         return
     failures: list[dict] = []
@@ -264,8 +278,8 @@ def reserve_stock(workspace, lines: Iterable[tuple[uuid.UUID, int]]) -> None:
 
 def release_stock(workspace, lines: Iterable[tuple[uuid.UUID, int]]) -> None:
     """Give back tracked stock taken by :func:`reserve_stock`. Untracked or deleted products
-    are skipped."""
-    merged = _merge_stock_lines(lines)
+    and services are skipped."""
+    merged = _without_services(workspace, _merge_stock_lines(lines))
     if not merged:
         return
     now = timezone.now()
@@ -309,8 +323,10 @@ def public_image_url(product: Product) -> str | None:
 
 
 def meta_catalog_product_counts(meta_catalog: MetaCatalog) -> dict[str, int]:
-    """Sync and review counts of the workspace's products (all of them sync to the catalog)."""
-    products = Product.objects.filter(workspace_id=meta_catalog.workspace_id)
+    """Sync and review counts of the workspace's products (services never sync)."""
+    products = Product.objects.filter(
+        workspace_id=meta_catalog.workspace_id, kind=Product.Kind.PRODUCT
+    )
     return products.aggregate(
         synced=Count("pk", filter=Q(meta_sync_status=Product.SyncStatus.SYNCED)),
         pending=Count("pk", filter=Q(meta_sync_status=Product.SyncStatus.PENDING)),

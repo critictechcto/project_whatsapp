@@ -233,15 +233,20 @@ def test_starter_templates_are_created_submitted_and_mapped(auth_client, workspa
     assert response.status_code == 200, response.content
     assert response.json() == {"created": names, "existing": []}
     created = MessageTemplate.objects.filter(waba=number.waba, name__in=names)
-    assert created.count() == 6
+    assert created.count() == 9
     assert set(created.values_list("status", flat=True)) == {MessageTemplate.Status.PENDING}
     assert set(created.values_list("category", flat=True)) == {"UTILITY"}
     store = StoreSettings.objects.get(workspace=workspace)
     assert store.confirmed_template_id == confirmed.pk
     assert store.shipped_template.name == "upc_order_shipped"
     assert store.payment_reminder_template.name == "upc_payment_reminder"
+    assert store.booking_reminder_template.name == "upc_booking_reminder"
+    reminder = created.get(name="upc_booking_reminder")
+    buttons = next(c for c in reminder.components if c["type"] == "BUTTONS")["buttons"]
+    assert [b["type"] for b in buttons] == ["QUICK_REPLY"] * 3
+    assert [b["text"] for b in buttons] == ["I'll be there", "Change time", "Cancel booking"]
 
     again = client.post(f"{STORE}starter-templates/", format="json")
 
     assert again.json() == {"created": [], "existing": names}
-    assert MessageTemplate.objects.filter(waba=number.waba, name__in=names).count() == 6
+    assert MessageTemplate.objects.filter(waba=number.waba, name__in=names).count() == 9

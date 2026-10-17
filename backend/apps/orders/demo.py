@@ -1,6 +1,8 @@
-"""Demo store for ``manage.py seed_demo``: "Sharma Sweets" settings and orders in every status.
+"""Demo store for ``manage.py seed_demo``: "Sharma Sweets" settings and orders in every status,
+including a few bookings of services.
 
-Uses the catalog's demo products when there are any and otherwise creates a few minimal ones.
+Uses the catalog's demo products and services when there are any and otherwise creates a few
+minimal ones.
 Rows are written directly (no messages are sent, no stock moves, no events are emitted) and keyed
 on natural keys (SKU, phone, order number), so running the seeder again changes nothing.
 """
@@ -14,8 +16,15 @@ from apps.contacts.models import Contact
 from apps.whatsapp.models import PhoneNumber
 from common.phone import to_wa_id
 
-from . import transitions
-from .models import Order, OrderCounter, OrderEvent, OrderItem, StoreSettings
+from . import booking, transitions
+from .models import (
+    Order,
+    OrderCounter,
+    OrderEvent,
+    OrderItem,
+    StoreSettings,
+    default_booking_windows,
+)
 
 STORE_NAME = "Sharma Sweets"
 ORDER_PREFIX = "SS"
@@ -45,6 +54,12 @@ FALLBACK_PRODUCTS = [
     ("SS-LADDOO-500", "Motichoor Laddoo 500 g", 29900),
     ("SS-SOAN-400", "Soan Papdi 400 g", 19900),
     ("SS-NAMKEEN-400", "Bhujia Namkeen 400 g", 14900),
+]
+
+# Used only when the catalog has no services: (sku, name, price_paise, duration_minutes).
+FALLBACK_SERVICES = [
+    ("SS-TASTING-SESSION", "Mithai Tasting Session", 49900, 30),
+    ("SS-WEDDING-CONSULT", "Wedding Sweets Consultation", 99900, 45),
 ]
 
 # (name, phone, line1, city, state, pincode)
@@ -115,6 +130,18 @@ DEMO_ORDERS = [
     (1016, S.PENDING_PAYMENT, P.UNPAID, ONLINE, 7, 0.2, [(0, 3)], {}),
 ]
 
+# Bookings: the same shape, lines index services, and extra holds the requested day (days from
+# today) and window (index into the default windows).
+SHOP = Order.PaymentMethod.PAY_AT_SHOP
+DEMO_BOOKINGS = [
+    (1017, S.REQUESTED, P.COD_PENDING, SHOP, 1, 2, [(0, 1)], {"day": 1, "window": 0}),
+    (1018, S.CONFIRMED, P.PAID, ONLINE, 2, 20, [(1, 1)], {"day": 2, "window": 1}),
+    (1019, S.COMPLETED, P.COD_COLLECTED, SHOP, 3, 96, [(0, 1)], {"day": -2, "window": 2}),
+    (1020, S.NO_SHOW, P.COD_PENDING, SHOP, 4, 150, [(1, 1)], {"day": -4, "window": 0}),
+    (1021, S.AWAITING_TIME, P.UNPAID, "", 0, 0.4, [(0, 1)], {}),
+]
+BOOKED = (S.CONFIRMED, S.COMPLETED, S.NO_SHOW)
+
 # Statuses an order passed through, used for its timestamps.
 PROGRESS = [S.CONFIRMED, S.PACKED, S.SHIPPED, S.DELIVERED]
 TIMESTAMP_FIELDS = {
@@ -135,11 +162,14 @@ def seed(workspace) -> None:
     if phone_number is None:
         return
     products = _products(workspace)
+    services = _services(workspace)
     now = timezone.now().replace(microsecond=0)
     for spec in DEMO_ORDERS:
         _seed_order(workspace, phone_number, products, spec, now)
+    for spec in DEMO_BOOKINGS:
+        _seed_order(workspace, phone_number, services, spec, now, kind=Order.Kind.BOOKING)
     counter, _ = OrderCounter.objects.get_or_create(workspace=workspace)
-    highest = max(spec[0] for spec in DEMO_ORDERS)
+    highest = max(spec[0] for spec in [*DEMO_ORDERS, *DEMO_BOOKINGS])
     if counter.last_value < highest:
         counter.last_value = highest
         counter.save(update_fields=["last_value", "updated_at"])
@@ -154,9 +184,9 @@ def _seed_store_settings(workspace) -> StoreSettings:
 
 def _products(workspace) -> list[Product]:
     products = list(
-        Product.objects.filter(workspace=workspace, is_active=True).order_by("position", "name")[
-            : len(FALLBACK_PRODUCTS)
-        ]
+        Product.objects.filter(
+            workspace=workspace, is_active=True, kind=Product.Kind.PRODUCT
+        ).order_by("position", "name")[: len(FALLBACK_PRODUCTS)]
     )
     if products:
         return products
@@ -168,6 +198,31 @@ def _products(workspace) -> list[Product]:
             defaults={"name": name, "price_paise": price, "position": position},
         )
         created.append(product)
+    return created
+
+
+def _services(workspace) -> list[Product]:
+    services = list(
+        Product.objects.filter(
+            workspace=workspace, is_active=True, kind=Product.Kind.SERVICE
+        ).order_by("position", "name")[: len(FALLBACK_SERVICES)]
+    )
+    if services:
+        return services
+    created = []
+    for position, (sku, name, price, duration) in enumerate(FALLBACK_SERVICES, start=100):
+        service, _ = Product.objects.get_or_create(
+            workspace=workspace,
+            sku=sku,
+            defaults={
+                "kind": Product.Kind.SERVICE,
+                "name": name,
+                "price_paise": price,
+                "duration_minutes": duration,
+                "position": position,
+            },
+        )
+        created.append(service)
     return created
 
 
@@ -196,7 +251,7 @@ def _address(buyer) -> dict:
     }
 
 
-def _seed_order(workspace, phone_number, products, spec, now) -> None:
+def _seed_order(workspace, phone_number, products, spec, now, *, kind=Order.Kind.DELIVERY) -> None:
     sequence, status, payment_status, method, buyer_index, hours_ago, lines, extra = spec
     number = f"{ORDER_PREFIX}-{sequence}"
     if Order.objects.filter(workspace=workspace, number=number).exists():
@@ -211,13 +266,19 @@ def _seed_order(workspace, phone_number, products, spec, now) -> None:
         unit_price = product.sale_price_paise or product.price_paise
         items.append((position, product, unit_price, quantity))
     subtotal = sum(unit_price * quantity for _, _, unit_price, quantity in items)
-    shipping = 0 if subtotal >= FREE_SHIPPING_ABOVE_PAISE else SHIPPING_FEE_PAISE
+    is_booking = kind == Order.Kind.BOOKING
+    shipping = 0 if is_booking or subtotal >= FREE_SHIPPING_ABOVE_PAISE else SHIPPING_FEE_PAISE
     cod_fee = COD_FEE_PAISE if method == COD else 0
     in_checkout = status in transitions.CHECKOUT_STATUSES
-    has_address = status not in (S.DRAFT, S.AWAITING_CONFIRMATION, S.AWAITING_ADDRESS)
+    has_address = not is_booking and status not in (
+        S.DRAFT,
+        S.AWAITING_CONFIRMATION,
+        S.AWAITING_ADDRESS,
+    )
 
     order = Order(
         workspace=workspace,
+        kind=kind,
         contact=contact,
         phone_number=phone_number,
         number=number,
@@ -237,6 +298,8 @@ def _seed_order(workspace, phone_number, products, spec, now) -> None:
     )
     if "quoted_delta" in extra:
         order.quoted_total_paise = subtotal + extra["quoted_delta"]
+    if is_booking and "day" in extra:
+        _set_booking_time(order, extra, now)
     if extra.get("awb"):
         order.courier_name = DELHIVERY["courier_name"]
         order.awb_number = extra["awb"]
@@ -264,12 +327,25 @@ def _seed_order(workspace, phone_number, products, spec, now) -> None:
     _seed_events(order, extra, created_at)
 
 
+def _set_booking_time(order: Order, extra: dict, now) -> None:
+    tz = booking.workspace_zone(order.workspace)
+    window = default_booking_windows()[extra["window"]]
+    order.requested_date = now.astimezone(tz).date() + timedelta(days=extra["day"])
+    order.requested_window = window
+    if order.status in BOOKED:
+        order.appointment_at = booking.window_start(order.requested_date, window, tz)
+    if order.status in (S.COMPLETED, S.NO_SHOW):
+        order.reminder_sent_at = order.appointment_at - timedelta(hours=3)
+
+
 def _set_timestamps(order: Order, status: str, payment_status: str, created_at) -> None:
     step = timedelta(hours=1)
     if status in PROGRESS or status == S.NEEDS_ATTENTION:
         reached = PROGRESS[: PROGRESS.index(status) + 1] if status in PROGRESS else []
         for index, passed in enumerate(reached):
             setattr(order, TIMESTAMP_FIELDS[passed], created_at + step * (index + 1) / 4)
+    if status in BOOKED:
+        order.confirmed_at = created_at + step
     if status == S.CANCELLED:
         order.cancelled_at = created_at + step
     if status == S.EXPIRED:
@@ -277,7 +353,7 @@ def _set_timestamps(order: Order, status: str, payment_status: str, created_at) 
     if payment_status in (P.PAID, P.REFUNDED_MANUAL):
         order.paid_at = created_at + step / 6
     if payment_status == P.COD_COLLECTED:
-        order.cod_collected_at = order.delivered_at
+        order.cod_collected_at = order.delivered_at or created_at + step * 2
     if payment_status == P.REFUNDED_MANUAL:
         order.refunded_at = created_at + step * 2
 
@@ -287,7 +363,7 @@ def _seed_events(order: Order, extra: dict, created_at) -> None:
     if order.status != S.DRAFT:
         actor = (
             OrderEvent.Actor.DASHBOARD
-            if order.status in (S.PACKED, S.SHIPPED, S.DELIVERED)
+            if order.status in (S.PACKED, S.SHIPPED, S.DELIVERED, *BOOKED)
             or (order.status == S.CANCELLED and order.payment_status == P.REFUNDED_MANUAL)
             else OrderEvent.Actor.SYSTEM
         )

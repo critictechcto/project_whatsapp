@@ -14,6 +14,7 @@ from apps.inbox import sending
 from apps.inbox.interactive import InvalidInteractiveContent
 from apps.inbox.models import Conversation, Message
 
+from . import booking
 from .models import Order
 from .money import format_inr
 
@@ -23,17 +24,22 @@ SOURCE = Message.Source.COMMERCE
 SOURCE_REF_PREFIX = "order:"
 MAX_SUMMARY_LINES = 12
 IDEMPOTENCY_KEY_MAX_LENGTH = 255
+MINUS = "−"  # noqa: RUF001 (the minus sign shown before a discount)
 
 STATUS_LABELS = {
     Order.Status.DRAFT: "Draft",
     Order.Status.AWAITING_CONFIRMATION: "Waiting for your confirmation",
     Order.Status.AWAITING_ADDRESS: "Waiting for your address",
+    Order.Status.AWAITING_TIME: "Choose a day and time",
     Order.Status.AWAITING_PAYMENT_METHOD: "Choose a payment method",
     Order.Status.PENDING_PAYMENT: "Waiting for payment",
+    Order.Status.REQUESTED: "Waiting for the store to confirm the time",
     Order.Status.CONFIRMED: "Confirmed",
     Order.Status.PACKED: "Packed",
     Order.Status.SHIPPED: "Shipped",
     Order.Status.DELIVERED: "Delivered",
+    Order.Status.COMPLETED: "Completed",
+    Order.Status.NO_SHOW: "Missed",
     Order.Status.CANCELLED: "Cancelled",
     Order.Status.EXPIRED: "Expired",
     Order.Status.NEEDS_ATTENTION: "Being reviewed by the store",
@@ -44,6 +50,10 @@ PAYMENT_LABELS = {
     Order.PaymentStatus.COD_PENDING: "Cash on delivery",
     Order.PaymentStatus.COD_COLLECTED: "Cash on delivery (paid)",
     Order.PaymentStatus.REFUNDED_MANUAL: "Refunded",
+}
+PAY_AT_SHOP_LABELS = {
+    Order.PaymentStatus.COD_PENDING: "Pay at the shop",
+    Order.PaymentStatus.COD_COLLECTED: "Paid at the shop",
 }
 
 
@@ -120,21 +130,38 @@ def item_lines(order: Order) -> list[str]:
     return lines
 
 
+def discount_line(order: Order) -> str:
+    """``DIWALI`` minus sign and amount when an offer applies, else ``""``."""
+    if not order.discount_paise:
+        return ""
+    return f"{order.offer_code or 'Offer'} {MINUS}{format_inr(order.discount_paise)}"
+
+
 def totals_lines(order: Order) -> list[str]:
     lines = [f"Subtotal: {format_inr(order.subtotal_paise)}"]
-    lines.append(
-        f"Shipping: {format_inr(order.shipping_paise)}"
-        if order.shipping_paise
-        else "Shipping: Free"
-    )
+    if discount := discount_line(order):
+        lines.append(discount)
+    if not order.is_booking:
+        lines.append(
+            f"Shipping: {format_inr(order.shipping_paise)}"
+            if order.shipping_paise
+            else "Shipping: Free"
+        )
     if order.cod_fee_paise:
         lines.append(f"Cash on delivery fee: {format_inr(order.cod_fee_paise)}")
     lines.append(f"*Total: {format_inr(order.total_paise)}*")
     return lines
 
 
+def heading(order: Order) -> str:
+    return f"*{'Booking' if order.is_booking else 'Order'} {order.number}*"
+
+
 def order_summary(order: Order) -> str:
-    return "\n".join([f"*Order {order.number}*", *item_lines(order), "", *totals_lines(order)])
+    lines = [heading(order), *item_lines(order), "", *totals_lines(order)]
+    if order.is_booking and (when := booking.requested_text(order)):
+        lines += ["", f"*When:* {when}"]
+    return "\n".join(lines)
 
 
 def format_address(address: dict | None) -> str:
@@ -152,14 +179,22 @@ def format_address(address: dict | None) -> str:
 
 
 def payment_label(order: Order) -> str:
+    if order.payment_method == Order.PaymentMethod.PAY_AT_SHOP and (
+        label := PAY_AT_SHOP_LABELS.get(order.payment_status)
+    ):
+        return label
     return PAYMENT_LABELS.get(order.payment_status, order.payment_status)
 
 
 def status_card(order: Order) -> str:
     lines = [
-        f"*Order {order.number}*",
+        heading(order),
         f"Status: {STATUS_LABELS.get(order.status, order.status)}",
         f"Payment: {payment_label(order)}",
+    ]
+    if order.is_booking and (when := booking.appointment_text(order)):
+        lines.append(f"When: {when}")
+    lines += [
         "",
         *item_lines(order),
         "",

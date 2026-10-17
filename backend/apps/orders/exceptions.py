@@ -31,8 +31,10 @@ class CatalogNotConnected(Conflict):
 class CheckoutRejected(ValueError):
     """``start_checkout`` could not create an order; the buyer was already told why.
 
-    ``reason`` is ``empty_cart`` (nothing in the cart can be ordered) or ``below_minimum``
-    (the subtotal is under ``StoreSettings.min_order_paise``).
+    ``reason`` is ``empty_cart`` (nothing in the cart can be ordered), ``below_minimum``
+    (the subtotal is under ``StoreSettings.min_order_paise``; deliveries only), ``mixed_cart``
+    (services and products together), ``payment_unavailable`` (a booking with neither online
+    payment nor pay at the shop) or ``no_booking_times`` (a booking with no open day).
     """
 
     def __init__(self, reason: str, message: str = "") -> None:

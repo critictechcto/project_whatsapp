@@ -33,7 +33,20 @@ def test_seed_creates_orders_in_every_status_and_is_idempotent(workspace):
     assert counts(workspace) == first
     store = StoreSettings.objects.get(workspace=workspace)
     assert (store.store_name, store.enabled, store.order_prefix) == ("Sharma Sweets", True, "SS")
-    assert services.next_order_number(workspace) == "SS-1017"
+    assert services.next_order_number(workspace) == "SS-1022"
+    bookings = orders.filter(kind=Order.Kind.BOOKING)
+    assert bookings.count() == 5
+    assert not bookings.exclude(address=None).exists()
+    assert all(
+        item.product.kind == Product.Kind.SERVICE
+        for item in OrderItem.objects.filter(order__in=bookings).select_related("product")
+    )
+    confirmed = bookings.get(status=Order.Status.CONFIRMED)
+    assert confirmed.appointment_at is not None and confirmed.requested_window is not None
+    assert all(
+        item.product.kind == Product.Kind.PRODUCT
+        for item in OrderItem.objects.filter(order__kind=Order.Kind.DELIVERY, workspace=workspace)
+    )
 
 
 def test_seed_uses_catalog_products_when_there_are_any(workspace):
@@ -42,6 +55,10 @@ def test_seed_uses_catalog_products_when_there_are_any(workspace):
 
     demo.seed(workspace)
 
-    assert Product.objects.filter(workspace=workspace).count() == 2
-    used = set(OrderItem.objects.filter(workspace=workspace).values_list("product_id", flat=True))
+    assert Product.objects.filter(workspace=workspace, kind=Product.Kind.PRODUCT).count() == 2
+    used = set(
+        OrderItem.objects.filter(workspace=workspace, order__kind=Order.Kind.DELIVERY).values_list(
+            "product_id", flat=True
+        )
+    )
     assert used == {product.pk for product in products}

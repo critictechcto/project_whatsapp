@@ -26,6 +26,19 @@ def default_menu_keywords() -> list[str]:
     return list(DEFAULT_MENU_KEYWORDS)
 
 
+def default_booking_days() -> list[int]:
+    """Every day of the week (Monday is 0)."""
+    return [0, 1, 2, 3, 4, 5, 6]
+
+
+def default_booking_windows() -> list[dict]:
+    return [
+        {"label": "Morning", "start": "09:00", "end": "12:00"},
+        {"label": "Afternoon", "start": "12:00", "end": "16:00"},
+        {"label": "Evening", "start": "16:00", "end": "20:00"},
+    ]
+
+
 class StoreSettings(UUIDTimeStampedModel):
     """One per workspace, created lazily by ``services.get_store_settings``."""
 
@@ -41,6 +54,14 @@ class StoreSettings(UUIDTimeStampedModel):
         "delivered": "delivered_template",
         "cancelled": "cancelled_template",
         "payment_reminder": "payment_reminder_template",
+    }
+    # Booking notification key -> template FK field (a changed time reuses the confirmation).
+    BOOKING_TEMPLATE_FIELDS = {
+        "booking_confirmed": "booking_confirmed_template",
+        "booking_rescheduled": "booking_confirmed_template",
+        "booking_cancelled": "booking_cancelled_template",
+        "booking_reminder": "booking_reminder_template",
+        "booking_day_before": "booking_reminder_template",
     }
 
     workspace = models.OneToOneField(
@@ -63,6 +84,13 @@ class StoreSettings(UUIDTimeStampedModel):
     serviceable_pincodes = models.JSONField(default=list, blank=True)
     support_message = models.TextField(max_length=1024, blank=True)
     powered_by_footer = models.BooleanField(default=True)
+    # Bookings (services): payment at the shop, bookable days and windows, reminders.
+    pay_at_shop_enabled = models.BooleanField(default=True)
+    booking_days = models.JSONField(default=default_booking_days, blank=True)
+    booking_windows = models.JSONField(default=default_booking_windows, blank=True)
+    booking_days_ahead = models.PositiveSmallIntegerField(default=7)
+    booking_reminder_hours = models.PositiveSmallIntegerField(default=3)
+    booking_day_before_reminder = models.BooleanField(default=True)
     # The store number; null means the workspace default number.
     phone_number = models.ForeignKey(
         "whatsapp.PhoneNumber",
@@ -114,6 +142,27 @@ class StoreSettings(UUIDTimeStampedModel):
         blank=True,
         related_name="+",
     )
+    booking_confirmed_template = models.ForeignKey(
+        "message_templates.MessageTemplate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    booking_cancelled_template = models.ForeignKey(
+        "message_templates.MessageTemplate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    booking_reminder_template = models.ForeignKey(
+        "message_templates.MessageTemplate",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
 
     class Meta(UUIDTimeStampedModel.Meta):
         verbose_name = "store settings"
@@ -151,12 +200,16 @@ class Order(TenantScopedModel):
         DRAFT = "draft", "Draft"
         AWAITING_CONFIRMATION = "awaiting_confirmation", "Awaiting confirmation"
         AWAITING_ADDRESS = "awaiting_address", "Awaiting address"
+        AWAITING_TIME = "awaiting_time", "Awaiting time"
         AWAITING_PAYMENT_METHOD = "awaiting_payment_method", "Awaiting payment method"
         PENDING_PAYMENT = "pending_payment", "Pending payment"
+        REQUESTED = "requested", "Requested"
         CONFIRMED = "confirmed", "Confirmed"
         PACKED = "packed", "Packed"
         SHIPPED = "shipped", "Shipped"
         DELIVERED = "delivered", "Delivered"
+        COMPLETED = "completed", "Completed"
+        NO_SHOW = "no_show", "No-show"
         CANCELLED = "cancelled", "Cancelled"
         EXPIRED = "expired", "Expired"
         NEEDS_ATTENTION = "needs_attention", "Needs attention"
@@ -171,6 +224,11 @@ class Order(TenantScopedModel):
     class PaymentMethod(models.TextChoices):
         ONLINE = "online", "Online"
         COD = "cod", "Cash on delivery"
+        PAY_AT_SHOP = "pay_at_shop", "Pay at the shop"
+
+    class Kind(models.TextChoices):
+        DELIVERY = "delivery", "Delivery"
+        BOOKING = "booking", "Booking"
 
     class Source(models.TextChoices):
         BOT = "bot", "Bot"
@@ -192,11 +250,12 @@ class Order(TenantScopedModel):
         "whatsapp.PhoneNumber", on_delete=models.CASCADE, related_name="+"
     )
     number = models.CharField(max_length=16)
+    kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.DELIVERY)
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.DRAFT)
     payment_status = models.CharField(
         max_length=16, choices=PaymentStatus.choices, default=PaymentStatus.UNPAID
     )
-    payment_method = models.CharField(max_length=8, choices=PaymentMethod.choices, blank=True)
+    payment_method = models.CharField(max_length=16, choices=PaymentMethod.choices, blank=True)
     source = models.CharField(max_length=16, choices=Source.choices, default=Source.BOT)
     # The inbound native-cart message this order came from ("" for bot orders).
     source_wamid = models.CharField(max_length=128, blank=True)
@@ -205,6 +264,12 @@ class Order(TenantScopedModel):
     subtotal_paise = models.PositiveIntegerField(default=0)
     shipping_paise = models.PositiveIntegerField(default=0)
     cod_fee_paise = models.PositiveIntegerField(default=0)
+    # Offer code discount (apps.offers); total = subtotal - discount + shipping (+ COD fee).
+    discount_paise = models.PositiveIntegerField(default=0)
+    offer_code = models.CharField(max_length=20, blank=True)
+    # offers.OfferClaim id, kept as a plain UUID so this app has no migration dependency on
+    # apps.offers.
+    offer_claim_id = models.UUIDField(null=True, blank=True)
     total_paise = models.PositiveIntegerField(default=0)
     # The total the buyer's WhatsApp cart showed, when it came from a native cart.
     quoted_total_paise = models.PositiveIntegerField(null=True, blank=True)
@@ -212,6 +277,17 @@ class Order(TenantScopedModel):
 
     # OrderAddress: {name, phone_e164, line1, line2, landmark, city, state, pincode, country}.
     address = models.JSONField(null=True, blank=True)
+
+    # Bookings: the day and window the buyer asked for ({label, start, end}, "HH:MM") and the
+    # appointment the seller confirmed.
+    requested_date = models.DateField(null=True, blank=True)
+    requested_window = models.JSONField(null=True, blank=True)
+    appointment_at = models.DateTimeField(null=True, blank=True)
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    day_before_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    # The buyer's answers to a reminder: "I'll be there" and "Change time".
+    attendance_confirmed_at = models.DateTimeField(null=True, blank=True)
+    reschedule_requested_at = models.DateTimeField(null=True, blank=True)
 
     courier_name = models.CharField(max_length=100, blank=True)
     awb_number = models.CharField(max_length=64, blank=True)
@@ -260,6 +336,7 @@ class Order(TenantScopedModel):
                 fields=["workspace", "contact", "created_at"], name="orders_ws_contact_idx"
             ),
             models.Index(fields=["status", "expires_at"], name="orders_status_expires_idx"),
+            models.Index(fields=["status", "appointment_at"], name="orders_status_appointment_idx"),
         ]
 
     def __str__(self) -> str:
@@ -270,8 +347,12 @@ class Order(TenantScopedModel):
         return transitions.stage_of(self.status)
 
     @property
+    def is_booking(self) -> bool:
+        return self.kind == self.Kind.BOOKING
+
+    @property
     def allowed_transitions(self) -> list[str]:
-        return transitions.allowed_transitions(self.status)
+        return transitions.allowed_transitions(self.status, kind=self.kind)
 
 
 class OrderItem(TenantScopedModel):
@@ -317,6 +398,13 @@ class OrderEvent(TenantScopedModel):
         NOTIFICATION_SENT = "notification_sent", "Notification sent"
         NOTIFICATION_FAILED = "notification_failed", "Notification failed"
         NOTE = "note", "Note"
+        TIME_REQUESTED = "time_requested", "Time requested"
+        APPOINTMENT_SET = "appointment_set", "Appointment set"
+        REMINDER_SENT = "reminder_sent", "Reminder sent"
+        ATTENDANCE_CONFIRMED = "attendance_confirmed", "Attendance confirmed"
+        RESCHEDULE_REQUESTED = "reschedule_requested", "Reschedule requested"
+        OFFER_APPLIED = "offer_applied", "Offer applied"
+        OFFER_REMOVED = "offer_removed", "Offer removed"
 
     class Actor(models.TextChoices):
         BUYER = "buyer", "Buyer"

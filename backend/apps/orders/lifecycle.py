@@ -7,10 +7,11 @@ order row (:func:`lock_order`) before changing it.
 
 import logging
 from collections.abc import Iterable
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from functools import partial
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -23,9 +24,9 @@ from apps.payments.exceptions import (
 )
 from common import events, realtime
 
-from . import notifications, transitions
+from . import booking, notifications, transitions
 from .exceptions import InvalidOrderTransition
-from .models import Order, OrderEvent
+from .models import Order, OrderEvent, StoreSettings
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ def set_status(
     """
     old_status = order.status
     if not force:
-        transitions.check_transition(old_status, to_status, system=system)
+        transitions.check_transition(old_status, to_status, kind=order.kind, system=system)
     now = timezone.now()
     order.status = to_status
     if stamp := STATUS_TIMESTAMPS.get(to_status):
@@ -274,7 +275,14 @@ def transition(
         raise ValidationError({"tracking_url": ["Use an https:// link."]})
     with transaction.atomic():
         order = _locked(order)
-        transitions.check_transition(order.status, to_status)
+        transitions.check_transition(order.status, to_status, kind=order.kind)
+        if order.is_booking and to_status == Status.CONFIRMED and order.appointment_at is None:
+            raise InvalidOrderTransition(
+                order.status,
+                to_status,
+                allowed=order.allowed_transitions,
+                detail="Set the appointment time to confirm a booking (confirm-booking).",
+            )
         if to_status == Status.SHIPPED:
             order.courier_name = courier_name[:100]
             order.awb_number = awb_number[:64]
@@ -297,7 +305,7 @@ def cancel_order(
 ) -> Order:
     with transaction.atomic():
         order = _locked(order)
-        transitions.check_transition(order.status, Status.CANCELLED, system=system)
+        transitions.check_transition(order.status, Status.CANCELLED, kind=order.kind, system=system)
         if order.stock_reserved:
             if restock:
                 release_stock(order, actor=actor, user=user, detail="Stock returned on cancel.")
@@ -314,18 +322,22 @@ def cancel_order(
 def mark_cod_collected(order: Order, *, actor: str, user=None) -> Order:
     with transaction.atomic():
         order = _locked(order)
-        if (
-            order.payment_method != Order.PaymentMethod.COD
-            or order.payment_status != Order.PaymentStatus.COD_PENDING
-            or order.status not in (Status.SHIPPED, Status.DELIVERED)
+        at_shop = order.payment_method == Order.PaymentMethod.PAY_AT_SHOP
+        if order.payment_status != Order.PaymentStatus.COD_PENDING or not (
+            (
+                order.payment_method == Order.PaymentMethod.COD
+                and order.status in (Status.SHIPPED, Status.DELIVERED)
+            )
+            or (at_shop and order.status in (Status.CONFIRMED, Status.COMPLETED))
         ):
             raise InvalidOrderTransition(
                 order.status,
                 Order.PaymentStatus.COD_COLLECTED,
                 allowed=order.allowed_transitions,
                 detail=(
-                    "Cash can be marked collected only for cash-on-delivery orders that are "
-                    "shipped or delivered and not yet collected."
+                    "Payment can be marked collected only for cash-on-delivery orders that are "
+                    "shipped or delivered, or pay-at-shop bookings that are confirmed or "
+                    "completed, and not yet collected."
                 ),
             )
         order.payment_status = Order.PaymentStatus.COD_COLLECTED
@@ -336,7 +348,7 @@ def mark_cod_collected(order: Order, *, actor: str, user=None) -> Order:
             OrderEvent.Type.COD_COLLECTED,
             actor=actor,
             user=user,
-            detail="Cash collected on delivery.",
+            detail="Paid at the shop." if at_shop else "Cash collected on delivery.",
         )
         payment_changed(order, actor=actor, user=user)
     return order
@@ -393,9 +405,162 @@ def open_orders_for_workspaces(workspace_ids: Iterable, *, limit: int = 10) -> l
     )
 
 
-def confirm_booking(order, *, appointment_at, actor, user=None):
-    """Confirm or move a booking's appointment (docs/contracts/services-and-offers.md).
+def confirm_booking(order: Order, *, appointment_at, actor: str, user=None) -> Order:
+    """Confirm a requested booking at ``appointment_at``, or move a confirmed one
+    (docs/contracts/services-and-offers.md, "Merchant API").
 
-    Stub until the booking checkout lands.
+    Sets ``appointment_at`` and clears both reminders (sent again for the new time), the buyer's
+    attendance answer and a pending reschedule request, records ``appointment_set`` and
+    notifies the buyer. A naive ``appointment_at`` is workspace time. Raises
+    :class:`InvalidOrderTransition` (409) for anything but a ``requested`` or ``confirmed``
+    booking.
     """
-    raise NotImplementedError
+    with transaction.atomic():
+        order = _locked(order)
+        if not order.is_booking or order.status not in (Status.REQUESTED, Status.CONFIRMED):
+            raise InvalidOrderTransition(
+                order.status,
+                Status.CONFIRMED,
+                allowed=order.allowed_transitions,
+                detail="Only requested or confirmed bookings can be given an appointment time.",
+            )
+        if timezone.is_naive(appointment_at):
+            appointment_at = timezone.make_aware(
+                appointment_at, booking.workspace_zone(order.workspace)
+            )
+        rescheduled = order.status == Status.CONFIRMED
+        if rescheduled and order.appointment_at == appointment_at:
+            return order
+        order.appointment_at = appointment_at
+        order.reminder_sent_at = None
+        order.day_before_reminder_sent_at = None
+        order.reschedule_requested_at = None
+        order.attendance_confirmed_at = None
+        when = booking.format_moment(appointment_at, order.workspace)
+        record_event(
+            order,
+            OrderEvent.Type.APPOINTMENT_SET,
+            actor=actor,
+            user=user,
+            detail=f"Appointment moved to {when}."
+            if rescheduled
+            else f"Appointment set for {when}.",
+            metadata={"appointment_at": appointment_at.isoformat()},
+        )
+        if rescheduled:
+            order.save()
+            broadcast_updated(order)
+            notifications.notify_buyer(order, "booking_rescheduled", actor=actor, user=user)
+        else:
+            set_status(order, Status.CONFIRMED, actor=actor, user=user)
+            notifications.notify_buyer(order, Status.CONFIRMED, actor=actor, user=user)
+    return order
+
+
+# --- Booking reminders --------------------------------------------------------------------------
+
+MAX_REMINDER_HOURS = 48
+DEFAULT_REMINDER_HOURS = 3
+DAY_BEFORE_AT = time(18, 0)  # workspace time, the day before the appointment
+# The day-before reminder is skipped when the time was set less than this before 18:00.
+DAY_BEFORE_MIN_NOTICE = timedelta(hours=12)
+
+
+def day_before_moment(order: Order):
+    """18:00 workspace time on the day before ``appointment_at``."""
+    tz = booking.workspace_zone(order.workspace)
+    day = order.appointment_at.astimezone(tz).date() - timedelta(days=1)
+    return datetime.combine(day, DAY_BEFORE_AT, tzinfo=tz)
+
+
+def _appointment_set_at(order: Order):
+    last = (
+        order.events.filter(type=OrderEvent.Type.APPOINTMENT_SET)
+        .order_by("-created_at")
+        .values_list("created_at", flat=True)
+        .first()
+    )
+    return last or order.confirmed_at or order.created_at
+
+
+def due_reminder(order: Order, store_settings, now) -> str | None:
+    """``booking_reminder``, ``booking_day_before`` or None for a locked confirmed booking.
+
+    The hours-before reminder wins when both are due (a late run sends one message).
+    """
+    if order.appointment_at is None or order.appointment_at <= now:
+        return None
+    hours = store_settings.booking_reminder_hours if store_settings else DEFAULT_REMINDER_HOURS
+    if (
+        hours
+        and order.reminder_sent_at is None
+        and order.appointment_at - now <= timedelta(hours=hours)
+    ):
+        return "booking_reminder"
+    enabled = store_settings.booking_day_before_reminder if store_settings else True
+    if not enabled or order.day_before_reminder_sent_at is not None:
+        return None
+    moment = day_before_moment(order)
+    tz = booking.workspace_zone(order.workspace)
+    appointment_day = datetime.combine(
+        order.appointment_at.astimezone(tz).date(), time.min, tzinfo=tz
+    )
+    if now < moment or now >= appointment_day:
+        return None
+    if _appointment_set_at(order) > moment - DAY_BEFORE_MIN_NOTICE:
+        return None
+    return "booking_day_before"
+
+
+REMINDER_FIELDS = {
+    "booking_reminder": "reminder_sent_at",
+    "booking_day_before": "day_before_reminder_sent_at",
+}
+
+
+def send_booking_reminders(*, now=None, batch_size: int = 500) -> int:
+    """Remind buyers of confirmed bookings (beat ``orders.send_booking_reminders``): at 18:00 the
+    day before (``booking_day_before_reminder``) and ``booking_reminder_hours`` before, each once
+    per appointment (``day_before_reminder_sent_at`` / ``reminder_sent_at``; a new time clears
+    both). Paid bookings are reminded too; pay-at-shop ones are told what to pay."""
+    now = now or timezone.now()
+    due = list(
+        Order.objects.filter(
+            kind=Order.Kind.BOOKING,
+            status=Status.CONFIRMED,
+            appointment_at__gt=now,
+            appointment_at__lte=now + timedelta(hours=MAX_REMINDER_HOURS),
+        )
+        .filter(Q(reminder_sent_at__isnull=True) | Q(day_before_reminder_sent_at__isnull=True))
+        .order_by("appointment_at")
+        .values_list("pk", "workspace_id")[:batch_size]
+    )
+    store_settings = {
+        item.workspace_id: item
+        for item in StoreSettings.objects.filter(
+            workspace_id__in={workspace_id for _, workspace_id in due}
+        )
+    }
+    sent = 0
+    for order_id, workspace_id in due:
+        with transaction.atomic():
+            order = lock_order(order_id)
+            if order is None or order.status != Status.CONFIRMED:
+                continue
+            notification = due_reminder(order, store_settings.get(workspace_id), now)
+            if notification is None:
+                continue
+            setattr(order, REMINDER_FIELDS[notification], now)
+            order.save(update_fields=[REMINDER_FIELDS[notification], "updated_at"])
+            label = "Day-before reminder" if notification == "booking_day_before" else "Reminder"
+            record_event(
+                order,
+                OrderEvent.Type.REMINDER_SENT,
+                actor=Actor.SYSTEM,
+                detail=f"{label} for the appointment at "
+                f"{booking.format_moment(order.appointment_at, order.workspace)}.",
+                metadata={"reminder": notification},
+            )
+            notifications.notify_buyer(order, notification, actor=Actor.SYSTEM)
+        sent += 1
+    return sent

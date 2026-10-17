@@ -16,6 +16,7 @@ from . import services
 from .schema_enums import (
     ORDER_EVENT_ACTORS,
     ORDER_EVENT_TYPES,
+    ORDER_KINDS,
     ORDER_SOURCES,
     ORDER_STATUSES,
     PAYMENT_METHODS,
@@ -26,6 +27,22 @@ from .schema_enums import (
 
 MAX_MENU_KEYWORDS = 20
 MAX_PINCODES = 5000
+MAX_BOOKING_WINDOWS = 10
+TIME_PATTERN = r"^([01][0-9]|2[0-3]):[0-5][0-9]$"
+
+
+class BookingWindowSerializer(serializers.Serializer):
+    """A bookable time window of a day, e.g. Morning 09:00-12:00 (24-hour ``HH:MM``)."""
+
+    label = serializers.CharField(max_length=24)
+    start = serializers.RegexField(TIME_PATTERN, help_text="HH:MM, 24-hour.")
+    end = serializers.RegexField(TIME_PATTERN, help_text="HH:MM, 24-hour; after start.")
+
+    def validate(self, attrs: dict) -> dict:
+        if attrs["start"] >= attrs["end"]:
+            raise serializers.ValidationError({"end": ["The window must end after it starts."]})
+        return attrs
+
 
 # --- Orders ---------------------------------------------------------------------------------
 
@@ -78,9 +95,14 @@ class OrderListItemSerializer(serializers.Serializer):
         choices=PAYMENT_METHODS, read_only=True, allow_null=True
     )
     source = serializers.ChoiceField(choices=ORDER_SOURCES, read_only=True)
+    kind = serializers.ChoiceField(
+        choices=ORDER_KINDS, read_only=True, help_text="delivery (products) or booking (services)."
+    )
     contact = ConversationContactSerializer(read_only=True)
     total_paise = serializers.IntegerField(read_only=True)
     item_count = serializers.IntegerField(read_only=True)
+    requested_date = serializers.DateField(read_only=True, allow_null=True)
+    appointment_at = serializers.DateTimeField(read_only=True, allow_null=True)
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
@@ -97,8 +119,28 @@ class OrderSerializer(OrderListItemSerializer):
     subtotal_paise = serializers.IntegerField(read_only=True)
     shipping_paise = serializers.IntegerField(read_only=True)
     cod_fee_paise = serializers.IntegerField(read_only=True)
+    discount_paise = serializers.IntegerField(read_only=True)
+    offer_code = serializers.CharField(read_only=True, help_text='"" when no offer applies.')
+    offer_claim_id = serializers.UUIDField(read_only=True, allow_null=True)
     currency = serializers.CharField(read_only=True)
-    address = OrderAddressSerializer(read_only=True, allow_null=True)
+    address = OrderAddressSerializer(
+        read_only=True, allow_null=True, help_text="Null for bookings."
+    )
+    requested_window = BookingWindowSerializer(read_only=True, allow_null=True)
+    reminder_sent_at = serializers.DateTimeField(
+        read_only=True, allow_null=True, help_text="When the hours-before reminder was sent."
+    )
+    day_before_reminder_sent_at = serializers.DateTimeField(
+        read_only=True, allow_null=True, help_text="When the day-before (18:00) reminder was sent."
+    )
+    attendance_confirmed_at = serializers.DateTimeField(
+        read_only=True, allow_null=True, help_text="The buyer tapped I'll be there."
+    )
+    reschedule_requested_at = serializers.DateTimeField(
+        read_only=True,
+        allow_null=True,
+        help_text="The buyer asked to change the time; cleared when the time is set again.",
+    )
     courier_name = serializers.CharField(read_only=True)
     awb_number = serializers.CharField(read_only=True)
     tracking_url = serializers.CharField(read_only=True)
@@ -154,7 +196,12 @@ class OrderEventSerializer(serializers.Serializer):
 
 class OrderTransitionSerializer(serializers.Serializer):
     to_status = serializers.ChoiceField(
-        choices=TRANSITION_TARGETS, help_text="confirmed only from needs_attention."
+        choices=TRANSITION_TARGETS,
+        help_text=(
+            "Deliveries: confirmed only from needs_attention, packed, shipped, delivered. "
+            "Bookings: requested (from needs_attention), confirmed (needs an appointment; use "
+            "confirm-booking), completed, no_show."
+        ),
     )
     courier_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
     awb_number = serializers.CharField(max_length=64, required=False, allow_blank=True)
@@ -167,6 +214,12 @@ class OrderTransitionSerializer(serializers.Serializer):
         if value and not value.lower().startswith("https://"):
             raise serializers.ValidationError("Use an https:// link.")
         return value
+
+
+class ConfirmBookingSerializer(serializers.Serializer):
+    appointment_at = serializers.DateTimeField(
+        help_text="The confirmed appointment; a time without an offset is workspace time."
+    )
 
 
 class CancelOrderSerializer(serializers.Serializer):
@@ -242,11 +295,45 @@ class StoreSettingsSerializer(serializers.Serializer):
     )
     store_link = serializers.SerializerMethodField()
     notification_templates = OrderNotificationTemplatesSerializer(required=False)
+    pay_at_shop_enabled = serializers.BooleanField(
+        required=False, help_text="Bookings may be paid at the shop after the service."
+    )
+    booking_days = serializers.ListField(
+        child=serializers.IntegerField(min_value=0, max_value=6),
+        min_length=1,
+        max_length=7,
+        required=False,
+        help_text="Days buyers can book; Monday is 0.",
+    )
+    booking_windows = BookingWindowSerializer(
+        many=True, required=False, help_text=f"1-{MAX_BOOKING_WINDOWS} windows offered each day."
+    )
+    booking_days_ahead = serializers.IntegerField(min_value=1, max_value=30, required=False)
+    booking_reminder_hours = serializers.IntegerField(
+        min_value=0, max_value=48, required=False, help_text="0 turns reminders off."
+    )
+    booking_day_before_reminder = serializers.BooleanField(
+        required=False, help_text="Also remind buyers at 18:00 the day before."
+    )
+    booking_confirmed_template_id = serializers.UUIDField(allow_null=True, required=False)
+    booking_cancelled_template_id = serializers.UUIDField(allow_null=True, required=False)
+    booking_reminder_template_id = serializers.UUIDField(allow_null=True, required=False)
     updated_at = serializers.DateTimeField(read_only=True)
 
     @extend_schema_field(serializers.URLField(allow_null=True, read_only=True))
     def get_store_link(self, store_settings) -> str | None:
         return services.store_link(store_settings)
+
+    def validate_booking_days(self, value: list[int]) -> list[int]:
+        return sorted(set(value))
+
+    def validate_booking_windows(self, value: list[dict]) -> list[dict]:
+        if not 1 <= len(value) <= MAX_BOOKING_WINDOWS:
+            raise serializers.ValidationError(f"Add 1 to {MAX_BOOKING_WINDOWS} booking windows.")
+        return [
+            {"label": window["label"].strip(), "start": window["start"], "end": window["end"]}
+            for window in value
+        ]
 
 
 class StoreChecklistItemSerializer(serializers.Serializer):
@@ -254,7 +341,8 @@ class StoreChecklistItemSerializer(serializers.Serializer):
         read_only=True,
         help_text=(
             "whatsapp_connected, products_added, payments_configured, order_templates_ready, "
-            "alert_number_verified or store_enabled"
+            "booking_templates (only with an active service), alert_number_verified or "
+            "store_enabled"
         ),
     )
     done = serializers.BooleanField(read_only=True)

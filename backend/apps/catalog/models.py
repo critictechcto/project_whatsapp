@@ -21,6 +21,8 @@ CURRENCY = "INR"
 MIN_PRICE_PAISE = 100
 DEFAULT_MAX_QTY_PER_ORDER = 10
 MAX_QTY_PER_ORDER = 99
+MIN_DURATION_MINUTES = 5
+MAX_DURATION_MINUTES = 600
 
 sku_validator = RegexValidator(
     r"^[A-Za-z0-9_-]{1,100}$", "Use 1-100 letters, digits, underscores or hyphens."
@@ -80,6 +82,13 @@ class Collection(TenantScopedModel):
 
 
 class Product(TenantScopedModel):
+    """A catalog item: a ``product`` (delivered, may track stock, syncs to Meta) or a ``service``
+    (booked; never tracks stock and never syncs to the Meta catalog)."""
+
+    class Kind(models.TextChoices):
+        PRODUCT = "product", "Product"
+        SERVICE = "service", "Service"
+
     class Availability(models.TextChoices):
         IN_STOCK = "in_stock", "In stock"
         OUT_OF_STOCK = "out_of_stock", "Out of stock"
@@ -98,6 +107,9 @@ class Product(TenantScopedModel):
         OUTDATED = "outdated", "Outdated"
 
     sku = models.CharField(max_length=100, validators=[sku_validator])
+    kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.PRODUCT)
+    # Services only (5-600 minutes, optional); always null for products.
+    duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
     name = models.CharField(max_length=200)
     description = models.TextField(max_length=1000, blank=True)
     price_paise = models.PositiveIntegerField(validators=[MinValueValidator(MIN_PRICE_PAISE)])
@@ -156,6 +168,20 @@ class Product(TenantScopedModel):
                 condition=Q(max_qty_per_order__gte=1) & Q(max_qty_per_order__lte=MAX_QTY_PER_ORDER),
                 name="catalog_product_max_qty_range",
             ),
+            models.CheckConstraint(
+                condition=Q(kind="product", duration_minutes__isnull=True)
+                | (
+                    Q(kind="service", stock_qty__isnull=True)
+                    & (
+                        Q(duration_minutes__isnull=True)
+                        | Q(
+                            duration_minutes__gte=MIN_DURATION_MINUTES,
+                            duration_minutes__lte=MAX_DURATION_MINUTES,
+                        )
+                    )
+                ),
+                name="catalog_product_kind_fields",
+            ),
         ]
         indexes = [
             models.Index(
@@ -186,8 +212,12 @@ class Product(TenantScopedModel):
         return self.price_paise
 
     @property
+    def is_service(self) -> bool:
+        return self.kind == self.Kind.SERVICE
+
+    @property
     def is_stock_tracked(self) -> bool:
-        return self.stock_qty is not None
+        return self.stock_qty is not None and not self.is_service
 
     @property
     def buyer_availability(self) -> str:
@@ -195,6 +225,24 @@ class Product(TenantScopedModel):
         if self.availability == self.Availability.OUT_OF_STOCK or self.stock_qty == 0:
             return self.Availability.OUT_OF_STOCK
         return self.Availability.IN_STOCK
+
+
+def kind_field_errors(kind: str, stock_qty, duration_minutes) -> dict[str, list[str]]:
+    """Field errors for the kind rules: services never track stock and may have a duration of
+    5-600 minutes; products have no duration."""
+    errors: dict[str, list[str]] = {}
+    if kind == Product.Kind.SERVICE:
+        if stock_qty is not None:
+            errors["stock_qty"] = ["Services don't track stock. Leave the stock empty."]
+        if duration_minutes is not None and not (
+            MIN_DURATION_MINUTES <= duration_minutes <= MAX_DURATION_MINUTES
+        ):
+            errors["duration_minutes"] = [
+                f"Use {MIN_DURATION_MINUTES} to {MAX_DURATION_MINUTES} minutes."
+            ]
+    elif duration_minutes is not None:
+        errors["duration_minutes"] = ["Only services have a duration."]
+    return errors
 
 
 class MetaCatalog(TenantScopedModel):

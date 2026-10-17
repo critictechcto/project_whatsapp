@@ -1,4 +1,5 @@
-"""Demo catalog for ``manage.py seed_demo``: "Sharma Sweets" with 3 collections and 12 products.
+"""Demo catalog for ``manage.py seed_demo``: "Sharma Sweets" with 4 collections, 12 products and
+2 bookable services.
 
 Rows are keyed on the collection name and the SKU and never overwritten, so running the seeder
 again changes nothing (and keeps edits made in the dashboard). Products have no images, so they
@@ -14,6 +15,27 @@ DEMO_COLLECTIONS = [
     ("Mithai", "Fresh sweets made every morning in pure desi ghee"),
     ("Namkeen", "Crunchy savoury snacks for chai time"),
     ("Gift boxes", "Assorted boxes for Diwali, Rakhi and weddings"),
+    ("Book a visit", "Tastings and consultations at our shop"),
+]
+
+# (sku, name, collection, price_paise, duration_minutes, description)
+DEMO_SERVICES = [
+    (
+        "SS-TASTING-SESSION",
+        "Mithai Tasting Session",
+        "Book a visit",
+        49900,
+        30,
+        "Taste 8 of our sweets with chai before you order for a function.",
+    ),
+    (
+        "SS-WEDDING-CONSULT",
+        "Wedding Sweets Consultation",
+        "Book a visit",
+        99900,
+        45,
+        "Plan sweets and gift boxes for your wedding with our head halwai.",
+    ),
 ]
 
 # (sku, name, collection, price_paise, sale_price_paise, stock_qty, availability, description)
@@ -163,6 +185,22 @@ def seed(workspace) -> None:
                 "sale_price_paise": sale_price,
                 "stock_qty": stock_qty,
                 "availability": availability,
+                "description": description,
+                "position": position,
+            },
+        )
+
+    for position, row in enumerate(DEMO_SERVICES, start=len(DEMO_PRODUCTS)):
+        sku, name, collection, price, duration, description = row
+        Product.objects.get_or_create(
+            workspace=workspace,
+            sku=sku,
+            defaults={
+                "kind": Product.Kind.SERVICE,
+                "name": name,
+                "collection": collections[collection],
+                "price_paise": price,
+                "duration_minutes": duration,
                 "description": description,
                 "position": position,
             },

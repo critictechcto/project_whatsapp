@@ -8,6 +8,11 @@ or typed text for non-Indian numbers and clients that fail it with error 1026) â
 Every buyer reply is re-validated against the order row under ``select_for_update``. Replies to
 one inbound message are sent with idempotency keys ``orders:<message_id>:<step>``, and a message
 that already has such a reply is not handled again, so redelivered events never double-send.
+
+Bookings (services, docs/contracts/services-and-offers.md) skip the address: the buyer picks a
+day (``chk:day``) and a window (``chk:win``), then *Pay online* or *Pay at the shop*; the
+finished checkout lands in ``requested`` for the seller to confirm a time. A claimed offer code
+is applied when the checkout starts (or later, :func:`apply_offer_to_active_checkout`).
 """
 
 import json
@@ -20,10 +25,12 @@ from functools import partial
 from django.db import transaction
 from django.utils import timezone
 
+from apps.catalog.models import Product
 from apps.catalog.services import OutOfStock, PricedCart, public_image_url
 from apps.contacts.models import Contact
 from apps.inbox import interactive, sending
 from apps.inbox.models import Conversation, Message
+from apps.offers import services as offers
 from apps.payments import services as payment_services
 from apps.payments.exceptions import (
     PaymentAccountInvalid,
@@ -34,7 +41,7 @@ from common.commerce import ReplyId, build_reply_id
 from common.events import MessageDeliveryUpdated, MessageRecorded
 from common.phone import InvalidPhoneNumber, normalize_e164
 
-from . import buyer, lifecycle, notifications, transitions
+from . import booking, buyer, lifecycle, notifications, transitions
 from .exceptions import CheckoutRejected
 from .models import Order, OrderEvent, OrderItem, ShopperAddress
 from .money import format_inr
@@ -183,15 +190,89 @@ def shipping_for(store_settings, subtotal_paise: int) -> int:
     return store_settings.shipping_fee_paise
 
 
+def order_total(order: Order) -> int:
+    """``subtotal - discount + shipping + cod_fee`` (bookings have no shipping or COD fee)."""
+    return (
+        max(order.subtotal_paise - order.discount_paise, 0)
+        + order.shipping_paise
+        + order.cod_fee_paise
+    )
+
+
 def cod_allowed(store_settings, order: Order) -> bool:
-    if not store_settings.cod_enabled:
+    if order.is_booking or not store_settings.cod_enabled:
         return False
     limit = store_settings.cod_max_order_paise
-    return limit is None or order.subtotal_paise + order.shipping_paise <= limit
+    due = max(order.subtotal_paise - order.discount_paise, 0) + order.shipping_paise
+    return limit is None or due <= limit
+
+
+def pay_at_shop_allowed(store_settings, order: Order) -> bool:
+    return order.is_booking and store_settings.pay_at_shop_enabled
 
 
 def online_allowed(order: Order) -> bool:
     return payment_services.online_payments_ready(order.workspace)
+
+
+def cart_kind(lines) -> str | None:
+    """``booking`` for services, ``delivery`` for products, None for a mix."""
+    kinds = {
+        Order.Kind.BOOKING if line.product.kind == Product.Kind.SERVICE else Order.Kind.DELIVERY
+        for line in lines
+    }
+    return kinds.pop() if len(kinds) == 1 else None
+
+
+def noun(order: Order) -> str:
+    return "booking" if order.is_booking else "order"
+
+
+def _apply_offer(order: Order) -> bool:
+    """Apply the contact's claimed offer to ``order`` (``offers.apply_to_checkout``) and save the
+    totals; False when no offer applies or nothing changed."""
+    applied = offers.apply_to_checkout(order)
+    if applied is None:
+        return False
+    discount = max(0, min(int(applied.discount_paise), order.subtotal_paise))
+    code = (applied.code or "")[:20]
+    if (
+        order.offer_claim_id == applied.claim_id
+        and order.discount_paise == discount
+        and order.offer_code == code
+    ):
+        return False
+    order.discount_paise, order.offer_code, order.offer_claim_id = (
+        discount,
+        code,
+        applied.claim_id,
+    )
+    order.total_paise = order_total(order)
+    order.save(
+        update_fields=[
+            "discount_paise",
+            "offer_code",
+            "offer_claim_id",
+            "total_paise",
+            "updated_at",
+        ]
+    )
+    lifecycle.record_event(
+        order,
+        OrderEvent.Type.OFFER_APPLIED,
+        actor=SYSTEM,
+        detail=f"Offer {code} applied: {buyer.MINUS}{format_inr(discount)}.",
+        metadata={
+            "offer_claim_id": str(applied.claim_id),
+            "code": code,
+            "discount_paise": discount,
+        },
+    )
+    return True
+
+
+def is_offer_code(workspace_id, text) -> bool:
+    return bool(text) and offers.match_code(workspace_id, text) is not None
 
 
 def dropped_text(cart: PricedCart) -> str:
@@ -237,7 +318,28 @@ def start_checkout(
         )
         _send_rejection(conversation, body, source, reject_key)
         raise CheckoutRejected("empty_cart", body)
-    if subtotal < store_settings.min_order_paise:
+    kind = cart_kind(lines)
+    if kind is None:
+        body = (
+            "Services and products can't be checked out together. Check out one of them first, "
+            "or clear your cart and start again."
+        )
+        _send_rejection(conversation, body, source, reject_key)
+        raise CheckoutRejected("mixed_cart", body)
+    is_booking = kind == Order.Kind.BOOKING
+    if is_booking:
+        name = store_display_name(store_settings)
+        if not (
+            payment_services.online_payments_ready(workspace) or store_settings.pay_at_shop_enabled
+        ):
+            body = f"Sorry, {name} isn't taking bookings on WhatsApp right now."
+            _send_rejection(conversation, body, source, reject_key)
+            raise CheckoutRejected("payment_unavailable", body)
+        if not booking.bookable_days(store_settings, workspace):
+            body = f"Sorry, {name} has no times open for booking right now. Please try again later."
+            _send_rejection(conversation, body, source, reject_key)
+            raise CheckoutRejected("no_booking_times", body)
+    elif subtotal < store_settings.min_order_paise:
         body = "\n\n".join(
             filter(
                 None,
@@ -257,11 +359,15 @@ def start_checkout(
             return existing
         _supersede_active_checkout(conversation)
 
-        shipping = shipping_for(store_settings, subtotal)
+        shipping = 0 if is_booking else shipping_for(store_settings, subtotal)
         price_changed = quoted_total_paise is not None and quoted_total_paise != subtotal
-        status = Status.AWAITING_CONFIRMATION if price_changed else Status.AWAITING_ADDRESS
+        if price_changed:
+            status = Status.AWAITING_CONFIRMATION
+        else:
+            status = Status.AWAITING_TIME if is_booking else Status.AWAITING_ADDRESS
         order = Order.objects.create(
             workspace=workspace,
+            kind=kind,
             contact=conversation.contact,
             conversation=conversation,
             phone_number=conversation.phone_number,
@@ -313,6 +419,7 @@ def start_checkout(
                 ),
                 metadata={"quoted_total_paise": quoted_total_paise, "subtotal_paise": subtotal},
             )
+        _apply_offer(order)
         lifecycle.emit_status_changed(order, "", actor=BUYER)
         lifecycle.broadcast_created(order)
 
@@ -322,6 +429,8 @@ def start_checkout(
             )
         if price_changed:
             _ask_confirmation(order, store_settings)
+        elif is_booking:
+            ask_day(order, store_settings, idempotency_key=buyer.key(order.pk, "day"))
         else:
             ask_address(order, store_settings, idempotency_key=buyer.key(order.pk, "address"))
     return order
@@ -390,6 +499,98 @@ def _ask_confirmation(order: Order, store_settings) -> None:
     buyer.send_to_buyer(order, content, idempotency_key=buyer.key(order.pk, "confirm"))
 
 
+# --- Booking day and window ---------------------------------------------------------------------
+
+
+def _cancel_button(order: Order) -> tuple[str, str]:
+    return (build_reply_id("chk", "cancel", order.pk), f"Cancel {noun(order)}")
+
+
+def ask_day(
+    order: Order, store_settings, *, idempotency_key: str, note: str = ""
+) -> Message | None:
+    """The list of open days (``chk:day``)."""
+    days = booking.bookable_days(store_settings, order.workspace)
+    footer = footer_for(store_settings)
+    if not days:
+        body = "\n\n".join(
+            filter(None, [note, "Sorry, there are no times open for booking right now."])
+        )
+        content = interactive.reply_buttons(body, [_cancel_button(order)], footer=footer)
+        return buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
+    today = booking.local_now(order.workspace).date()
+    rows = []
+    for day in days:
+        title = booking.day_title(day, today)
+        rows.append(
+            interactive.ListRow(
+                id=build_reply_id("chk", "day", order.pk, booking.day_arg(day)),
+                title=title[:24],
+                description="" if title == booking.format_day(day) else booking.format_day(day),
+            )
+        )
+    lines = [note, ""] if note else []
+    lines += [buyer.order_summary(order), "", "Which day would you like to come in?"]
+    content = interactive.list_message(
+        buyer.truncate("\n".join(lines)),
+        "Choose a day",
+        [interactive.ListSection("Open days", rows)],
+        footer=footer,
+    )
+    return buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
+
+
+def ask_window(order: Order, store_settings, day, *, idempotency_key: str) -> Message | None:
+    """The windows still open on ``day`` (``chk:win``): reply buttons for up to three, else a
+    list."""
+    open_windows = booking.open_windows(store_settings, order.workspace, day)
+    footer = footer_for(store_settings)
+    body = f"{booking.format_day(day)}: which time suits you?"
+    if len(open_windows) <= interactive.MAX_BUTTONS:
+        lines = [body, ""] + [f"â€¢ {booking.window_text(window)}" for _, window in open_windows]
+        content = interactive.reply_buttons(
+            "\n".join(lines),
+            [
+                (build_reply_id("chk", "win", order.pk, index), window["label"][:20])
+                for index, window in open_windows
+            ],
+            footer=footer,
+        )
+    else:
+        rows = [
+            interactive.ListRow(
+                id=build_reply_id("chk", "win", order.pk, index),
+                title=window["label"][:24],
+                description=f"{window['start']}-{window['end']}",
+            )
+            for index, window in open_windows
+        ]
+        content = interactive.list_message(
+            body, "Choose a time", [interactive.ListSection("Times", rows)], footer=footer
+        )
+    return buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
+
+
+def _send_request_received(order: Order, *, idempotency_key: str) -> Message | None:
+    """The booking reached ``requested``: tell the buyer the store will confirm the time."""
+    body = "\n".join(
+        [
+            f"Thank you, {buyer.buyer_name(order)}! We've received your booking request.",
+            "",
+            buyer.order_summary(order),
+            "",
+            f"Payment: {buyer.payment_label(order)}",
+            "The store will confirm your time shortly.",
+        ]
+    )
+    content = interactive.reply_buttons(
+        buyer.truncate(body),
+        [(build_reply_id("ord", "view", order.pk), "View booking")],
+        footer=footer_for(get_store_settings(order.workspace)),
+    )
+    return buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
+
+
 # --- Address ------------------------------------------------------------------------------------
 
 
@@ -422,6 +623,8 @@ def awaiting_address_text(workspace_id, contact_id, phone_number_id) -> bool:
 def claim_awaited_text(event: MessageRecorded) -> bool:
     """Commerce claimer: typed text while a checkout awaits a typed address."""
     if event.direction != Message.Direction.INBOUND or event.type != Message.Type.TEXT:
+        return False
+    if is_offer_code(event.workspace_id, event.text):
         return False
     return awaiting_address_text(event.workspace_id, event.contact_id, event.phone_number_id)
 
@@ -676,6 +879,8 @@ def _handle_address_reply(message: Message, conversation: Conversation) -> None:
 def handle_checkout_text(message: Message) -> bool:
     if message.direction != Message.Direction.INBOUND or message.type != Message.Type.TEXT:
         return False
+    if is_offer_code(message.workspace_id, message.text):
+        return False  # the offers app answers it
     conversation = _conversation_of(message)
     if not awaiting_address_text(
         message.workspace_id, conversation.contact_id, conversation.phone_number_id
@@ -738,6 +943,10 @@ def offer_payment(
     note: str = "",
     retry: bool = False,
 ) -> Message | None:
+    if order.is_booking:
+        return _offer_booking_payment(
+            order, store_settings, idempotency_key=idempotency_key, note=note, retry=retry
+        )
     options = []
     if online_allowed(order):
         if retry:
@@ -769,6 +978,41 @@ def offer_payment(
     if cod and store_settings.cod_fee_paise:
         lines += ["", f"Cash on delivery adds {format_inr(store_settings.cod_fee_paise)}."]
     lines += ["", "How would you like to pay?"]
+    content = interactive.reply_buttons(
+        buyer.truncate("\n".join(lines)), options, footer=footer_for(store_settings)
+    )
+    return buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
+
+
+def _offer_booking_payment(
+    order: Order, store_settings, *, idempotency_key: str, note: str, retry: bool
+) -> Message | None:
+    """*Pay online* / *Pay at the shop* / *Cancel booking*."""
+    options = []
+    if online_allowed(order):
+        if retry:
+            options.append((build_reply_id("chk", "retry", order.pk), "Try again"))
+        else:
+            options.append((build_reply_id("chk", "pay", order.pk, "online"), "Pay online"))
+    if pay_at_shop_allowed(store_settings, order):
+        options.append((build_reply_id("chk", "pay", order.pk, "shop"), "Pay at the shop"))
+    if not options:
+        body = "\n\n".join(
+            filter(
+                None,
+                [
+                    note,
+                    f"Sorry, {store_display_name(store_settings)} can't take payment for booking "
+                    f"{order.number} on WhatsApp right now. We'll get in touch with you.",
+                ],
+            )
+        )
+        return buyer.send_to_buyer(
+            order, sending.TextContent(body), idempotency_key=idempotency_key
+        )
+    options.append(_cancel_button(order))
+    lines = [note, ""] if note else []
+    lines += [buyer.order_summary(order), "", "How would you like to pay?"]
     content = interactive.reply_buttons(
         buyer.truncate("\n".join(lines)), options, footer=footer_for(store_settings)
     )
@@ -817,7 +1061,7 @@ def _choose_online(message: Message, order: Order, store_settings) -> None:
         return
     order.payment_method = Order.PaymentMethod.ONLINE
     order.cod_fee_paise = 0
-    order.total_paise = order.subtotal_paise + order.shipping_paise
+    order.total_paise = order_total(order)
     order.checkout_attempt += 1
     order.expires_at = _deadline()
     lifecycle.set_status(order, Status.PENDING_PAYMENT, actor=BUYER, system=True, message=message)
@@ -843,7 +1087,7 @@ def _choose_cod(message: Message, order: Order, store_settings) -> None:
     order.payment_method = Order.PaymentMethod.COD
     order.payment_status = Order.PaymentStatus.COD_PENDING
     order.cod_fee_paise = store_settings.cod_fee_paise
-    order.total_paise = order.subtotal_paise + order.shipping_paise + order.cod_fee_paise
+    order.total_paise = order_total(order)
     lifecycle.set_status(
         order,
         Status.CONFIRMED,
@@ -855,6 +1099,30 @@ def _choose_cod(message: Message, order: Order, store_settings) -> None:
     notifications.notify_buyer(order, Status.CONFIRMED, actor=SYSTEM)
 
 
+def _choose_shop(message: Message, order: Order, store_settings) -> None:
+    if not pay_at_shop_allowed(store_settings, order):
+        offer_payment(
+            order,
+            store_settings,
+            idempotency_key=buyer.key(message.pk, "payment"),
+            note="Paying at the shop isn't available for this booking.",
+        )
+        return
+    order.payment_method = Order.PaymentMethod.PAY_AT_SHOP
+    order.payment_status = Order.PaymentStatus.COD_PENDING
+    order.cod_fee_paise = 0
+    order.total_paise = order_total(order)
+    lifecycle.set_status(
+        order,
+        Status.REQUESTED,
+        actor=BUYER,
+        system=True,
+        detail="Pay at the shop chosen.",
+        message=message,
+    )
+    _send_request_received(order, idempotency_key=buyer.key(message.pk, "requested"))
+
+
 # --- Replies ------------------------------------------------------------------------------------
 
 
@@ -863,8 +1131,69 @@ def _chk_confirm(message, conversation, order, reply, store_settings) -> None:
         _send_stale(conversation, message)
         return
     order.expires_at = _deadline()
+    if order.is_booking:
+        lifecycle.set_status(order, Status.AWAITING_TIME, actor=BUYER, system=True, message=message)
+        ask_day(order, store_settings, idempotency_key=buyer.key(message.pk, "day"))
+        return
     lifecycle.set_status(order, Status.AWAITING_ADDRESS, actor=BUYER, system=True, message=message)
     ask_address(order, store_settings, idempotency_key=buyer.key(message.pk, "address"))
+
+
+def _chk_day(message, conversation, order, reply, store_settings) -> None:
+    if order.status != Status.AWAITING_TIME:
+        _send_stale(conversation, message)
+        return
+    day = booking.parse_day_arg(reply.args[1]) if len(reply.args) > 1 else None
+    if day is None or not booking.is_bookable_day(store_settings, order.workspace, day):
+        ask_day(
+            order,
+            store_settings,
+            idempotency_key=buyer.key(message.pk, "day"),
+            note="That day is no longer available. Please pick another one.",
+        )
+        return
+    order.requested_date = day
+    order.requested_window = None
+    order.expires_at = _deadline()
+    order.save(update_fields=["requested_date", "requested_window", "expires_at", "updated_at"])
+    ask_window(order, store_settings, day, idempotency_key=buyer.key(message.pk, "window"))
+
+
+def _chk_win(message, conversation, order, reply, store_settings) -> None:
+    if order.status != Status.AWAITING_TIME:
+        _send_stale(conversation, message)
+        return
+    arg = reply.args[1] if len(reply.args) > 1 else ""
+    day = order.requested_date
+    open_windows = (
+        dict(booking.open_windows(store_settings, order.workspace, day))
+        if day is not None and booking.is_bookable_day(store_settings, order.workspace, day)
+        else {}
+    )
+    index = int(arg) if arg.isdigit() else None
+    if index not in open_windows:
+        ask_day(
+            order,
+            store_settings,
+            idempotency_key=buyer.key(message.pk, "day"),
+            note="That time is no longer available. Please pick a day again.",
+        )
+        return
+    order.requested_window = dict(open_windows[index])
+    order.expires_at = _deadline()
+    order.save(update_fields=["requested_window", "expires_at", "updated_at"])
+    lifecycle.record_event(
+        order,
+        OrderEvent.Type.TIME_REQUESTED,
+        actor=BUYER,
+        detail=f"Asked for {booking.requested_text(order)}.",
+        message=message,
+        metadata={"date": day.isoformat(), "window": order.requested_window},
+    )
+    lifecycle.set_status(
+        order, Status.AWAITING_PAYMENT_METHOD, actor=BUYER, system=True, message=message
+    )
+    offer_payment(order, store_settings, idempotency_key=buyer.key(message.pk, "payment"))
 
 
 def _chk_addr_use(message, conversation, order, reply, store_settings) -> None:
@@ -910,11 +1239,14 @@ def _chk_edit(message, conversation, order, reply, store_settings) -> None:
 
 def _chk_pay(message, conversation, order, reply, store_settings) -> None:
     method = reply.args[1] if len(reply.args) > 1 else ""
-    if order.status != Status.AWAITING_PAYMENT_METHOD or method not in ("online", "cod"):
+    methods = ("online", "shop") if order.is_booking else ("online", "cod")
+    if order.status != Status.AWAITING_PAYMENT_METHOD or method not in methods:
         _send_stale(conversation, message)
         return
     if method == "online":
         _choose_online(message, order, store_settings)
+    elif method == "shop":
+        _choose_shop(message, order, store_settings)
     else:
         _choose_cod(message, order, store_settings)
 
@@ -935,7 +1267,7 @@ def _chk_cancel(message, conversation, order, reply, store_settings) -> None:
         return
     lifecycle.cancel_order(order, actor=BUYER, reason="Cancelled by the buyer.", notify_buyer=False)
     content = interactive.reply_buttons(
-        f"Your order {order.number} is cancelled.", [_menu_button()]
+        f"Your {noun(order)} {order.number} is cancelled.", [_menu_button()]
     )
     buyer.send_to_buyer(order, content, idempotency_key=buyer.key(message.pk, "cancel"))
 
@@ -944,6 +1276,8 @@ CHECKOUT_ACTIONS = {
     "confirm": _chk_confirm,
     "addr_use": _chk_addr_use,
     "addr_new": _chk_addr_new,
+    "day": _chk_day,
+    "win": _chk_win,
     "edit": _chk_edit,
     "pay": _chk_pay,
     "retry": _chk_retry,
@@ -954,7 +1288,7 @@ CHECKOUT_ACTIONS = {
 def handle_checkout_reply(message: Message, reply: ReplyId) -> bool:
     handled_scopes = {
         "chk": set(CHECKOUT_ACTIONS),
-        "ord": {"view", "list"},
+        "ord": {"view", "list", *BOOKING_ANSWERS},
         "nfm": {"address_message"},
     }
     if reply.action not in handled_scopes.get(reply.scope, ()):
@@ -967,6 +1301,8 @@ def handle_checkout_reply(message: Message, reply: ReplyId) -> bool:
             _handle_address_reply(message, conversation)
         elif reply.scope == "ord" and reply.action == "list":
             _send_recent_orders(conversation, idempotency_key=buyer.key(message.pk, "orders"))
+        elif reply.scope == "ord" and reply.action in BOOKING_ANSWERS:
+            _answer_booking(message, conversation, reply)
         elif reply.scope == "ord":
             _view_order(message, conversation, reply)
         else:
@@ -1059,6 +1395,105 @@ def _view_order(message: Message, conversation: Conversation, reply: ReplyId) ->
     )
 
 
+# --- Answers to booking reminders ---------------------------------------------------------------
+
+
+def _ord_attend(message, conversation, order) -> None:
+    now = timezone.now()
+    order.attendance_confirmed_at = now
+    order.save(update_fields=["attendance_confirmed_at", "updated_at"])
+    lifecycle.record_event(
+        order,
+        OrderEvent.Type.ATTENDANCE_CONFIRMED,
+        actor=BUYER,
+        detail="The buyer will be there.",
+        message=message,
+    )
+    lifecycle.broadcast_updated(order)
+    buyer.send_to_buyer(
+        order,
+        sending.TextContent(f"Thanks, see you on {booking.appointment_text(order)}."),
+        idempotency_key=buyer.key(message.pk, "attend"),
+    )
+
+
+def _ord_resched(message, conversation, order) -> None:
+    order.reschedule_requested_at = timezone.now()
+    order.save(update_fields=["reschedule_requested_at", "updated_at"])
+    lifecycle.record_event(
+        order,
+        OrderEvent.Type.RESCHEDULE_REQUESTED,
+        actor=BUYER,
+        detail="The buyer asked to change the time.",
+        message=message,
+    )
+    lifecycle.broadcast_updated(order)
+    buyer.send_to_buyer(
+        order,
+        sending.TextContent("Tell us a day and time that suits you and we'll update your booking."),
+        idempotency_key=buyer.key(message.pk, "resched"),
+    )
+
+
+def _ord_bcancel(message, conversation, order) -> None:
+    content = interactive.reply_buttons(
+        f"Cancel booking {order.number} ({booking.appointment_text(order)})?",
+        [
+            (build_reply_id("ord", "bcancel_yes", order.pk), "Yes, cancel"),
+            (build_reply_id("ord", "bcancel_no", order.pk), "No, keep it"),
+        ],
+    )
+    buyer.send_to_buyer(order, content, idempotency_key=buyer.key(message.pk, "bcancel"))
+
+
+def _ord_bcancel_yes(message, conversation, order) -> None:
+    lifecycle.cancel_order(order, actor=BUYER, reason="Cancelled by the buyer.", notify_buyer=False)
+    body = f"Your booking {order.number} is cancelled."
+    if order.payment_status == Order.PaymentStatus.PAID:
+        body += " The store will refund your payment."
+    buyer.send_to_buyer(
+        order,
+        interactive.reply_buttons(body, [_menu_button()]),
+        idempotency_key=buyer.key(message.pk, "bcancel_yes"),
+    )
+
+
+def _ord_bcancel_no(message, conversation, order) -> None:
+    buyer.send_to_buyer(
+        order,
+        sending.TextContent(
+            f"Great, your booking stays as it is. See you on {booking.appointment_text(order)}."
+        ),
+        idempotency_key=buyer.key(message.pk, "bcancel_no"),
+    )
+
+
+BOOKING_ANSWER_ACTIONS = {
+    "attend": _ord_attend,
+    "resched": _ord_resched,
+    "bcancel": _ord_bcancel,
+    "bcancel_yes": _ord_bcancel_yes,
+    "bcancel_no": _ord_bcancel_no,
+}
+BOOKING_ANSWERS = frozenset(BOOKING_ANSWER_ACTIONS)
+
+
+def _answer_booking(message: Message, conversation: Conversation, reply: ReplyId) -> None:
+    """A reminder button (template quick reply or session reply button): only for the buyer's
+    own booking while it is ``confirmed``; anything else gets the stale text."""
+    order_id = _uuid(reply.args[0]) if reply.args else None
+    order = lifecycle.lock_order(order_id, workspace_id=message.workspace_id) if order_id else None
+    if (
+        order is None
+        or order.contact_id != conversation.contact_id
+        or not order.is_booking
+        or order.status != Status.CONFIRMED
+    ):
+        _send_stale(conversation, message)
+        return
+    BOOKING_ANSWER_ACTIONS[reply.action](message, conversation, order)
+
+
 # --- Payment links ------------------------------------------------------------------------------
 
 
@@ -1082,7 +1517,9 @@ def create_and_send_payment_link(order_id, attempt: int) -> None:
         order_id=order.pk,
         reference_id=f"{order.number}-{attempt}",
         amount_paise=order.total_paise,
-        description=f"Order {order.number} from {store_display_name(store_settings)}"[:250],
+        description=(
+            f"{noun(order).capitalize()} {order.number} from {store_display_name(store_settings)}"
+        )[:250],
         customer_name=buyer.buyer_name(order),
         customer_phone_e164=order.contact.phone_e164,
         expire_by=timezone.now() + timedelta(minutes=payment_link_expiry_minutes()),
@@ -1112,8 +1549,9 @@ def create_and_send_payment_link(order_id, attempt: int) -> None:
                 metadata={"payment_link_id": str(link.pk), "attempt": attempt},
             )
         body = (
-            f"Order {order.number}: {format_inr(order.total_paise)}.\n\nTap below to pay "
-            f"securely. The link expires in {payment_link_expiry_minutes()} minutes."
+            f"{noun(order).capitalize()} {order.number}: {format_inr(order.total_paise)}.\n\n"
+            "Tap below to pay securely. The link expires in "
+            f"{payment_link_expiry_minutes()} minutes."
         )
         content = interactive.cta_url(
             body,
@@ -1156,8 +1594,17 @@ def payment_link_failed(order_id, attempt: int, *, retryable: bool) -> None:
             )
             return
         # The seller's gateway account is missing or invalid: online payment can't work.
-        body = f"Sorry, online payment isn't available for order {order.number} right now."
-        if cod_allowed(store_settings, order):
+        body = f"Sorry, online payment isn't available for {noun(order)} {order.number} right now."
+        if pay_at_shop_allowed(store_settings, order):
+            content = interactive.reply_buttons(
+                body + " You can pay at the shop instead.",
+                [
+                    (build_reply_id("chk", "pay", order.pk, "shop"), "Pay at the shop"),
+                    _cancel_button(order),
+                ],
+                footer=footer_for(store_settings),
+            )
+        elif cod_allowed(store_settings, order):
             content = interactive.reply_buttons(
                 body + " You can pay cash on delivery instead.",
                 [
@@ -1231,12 +1678,11 @@ def on_payment_link_paid(event) -> None:
         order.paid_at = event.paid_at or timezone.now()
 
         lifecycle.cancel_payment_links_on_commit(order)
+        done = transitions.CHECKOUT_DONE.get(order.kind, Status.CONFIRMED)
         if order.status in transitions.CHECKOUT_STATUSES:
             if _try_reserve(order) is None:
-                lifecycle.set_status(
-                    order, Status.CONFIRMED, actor=SYSTEM, system=True, detail="Paid online."
-                )
-                notifications.notify_buyer(order, Status.CONFIRMED, actor=SYSTEM)
+                lifecycle.set_status(order, done, actor=SYSTEM, system=True, detail="Paid online.")
+                _checkout_done(order, link_id)
             else:
                 _flag_paid_order(order, event, "Paid, but some items are out of stock.")
         elif order.status in (Status.EXPIRED, Status.CANCELLED):
@@ -1245,12 +1691,16 @@ def on_payment_link_paid(event) -> None:
                 order.cancelled_at = None
                 lifecycle.set_status(
                     order,
-                    Status.CONFIRMED,
+                    done,
                     actor=SYSTEM,
                     force=True,
-                    detail="Paid after the checkout closed; the order was confirmed.",
+                    detail=(
+                        "Paid after the checkout closed; the booking request was received."
+                        if order.is_booking
+                        else "Paid after the checkout closed; the order was confirmed."
+                    ),
                 )
-                notifications.notify_buyer(order, Status.CONFIRMED, actor=SYSTEM)
+                _checkout_done(order, link_id)
             else:
                 _flag_paid_order(
                     order,
@@ -1267,6 +1717,14 @@ def on_payment_link_paid(event) -> None:
             lifecycle.payment_changed(order, actor=SYSTEM)
 
 
+def _checkout_done(order: Order, link_id: str) -> None:
+    """A paid checkout finished: a booking request is acknowledged, an order confirmed."""
+    if order.is_booking:
+        _send_request_received(order, idempotency_key=buyer.key(order.pk, "requested", link_id))
+    else:
+        notifications.notify_buyer(order, Status.CONFIRMED, actor=SYSTEM)
+
+
 def _flag_paid_order(order: Order, event, detail: str) -> None:
     lifecycle.set_status(
         order,
@@ -1279,8 +1737,8 @@ def _flag_paid_order(order: Order, event, detail: str) -> None:
     buyer.send_to_buyer(
         order,
         sending.TextContent(
-            f"We received your payment for order {order.number}. Some items need a check by "
-            "the store, and they'll contact you shortly."
+            f"We received your payment for {noun(order)} {order.number}. Some items need a "
+            "check by the store, and they'll contact you shortly."
         ),
         idempotency_key=buyer.key(order.pk, "paid_attention", event.payment_link_id),
     )
@@ -1311,7 +1769,7 @@ def on_payment_link_closed(event, *, expired: bool) -> None:
             order,
             get_store_settings(order.workspace),
             idempotency_key=buyer.key(order.pk, "link_closed", event.payment_link_id),
-            note=f"The payment link for order {order.number} {what}.",
+            note=f"The payment link for {noun(order)} {order.number} {what}.",
             retry=True,
         )
 
@@ -1348,8 +1806,8 @@ def expire_checkouts(*, now=None, batch_size: int = 200) -> int:
             buyer.send_to_buyer(
                 order,
                 sending.TextContent(
-                    f'Your checkout for order {order.number} has expired. Send "hi" whenever '
-                    "you'd like to shop again."
+                    f'Your checkout for {noun(order)} {order.number} has expired. Send "hi" '
+                    "whenever you'd like to shop again."
                 ),
                 idempotency_key=buyer.key(order.pk, "expired"),
             )
@@ -1376,9 +1834,36 @@ def _links_closed(order: Order) -> bool:
     return True
 
 
-def apply_offer_to_active_checkout(conversation_id) -> bool:
-    """Apply a newly claimed offer to the contact's open checkout (services-and-offers contract).
+OFFER_CHECKOUT_STATUSES = (
+    Status.AWAITING_CONFIRMATION,
+    Status.AWAITING_ADDRESS,
+    Status.AWAITING_TIME,
+    Status.AWAITING_PAYMENT_METHOD,
+)
 
-    Stub until the booking checkout lands.
-    """
-    return False
+
+def apply_offer_to_active_checkout(conversation_id) -> bool:
+    """Apply a newly claimed offer to the contact's open checkout (services-and-offers contract,
+    "Offers hook in checkout"). In ``awaiting_payment_method`` the payment choice is sent again
+    with the new total. Returns whether an offer was applied."""
+    if not Conversation.objects.filter(pk=conversation_id).exists():
+        return False
+    with transaction.atomic():
+        conversation = _lock_conversation(conversation_id)
+        order = _lock_checkout(conversation, *OFFER_CHECKOUT_STATUSES)
+        if order is None or not _apply_offer(order):
+            return False
+        lifecycle.broadcast_updated(order)
+        if order.status == Status.AWAITING_PAYMENT_METHOD:
+            offer_payment(
+                order,
+                get_store_settings(order.workspace),
+                idempotency_key=buyer.key(
+                    order.pk, "offer", order.offer_claim_id, order.discount_paise
+                ),
+                note=(
+                    f"Offer {order.offer_code} applied: you save "
+                    f"{format_inr(order.discount_paise)}."
+                ),
+            )
+    return True

@@ -33,6 +33,12 @@ SIMPLE_FIELDS = (
     "cod_max_order_paise",
     "support_message",
     "powered_by_footer",
+    "pay_at_shop_enabled",
+    "booking_days",
+    "booking_windows",
+    "booking_days_ahead",
+    "booking_reminder_hours",
+    "booking_day_before_reminder",
 )
 STRIPPED_FIELDS = ("store_name", "order_prefix")
 
@@ -44,7 +50,17 @@ TEMPLATE_PARAM_COUNTS = {
     "delivered": 2,
     "cancelled": 3,
     "payment_reminder": 4,
+    "booking_confirmed": 4,
+    "booking_cancelled": 3,
+    "booking_reminder": 5,
 }
+# Flat StoreSettings API fields for the booking templates -> notification key.
+BOOKING_TEMPLATE_API_FIELDS = {
+    "booking_confirmed_template_id": "booking_confirmed",
+    "booking_cancelled_template_id": "booking_cancelled",
+    "booking_reminder_template_id": "booking_reminder",
+}
+BOOKING_CHECKLIST_NOTIFICATIONS = ("booking_confirmed", "booking_cancelled", "booking_reminder")
 # Status updates the checklist expects templates for (payment reminders are optional).
 CHECKLIST_NOTIFICATIONS = ("confirmed", "packed", "shipped", "delivered", "cancelled")
 _VARIABLE_RE = re.compile(r"\{\{\s*(\d+)\s*\}\}")
@@ -58,6 +74,8 @@ class StarterTemplate:
     name: str
     body: str
     examples: tuple[str, ...]
+    # QUICK_REPLY button texts; each send passes the reply id payloads (notifications).
+    quick_replies: tuple[str, ...] = ()
 
 
 STARTER_TEMPLATES = (
@@ -101,7 +119,43 @@ STARTER_TEMPLATES = (
         "Please ignore this message if you have already paid.",
         ("Asha", "SS-1001", "₹1,450.00", "https://rzp.io/i/example"),
     ),
+    StarterTemplate(
+        "booking_confirmed",
+        "upc_booking_confirmed",
+        "Hi {{1}}, your booking {{2}} for {{3}} is confirmed for {{4}}. "
+        "Reply to this message if you need to change it.",
+        ("Asha", "SS-1001", "Haircut", "Mon 20 Oct, 10:30 AM"),
+    ),
+    StarterTemplate(
+        "booking_cancelled",
+        "upc_booking_cancelled",
+        "Hi {{1}}, your booking {{2}} has been cancelled. Reason: {{3}}. "
+        "Reply to this message if you have any questions.",
+        ("Asha", "SS-1001", "The shop is closed that day"),
+    ),
+    StarterTemplate(
+        "booking_reminder",
+        "upc_booking_reminder",
+        "Hi {{1}}, this is a reminder of your booking {{2}} for {{3}} at {{4}}. {{5}} "
+        "Tap a button below to let us know if you are coming.",
+        (
+            "Asha",
+            "SS-1001",
+            "Haircut",
+            "Mon 20 Oct, 10:30 AM",
+            "Pay at the shop after your service: ₹499.00.",
+        ),
+        quick_replies=("I'll be there", "Change time", "Cancel booking"),
+    ),
 )
+
+
+def template_field(notification: str) -> str:
+    """The StoreSettings template FK field for an order or booking notification key."""
+    return (
+        StoreSettings.NOTIFICATION_TEMPLATE_FIELDS.get(notification)
+        or StoreSettings.BOOKING_TEMPLATE_FIELDS[notification]
+    )
 
 
 # --- Settings -----------------------------------------------------------------------------------
@@ -135,6 +189,13 @@ def update_store_settings(workspace, data: dict) -> StoreSettings:
             changed.add("phone_number")
         if "notification_templates" in data:
             changed |= _apply_templates(workspace, store_settings, data["notification_templates"])
+        booking_templates = {
+            notification: data[api_field]
+            for api_field, notification in BOOKING_TEMPLATE_API_FIELDS.items()
+            if api_field in data
+        }
+        if booking_templates:
+            changed |= _apply_templates(workspace, store_settings, booking_templates, flat=True)
         if "enabled" in data:
             store_settings.enabled = data["enabled"]
             changed.add("enabled")
@@ -177,11 +238,15 @@ def body_variable_count(template: MessageTemplate) -> int:
     return 0
 
 
-def _apply_templates(workspace, store_settings: StoreSettings, mapping: dict) -> set[str]:
+def _apply_templates(
+    workspace, store_settings: StoreSettings, mapping: dict, *, flat: bool = False
+) -> set[str]:
+    """Map templates to notifications. ``flat`` reports errors on the booking API fields
+    (``booking_confirmed_template_id``...) instead of inside ``notification_templates``."""
     number = store_phone_number(store_settings)
     changed, errors = set(), {}
     for notification, template_id in mapping.items():
-        field = StoreSettings.NOTIFICATION_TEMPLATE_FIELDS[notification]
+        field = template_field(notification)
         if template_id is None:
             setattr(store_settings, field, None)
             changed.add(field)
@@ -204,6 +269,10 @@ def _apply_templates(workspace, store_settings: StoreSettings, mapping: dict) ->
         setattr(store_settings, field, template)
         changed.add(field)
     if errors:
+        if flat:
+            raise ValidationError(
+                {f"{template_field(key)}_id": messages for key, messages in errors.items()}
+            )
         raise ValidationError({"notification_templates": errors})
     return changed
 
@@ -292,6 +361,26 @@ def checklist(workspace) -> dict:
     )
     items.append(_item("order_templates_ready", approved == total, detail))
 
+    if Product.objects.filter(
+        workspace=workspace, is_active=True, kind=Product.Kind.SERVICE
+    ).exists():
+        booking_ids = [
+            getattr(store_settings, f"{template_field(key)}_id")
+            for key in BOOKING_CHECKLIST_NOTIFICATIONS
+        ]
+        approved = MessageTemplate.objects.filter(
+            workspace=workspace,
+            pk__in=[pk for pk in booking_ids if pk],
+            status=MessageTemplate.Status.APPROVED,
+        ).count()
+        total = len(BOOKING_CHECKLIST_NOTIFICATIONS)
+        detail = (
+            "Booking update templates are approved."
+            if approved == total
+            else f"{approved} of {total} booking update templates are mapped and approved."
+        )
+        items.append(_item("booking_templates", approved == total, detail))
+
     verified = _alert_recipient_verified(workspace)
     detail = (
         "Order alerts reach a verified number."
@@ -309,13 +398,23 @@ def checklist(workspace) -> dict:
 
 
 def starter_components(starter: StarterTemplate) -> list[dict]:
-    return [
+    components = [
         {
             "type": "BODY",
             "text": starter.body,
             "example": {"body_text": [list(starter.examples)]},
         }
     ]
+    if starter.quick_replies:
+        components.append(
+            {
+                "type": "BUTTONS",
+                "buttons": [
+                    {"type": "QUICK_REPLY", "text": text} for text in starter.quick_replies
+                ],
+            }
+        )
+    return components
 
 
 def create_starter_templates(workspace, *, user=None) -> dict:
@@ -351,7 +450,7 @@ def create_starter_templates(workspace, *, user=None) -> dict:
             created.append(starter.name)
         else:
             existing.append(starter.name)
-        field = StoreSettings.NOTIFICATION_TEMPLATE_FIELDS[starter.notification]
+        field = template_field(starter.notification)
         if getattr(store_settings, f"{field}_id") is None:
             setattr(store_settings, field, template)
             store_settings.save(update_fields=[field, "updated_at"])

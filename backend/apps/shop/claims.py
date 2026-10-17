@@ -29,6 +29,8 @@ def claim_shop_message(event: MessageRecorded) -> bool:
     if not services.is_menu_keyword(store, text):
         if not services.QUANTITY_RE.fullmatch(text):
             return False
+        if services.is_offer_code(event.workspace_id, event.text):
+            return False  # the offers app claims and answers it
         session = (
             BotSession.objects.filter(conversation_id=event.conversation_id)
             .only("state", "expires_at")

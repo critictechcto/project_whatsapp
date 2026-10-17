@@ -4,12 +4,18 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from . import services
-from .models import MAX_QTY_PER_ORDER, MIN_PRICE_PAISE
+from .models import (
+    MAX_DURATION_MINUTES,
+    MAX_QTY_PER_ORDER,
+    MIN_DURATION_MINUTES,
+    MIN_PRICE_PAISE,
+)
 from .schema_enums import (
     CATALOG_SYNC_STATUSES,
     META_CATALOG_STATUSES,
     META_REVIEW_STATUSES,
     PRODUCT_AVAILABILITIES,
+    PRODUCT_KINDS,
 )
 
 SKU_PATTERN = r"^[A-Za-z0-9_-]{1,100}$"
@@ -27,6 +33,10 @@ class CollectionRefSerializer(serializers.Serializer):
 class ProductSerializer(serializers.Serializer):
     id = serializers.UUIDField(read_only=True)
     sku = serializers.CharField(read_only=True, help_text="Meta retailer_id; read-only.")
+    kind = serializers.ChoiceField(choices=PRODUCT_KINDS, read_only=True)
+    duration_minutes = serializers.IntegerField(
+        read_only=True, allow_null=True, help_text="Services only; null for products."
+    )
     name = serializers.CharField(read_only=True)
     description = serializers.CharField(read_only=True)
     price_paise = serializers.IntegerField(read_only=True)
@@ -57,6 +67,18 @@ class ProductWriteSerializer(serializers.Serializer):
     """Create or PATCH a product. ``sku`` is accepted on create only."""
 
     sku = serializers.RegexField(SKU_PATTERN, max_length=100, help_text="Create only.")
+    kind = serializers.ChoiceField(
+        choices=PRODUCT_KINDS,
+        required=False,
+        help_text="Default product. Services never track stock (stock_qty must be null).",
+    )
+    duration_minutes = serializers.IntegerField(
+        min_value=MIN_DURATION_MINUTES,
+        max_value=MAX_DURATION_MINUTES,
+        required=False,
+        allow_null=True,
+        help_text="Services only; must be null for products.",
+    )
     name = serializers.CharField(max_length=200)
     description = serializers.CharField(max_length=1000, required=False, allow_blank=True)
     price_paise = serializers.IntegerField(min_value=MIN_PRICE_PAISE, max_value=MAX_INT)

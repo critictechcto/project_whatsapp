@@ -194,7 +194,7 @@ def item_data(product: Product, *, link: str, brand: str) -> dict:
 
 
 def _eligible(product: Product) -> bool:
-    return product.is_active and bool(product.image)
+    return product.is_active and bool(product.image) and product.kind == Product.Kind.PRODUCT
 
 
 def _validation_errors(response: dict) -> dict[str, str]:
@@ -231,17 +231,21 @@ def run_sync(
     if not full and meta_catalog.last_synced_at is not None:
         changed = products.filter(updated_at__gt=meta_catalog.last_synced_at)
 
+    # Services are booked, not sold from the Meta catalog: never upserted, and removed from Meta
+    # when a synced product becomes a service.
     upserts = list(
-        changed.filter(is_active=True).exclude(image="").order_by("position", "name", "pk")
+        changed.filter(is_active=True, kind=Product.Kind.PRODUCT)
+        .exclude(image="")
+        .order_by("position", "name", "pk")
     )
-    removed = changed.filter(Q(is_active=False) | Q(image="")).exclude(
-        meta_sync_status=SyncStatus.NOT_SYNCED, meta_product_id=""
-    )
+    removed = changed.filter(
+        Q(is_active=False) | Q(image="") | Q(kind=Product.Kind.SERVICE)
+    ).exclude(meta_sync_status=SyncStatus.NOT_SYNCED, meta_product_id="")
     delete_ids = set(delete_retailer_ids) | set(removed.values_list("sku", flat=True))
     if delete_ids:
         # A deleted SKU may have been reused by a product that is still sold.
         delete_ids -= set(
-            products.filter(sku__in=delete_ids, is_active=True)
+            products.filter(sku__in=delete_ids, is_active=True, kind=Product.Kind.PRODUCT)
             .exclude(image="")
             .values_list("sku", flat=True)
         )
@@ -416,7 +420,7 @@ def _finish_batch(batch: CatalogSyncBatch, status: str, errors: list[dict]) -> N
     with transaction.atomic():
         products = Product.objects.filter(
             workspace_id=batch.workspace_id, sku__in=batch.retailer_ids
-        ).only("pk", "sku", "is_active", "image", "meta_sync_status", "meta_product_id")
+        ).only("pk", "sku", "kind", "is_active", "image", "meta_sync_status", "meta_product_id")
         synced, reset = [], []
         for product in products:
             if not _eligible(product):
