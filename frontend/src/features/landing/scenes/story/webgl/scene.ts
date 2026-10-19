@@ -50,8 +50,8 @@ const SCREEN = { width: 276, height: 552 }
 const MAX_DPR = 1.75
 
 const products = [
-  { name: 'Kaju Katli 250 g', price: '₹220' },
-  { name: 'Soan Papdi 250 g', price: '₹100' },
+  { name: 'Mysore Pak 250 g', price: '₹220' },
+  { name: 'Murukku 250 g', price: '₹100' },
   { name: 'Motichoor Laddoo', price: '₹180' },
 ]
 

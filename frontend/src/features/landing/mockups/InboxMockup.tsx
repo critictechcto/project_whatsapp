@@ -5,11 +5,11 @@ import { ChatBubble, TypingBubble } from './ChatBubble'
 import { Window } from './Window'
 
 const conversations = [
-  { name: 'Priya Sharma', preview: 'Is COD available for Jaipur?', time: '10:42', unread: 2, active: true },
-  { name: 'Rahul Verma', preview: 'Thanks, got the invoice', time: '10:31' },
+  { name: 'Priya Raman', preview: 'Is COD available for Madurai?', time: '10:42', unread: 2, active: true },
+  { name: 'Arun Kumar', preview: 'Thanks, got the invoice', time: '10:31' },
   { name: 'Sunrise Dental', preview: 'Confirm', time: '10:18' },
   { name: 'Kavya Iyer', preview: 'Can I change the size to M?', time: '09:57', unread: 1 },
-  { name: 'Arjun Mehta', preview: 'Paid via UPI just now', time: '09:40' },
+  { name: 'Karthik S', preview: 'Paid via UPI just now', time: '09:40' },
 ]
 
 type InboxMockupProps = {
@@ -66,11 +66,11 @@ export function InboxMockup({ className, step: sequenceStep }: InboxMockupProps)
         <section className="flex min-w-0 flex-col">
           <header className="flex items-center justify-between gap-3 border-b border-line-2 px-4 py-2.5">
             <div className="min-w-0">
-              <p className="text-[13px] font-medium">Priya Sharma</p>
+              <p className="text-[13px] font-medium">Priya Raman</p>
               <p className="truncate font-mono text-[10px] text-muted">+91 98XXX 22031 · Opted in at checkout</p>
             </div>
             <span className="shrink-0 rounded border border-line bg-card px-2 py-1 text-[10.5px] text-muted">
-              Assigned: Neha
+              Assigned: Divya
             </span>
           </header>
 
@@ -88,13 +88,13 @@ export function InboxMockup({ className, step: sequenceStep }: InboxMockupProps)
             )}
             {step >= 2 && (
               <ChatBubble className={pop} from="customer" time="10:41">
-                Hi! Is COD available for Jaipur? I want to order one more.
+                Hi! Is COD available for Madurai? I want to order one more.
               </ChatBubble>
             )}
             {step === 3 && <TypingBubble className={pop} />}
             {step >= 4 && (
               <ChatBubble className={pop} from="business" time="10:42">
-                Yes, Cash on Delivery is available across Jaipur. Sharing the product link now.
+                Yes, Cash on Delivery is available across Madurai. Sharing the product link now.
               </ChatBubble>
             )}
           </div>

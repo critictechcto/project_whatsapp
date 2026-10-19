@@ -19,7 +19,7 @@ export const storyChapters: StoryChapter[] = [
   {
     label: 'Campaign',
     title: 'An approved template reaches opted-in buyers',
-    body: 'Sharma Sweets sends its Diwali offer to contacts who opted in, using a template Meta has approved. Sent, delivered and read statuses come back from Meta as they happen.',
+    body: 'Murugan Sweets sends its Deepavali offer to contacts who opted in, using a template Meta has approved. Sent, delivered and read statuses come back from Meta as they happen.',
     note: 'Read status appears only when the buyer has read receipts turned on.',
   },
   {

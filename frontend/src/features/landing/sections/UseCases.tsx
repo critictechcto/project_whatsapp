@@ -11,7 +11,7 @@ const useCases = [
     industry: 'E-commerce',
     title: 'Order & shipping updates',
     category: 'Utility',
-    message: 'Hi Aarav, your order #SR-58213 has shipped with Delhivery. Expected delivery: Thu, 18 Sep.',
+    message: 'Hi Arun, your order #SR-58213 has shipped with ST Courier. Expected delivery: in 2 days.',
     buttons: ['Track order'],
   },
   {
@@ -25,14 +25,14 @@ const useCases = [
     industry: 'Clinics',
     title: 'Appointment reminders',
     category: 'Utility',
-    message: 'Reminder: your appointment with Dr. Mehta is tomorrow at 11:30 AM at our Andheri West clinic.',
+    message: 'Reminder: your appointment with Dr. Lakshmi is tomorrow at 11:30 AM at our Mylapore clinic.',
     buttons: ['Confirm', 'Reschedule'],
   },
   {
     industry: 'Schools & coaching',
     title: 'Fee reminders with UPI link',
     category: 'Utility',
-    message: 'Term 2 fee of ₹18,500 for Ishaan (Class 7-B) is due on 20 Sep. Pay securely using UPI.',
+    message: 'Term 2 fee of ₹18,500 for Divya (Class 7-B) is due by the 10th of this month. Pay securely using UPI.',
     buttons: ['Pay now'],
   },
   {

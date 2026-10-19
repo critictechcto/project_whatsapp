@@ -4,8 +4,8 @@ import { Window } from './Window'
 
 const steps = [
   { label: 'Log in with Facebook', detail: 'Signed in directly with Meta', state: 'done' },
-  { label: 'Choose a business portfolio', detail: 'Sharma Retail Pvt Ltd', state: 'done' },
-  { label: 'Create WhatsApp Business Account', detail: 'Sharma Retail — WhatsApp', state: 'done' },
+  { label: 'Choose a business portfolio', detail: 'Kanchi Silks Pvt Ltd', state: 'done' },
+  { label: 'Create WhatsApp Business Account', detail: 'Kanchi Silks — WhatsApp', state: 'done' },
   { label: 'Add and verify phone number', detail: 'Code sent by SMS to +91 98XXX 41207', state: 'active' },
   { label: 'Set display name', detail: 'Shown to customers after Meta review', state: 'todo' },
 ] as const

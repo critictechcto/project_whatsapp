@@ -173,7 +173,7 @@ export function ScrollStory() {
           index="03"
           eyebrow="One order, start to finish"
           title="From first message to delivered order."
-          description="Follow a sample order at Sharma Sweets: the campaign that starts it, the chat where the buyer shops and pays, and the alert that gets it shipped."
+          description="Follow a sample order at Murugan Sweets: the campaign that starts it, the chat where the buyer shops and pays, and the alert that gets it shipped."
         />
       </Container>
       {reduced ? <StaticStory /> : <PinnedStory />}

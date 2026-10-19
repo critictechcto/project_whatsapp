@@ -15,10 +15,10 @@ type Ticket = {
 /** One example order moving through the journey; each new status lands on top of the stack. */
 const tickets: Ticket[] = [
   { step: 1, status: 'Cart', detail: '3 items', icon: ShoppingCart, tone: 'ink' },
-  { step: 2, status: 'Address added', detail: 'Jaipur 302017', icon: MapPin, tone: 'ink' },
+  { step: 2, status: 'Address added', detail: 'Chennai 600020', icon: MapPin, tone: 'ink' },
   { step: 3, status: 'Awaiting payment', detail: 'Payment link sent', icon: Clock, tone: 'amber' },
   { step: 4, status: 'Paid', detail: 'Order confirmed', icon: Check, tone: 'accent' },
-  { step: 5, status: 'Shipped · Delhivery', detail: 'Packed and handed over', icon: Truck, tone: 'ink' },
+  { step: 5, status: 'Shipped · ST Courier', detail: 'Packed and handed over', icon: Truck, tone: 'ink' },
 ]
 
 /** How many tickets show behind the newest one. */
@@ -40,7 +40,7 @@ type OrderTicketStackProps = {
 }
 
 /**
- * A small stack of order tickets for the example order SS-1042, advancing with the "Sell on
+ * A small stack of order tickets for the example order MS-1042, advancing with the "Sell on
  * WhatsApp" journey. Decorative (rendered inside the aria-hidden shop mockup, and hidden itself too);
  * depth comes from OrderTicketStack.css.
  */
@@ -73,7 +73,7 @@ export function OrderTicketStack({ step, animate, className, style }: OrderTicke
                 )}
               >
                 <div className="flex items-center justify-between border-b border-dashed border-line pb-1 font-mono text-[10px] text-muted">
-                  <span>SS-1042</span>
+                  <span>MS-1042</span>
                   <span>₹540</span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-2">

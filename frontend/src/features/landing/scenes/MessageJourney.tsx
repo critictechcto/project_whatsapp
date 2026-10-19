@@ -244,11 +244,11 @@ function PhonePanel({ step }: { step: number }) {
       <div className="relative flex h-full flex-col overflow-hidden rounded-[0.85rem] bg-wallpaper">
         <span className="mx-auto mt-1 h-1.5 w-8 shrink-0 rounded-full bg-ink" />
         <div className={cn('journey-fade absolute inset-x-1.5 top-5 rounded-md bg-card/95 p-1.5', notified ? 'opacity-100' : 'opacity-0')}>
-          <p className="text-[8px] font-semibold">Sharma Retail</p>
+          <p className="text-[8px] font-semibold">Kanchi Silks</p>
           <p className="text-[8px] leading-tight text-muted">Hi Priya, your order #SR-20418 has shipped.</p>
         </div>
         <div className={cn('journey-fade flex flex-1 flex-col', opened ? 'opacity-100' : 'opacity-0')}>
-          <p className="mt-1 border-b border-line-2 bg-card px-1.5 py-1 text-[8px] font-semibold">Sharma Retail</p>
+          <p className="mt-1 border-b border-line-2 bg-card px-1.5 py-1 text-[8px] font-semibold">Kanchi Silks</p>
           <p className="m-1.5 mt-auto rounded-md rounded-tl-sm bg-white px-1.5 py-1 text-[8px] leading-tight">
             Hi Priya, your order #SR-20418 has shipped.
           </p>

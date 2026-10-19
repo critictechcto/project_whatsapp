@@ -148,11 +148,11 @@ const buyerBeats: Beat[] = [
     delay: 600,
     node: (
       <Card time="11:02" actions={[{ label: 'View menu', icon: <List className="size-2.5" /> }]}>
-        Namaste! Welcome to Sharma Sweets. What would you like today?
+        Vanakkam! Welcome to Murugan Sweets. What would you like today?
       </Card>
     ),
   },
-  { step: 0, delay: 1200, node: <ChatBubble from="customer" view="customer" compact time="11:03">Mithai</ChatBubble> },
+  { step: 0, delay: 1200, node: <ChatBubble from="customer" view="customer" compact time="11:03">Sweets</ChatBubble> },
   {
     step: 0,
     delay: 1800,
@@ -160,7 +160,7 @@ const buyerBeats: Beat[] = [
     node: (
       <Card time="11:03" actions={[{ label: 'Add to cart' }, { label: 'Next item' }]} pressed="Add to cart">
         <ProductArt />
-        <span className="block font-semibold">Kaju Katli 250 g</span>
+        <span className="block font-semibold">Mysore Pak 250 g</span>
         <span className="block">₹220 · made fresh every morning</span>
       </Card>
     ),
@@ -177,11 +177,11 @@ const buyerBeats: Beat[] = [
           Your cart · 3 items
         </span>
         <span className="mt-1 flex justify-between gap-2">
-          <span>2 × Kaju Katli 250 g</span>
+          <span>2 × Mysore Pak 250 g</span>
           <span>₹440</span>
         </span>
         <span className="flex justify-between gap-2">
-          <span>1 × Soan Papdi 250 g</span>
+          <span>1 × Murukku 250 g</span>
           <span>₹100</span>
         </span>
         <span className="mt-0.5 flex justify-between gap-2 border-t border-ink/10 pt-0.5 font-semibold">
@@ -211,7 +211,7 @@ const buyerBeats: Beat[] = [
             <MapPin className="size-3 text-accent-2" />
             Address shared
           </span>
-          <span className="block text-muted">C-12, Malviya Nagar, Jaipur 302017</span>
+          <span className="block text-muted">12, LB Road, Adyar, Chennai 600020</span>
         </div>
       </div>
     ),
@@ -231,7 +231,7 @@ const buyerBeats: Beat[] = [
     delay: 800,
     node: (
       <Card time="11:05" actions={[{ label: 'Pay ₹540', icon: <ExternalLink className="size-2.5" /> }]}>
-        Order SS-1042 · ₹540. Pay by UPI or card on Sharma Sweets’ payment page.
+        Order MS-1042 · ₹540. Pay by UPI or card on Murugan Sweets’ payment page.
       </Card>
     ),
   },
@@ -246,7 +246,7 @@ const buyerBeats: Beat[] = [
           <Check className="size-2.5" />
           Paid · ₹540
         </span>
-        <span className="block">Payment received, thank you! Order SS-1042 is confirmed.</span>
+        <span className="block">Payment received, thank you! Order MS-1042 is confirmed.</span>
       </Card>
     ),
   },
@@ -256,7 +256,7 @@ const buyerBeats: Beat[] = [
     delay: 2400,
     node: (
       <Card time="16:40" actions={[{ label: 'Track order', icon: <ExternalLink className="size-2.5" /> }]}>
-        Order SS-1042 has shipped with Delhivery. AWB 2841 5530 9120.
+        Order MS-1042 has shipped with ST Courier. AWB 2841 5530 9120.
       </Card>
     ),
   },
@@ -269,21 +269,21 @@ const sellerBeats: Beat[] = [
     lift: 'card',
     node: (
       <Card time="11:06" actions={[{ label: 'Mark packed' }, { label: 'Mark shipped' }, { label: 'Cancel' }]} pressed="Mark shipped">
-        <span className="block font-semibold">New order SS-1042 · ₹540</span>
-        <span className="block">Paid online · Kabir, Jaipur 302017</span>
-        <span className="block text-muted">2 × Kaju Katli 250 g, 1 × Soan Papdi 250 g</span>
+        <span className="block font-semibold">New order MS-1042 · ₹540</span>
+        <span className="block">Paid online · Karthik, Chennai 600020</span>
+        <span className="block text-muted">2 × Mysore Pak 250 g, 1 × Murukku 250 g</span>
       </Card>
     ),
   },
   {
     step: 5,
     delay: 900,
-    node: <ChatBubble from="customer" view="customer" compact time="16:38">Delhivery 284155309120</ChatBubble>,
+    node: <ChatBubble from="customer" view="customer" compact time="16:38">ST Courier 284155309120</ChatBubble>,
   },
   {
     step: 5,
     delay: 1700,
-    node: <Card time="16:39">SS-1042 marked shipped. The buyer has been notified.</Card>,
+    node: <Card time="16:39">MS-1042 marked shipped. The buyer has been notified.</Card>,
   },
 ]
 
@@ -334,9 +334,9 @@ export function ShopJourneyMockup({ step, animate, className }: ShopJourneyMocku
     >
       <div className="shop-scene shop-3d flex flex-col items-center gap-6 md:flex-row md:items-end md:justify-center">
         <Phone
-          name="Sharma Sweets"
+          name="Murugan Sweets"
           subtitle="Business account"
-          initials="SS"
+          initials="MS"
           avatarClassName="bg-accent text-white"
           className="shop-depth shop-buyer-phone h-[470px] w-full max-w-[290px] md:h-[560px] md:w-[290px]"
           style={{ '--z': '24px' } as CSSProperties}
@@ -357,7 +357,7 @@ export function ShopJourneyMockup({ step, animate, className }: ShopJourneyMocku
               className="h-[470px] w-full md:h-[410px]"
             >
               <div className={cn(step >= SHOP_FINAL_STEP && 'opacity-60')}>
-                <Card time="Yesterday">SS-1039 delivered. Collect ₹860 cash on delivery from the courier.</Card>
+                <Card time="Yesterday">MS-1039 delivered. Collect ₹860 cash on delivery from the courier.</Card>
               </div>
               <Beats beats={sellerBeats} step={step} animate={animate} />
             </Phone>

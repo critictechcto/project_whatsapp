@@ -334,7 +334,7 @@ export function drawTemplateCard(ctx: Ctx, theme: StoryTheme, statuses: number) 
   text(ctx, 'MARKETING TEMPLATE', 14, 38, theme.muted)
 
   setFont(ctx, 400, 11.5, theme.sans)
-  wrap(ctx, 'Namaste {{1}}! Fresh Kaju Katli and Soan Papdi, delivered across Jaipur.', W - 28).forEach(
+  wrap(ctx, 'Vanakkam {{1}}! Fresh Mysore Pak and Murukku, delivered across Chennai.', W - 28).forEach(
     (line, i) => text(ctx, line, 14, 62 + i * 16, theme.ink),
   )
 
@@ -373,7 +373,7 @@ export function drawPaymentCard(ctx: Ctx, theme: StoryTheme, paid: boolean) {
   setFont(ctx, 600, 30, theme.display)
   text(ctx, '₹540', 13, 56, theme.ink)
   setFont(ctx, 400, 11, theme.sans)
-  text(ctx, 'Order SS-1042 · UPI or card', 14, 86, theme.muted)
+  text(ctx, 'Order MS-1042 · UPI or card', 14, 86, theme.muted)
 
   roundRect(ctx, 14, 108, W - 28, 36, 7)
   ctx.fillStyle = paid ? theme.accentSoft : theme.ink
@@ -416,9 +416,9 @@ export function drawParcelLabel(ctx: Ctx, theme: StoryTheme, shipped: boolean) {
   ctx.fillStyle = theme.card
   ctx.fill()
   setFont(ctx, 400, 9, theme.mono)
-  text(ctx, 'SS-1042 · Kabir', 9, 15, theme.ink)
+  text(ctx, 'MS-1042 · Karthik', 9, 15, theme.ink)
   setFont(ctx, 400, 9, theme.sans)
-  text(ctx, 'Malviya Nagar, Jaipur', 9, 30, theme.muted)
+  text(ctx, 'Adyar, Chennai', 9, 30, theme.muted)
   setFont(ctx, 500, 9, theme.mono)
   text(ctx, shipped ? 'SHIPPED' : 'PACKED', 9, 50, shipped ? theme.accent2 : theme.amber)
   if (shipped) tick(ctx, 60, 45, 9, theme.accent2)

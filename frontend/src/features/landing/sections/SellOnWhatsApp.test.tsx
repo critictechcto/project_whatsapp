@@ -107,13 +107,13 @@ describe('Sell on WhatsApp section', () => {
 
     act(() => vi.advanceTimersByTime(400))
     expect(stage(container)).toHaveAttribute('data-shop-step', '0')
-    expect(within(stage(container)).getByText('Kaju Katli 250 g')).toBeInTheDocument()
+    expect(within(stage(container)).getByText('Mysore Pak 250 g')).toBeInTheDocument()
     expect(within(stage(container)).queryByText('Mark shipped')).not.toBeInTheDocument()
     expect(stepButton('Browse the menu').closest('li')).toHaveAttribute('data-state', 'current')
     expect(stepButton('Browse the menu')).toHaveAttribute('aria-current', 'step')
     expect(stage(container)).toHaveAttribute('data-shop-autoplay', 'playing')
     // The product card rises on its own layer while its step shows.
-    expect(within(stage(container)).getByText('Kaju Katli 250 g').closest('[data-lifted]')).not.toBeNull()
+    expect(within(stage(container)).getByText('Mysore Pak 250 g').closest('[data-lifted]')).not.toBeNull()
     expect(stepButton('Browse the menu').closest('li')!.querySelector('[data-progress]')).toHaveAttribute(
       'data-progress',
       'playing',
@@ -129,8 +129,8 @@ describe('Sell on WhatsApp section', () => {
     expect(within(stage(container)).getByText('Mark shipped')).toBeInTheDocument()
     expect(stage(container)).toHaveAttribute('data-shop-autoplay', 'done')
     // The product card settled back once its step moved on; the ticket stack reached the last status.
-    expect(within(stage(container)).getByText('Kaju Katli 250 g').closest('[data-lifted]')).toBeNull()
-    expect(stage(container).querySelector('[data-ticket-status="Shipped · Delhivery"]')).toHaveAttribute('data-depth', '0')
+    expect(within(stage(container)).getByText('Mysore Pak 250 g').closest('[data-lifted]')).toBeNull()
+    expect(stage(container).querySelector('[data-ticket-status="Shipped · ST Courier"]')).toHaveAttribute('data-depth', '0')
     expect(stage(container).querySelector('[data-ticket-status="Paid"]')).toHaveAttribute('data-depth', '1')
   })
 
@@ -237,7 +237,7 @@ describe('Sell on WhatsApp section', () => {
     const mockup = within(stage(container))
     expect(mockup.getByText('Mark shipped')).toBeInTheDocument()
     expect(mockup.getByText('Pay ₹540')).toBeInTheDocument()
-    expect(mockup.getByText(/has shipped with Delhivery/)).toBeInTheDocument()
+    expect(mockup.getByText(/has shipped with ST Courier/)).toBeInTheDocument()
     expect(container.querySelector('.chat-pop')).toBeNull()
     expect(stepButton('Manage orders from your phone').closest('li')).toHaveAttribute('data-state', 'current')
     expect(stepButton('Browse the menu').closest('li')).toHaveAttribute('data-state', 'done')

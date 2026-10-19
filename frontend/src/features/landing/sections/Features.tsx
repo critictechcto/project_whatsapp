@@ -58,7 +58,7 @@ const features: Feature[] = [
     body: 'Business-initiated messages must use a template approved by Meta. Write it once with variables and buttons, submit it, and watch its status update automatically.',
     points: [
       'Marketing, utility and authentication categories',
-      'English, Hindi and other supported languages',
+      'Tamil, English, Hindi and other languages Meta supports',
       'Live preview exactly as the customer will see it',
       'Rejection reasons from Meta, so you can fix and resubmit',
     ],

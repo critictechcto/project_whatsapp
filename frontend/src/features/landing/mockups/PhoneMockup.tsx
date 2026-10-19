@@ -39,10 +39,10 @@ export function PhoneMockup({ className, step: sequenceStep }: PhoneMockupProps)
         <div className="flex shrink-0 items-center gap-2 border-b border-line-2 bg-card px-2 pb-2 pt-1">
           <ChevronLeft className="size-3.5 text-muted" />
           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-[10px] font-semibold text-white">
-            SR
+            KS
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[11.5px] font-semibold leading-tight">Sharma Retail</p>
+            <p className="truncate text-[11.5px] font-semibold leading-tight">Kanchi Silks</p>
             <p className={cn('truncate text-[9px] leading-tight', step === 3 ? 'text-accent-2' : 'text-muted')}>
               {step === 3 ? 'typing…' : 'Business account'}
             </p>
@@ -57,12 +57,12 @@ export function PhoneMockup({ className, step: sequenceStep }: PhoneMockupProps)
           )}
           {step >= 2 && (
             <ChatBubble className={pop} from="customer" view="customer" compact time="10:41">
-              Hi! Is COD available for Jaipur? I want to order one more.
+              Hi! Is COD available for Madurai? I want to order one more.
             </ChatBubble>
           )}
           {step >= 4 && (
             <ChatBubble className={pop} from="business" view="customer" compact time="10:42">
-              Yes, Cash on Delivery is available across Jaipur. Sharing the product link now.
+              Yes, Cash on Delivery is available across Madurai. Sharing the product link now.
             </ChatBubble>
           )}
         </div>

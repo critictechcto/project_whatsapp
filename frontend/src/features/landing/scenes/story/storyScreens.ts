@@ -24,7 +24,7 @@ export type StoryMessage = {
   time: string
 }
 
-export const buyerChat = { name: 'Sharma Sweets', subtitle: 'Business account', initials: 'SS', clock: '11:08' }
+export const buyerChat = { name: 'Murugan Sweets', subtitle: 'Business account', initials: 'MS', clock: '11:08' }
 export const sellerChat = { name: `${site.name} Alerts`, subtitle: 'Order alerts', initials: 'UA', clock: '16:40' }
 
 export const buyerMessages: StoryMessage[] = [
@@ -32,8 +32,8 @@ export const buyerMessages: StoryMessage[] = [
     chapter: 0,
     beat: 0,
     side: 'in',
-    title: 'Diwali mithai boxes are here',
-    lines: ['Namaste Kabir! Fresh Kaju Katli and Soan Papdi, delivered across Jaipur.', 'Reply STOP to opt out.'],
+    title: 'Deepavali sweet boxes are here',
+    lines: ['Vanakkam Karthik! Fresh Mysore Pak and Murukku, delivered across Chennai.', 'Reply STOP to opt out.'],
     buttons: ['Shop now'],
     time: '11:00',
   },
@@ -42,7 +42,7 @@ export const buyerMessages: StoryMessage[] = [
     chapter: 1,
     beat: 1,
     side: 'in',
-    lines: ['Welcome to Sharma Sweets! Pick a collection.'],
+    lines: ['Welcome to Murugan Sweets! Pick a collection.'],
     buttons: ['View menu'],
     pressed: 'View menu',
     time: '11:02',
@@ -52,7 +52,7 @@ export const buyerMessages: StoryMessage[] = [
     beat: 2,
     side: 'in',
     kind: 'product',
-    title: 'Kaju Katli 250 g',
+    title: 'Mysore Pak 250 g',
     lines: ['₹220 · made fresh every morning'],
     buttons: ['Add to cart', 'Next item'],
     pressed: 'Add to cart',
@@ -64,8 +64,8 @@ export const buyerMessages: StoryMessage[] = [
     side: 'in',
     title: 'Your cart · 3 items',
     rows: [
-      ['2 × Kaju Katli 250 g', '₹440'],
-      ['1 × Soan Papdi 250 g', '₹100'],
+      ['2 × Mysore Pak 250 g', '₹440'],
+      ['1 × Murukku 250 g', '₹100'],
       ['Total', '₹540'],
     ],
     buttons: ['Checkout'],
@@ -86,7 +86,7 @@ export const buyerMessages: StoryMessage[] = [
     side: 'out',
     kind: 'address',
     title: 'Address shared',
-    lines: ['C-12, Malviya Nagar, Jaipur 302017'],
+    lines: ['12, LB Road, Adyar, Chennai 600020'],
     time: '11:05',
   },
   {
@@ -102,7 +102,7 @@ export const buyerMessages: StoryMessage[] = [
     chapter: 3,
     beat: 1,
     side: 'in',
-    lines: ['Order SS-1042 · ₹540. Pay by UPI or card on Sharma Sweets’ payment page.'],
+    lines: ['Order MS-1042 · ₹540. Pay by UPI or card on Murugan Sweets’ payment page.'],
     buttons: ['Pay ₹540'],
     time: '11:05',
   },
@@ -110,7 +110,7 @@ export const buyerMessages: StoryMessage[] = [
     chapter: 3,
     beat: 2,
     side: 'in',
-    lines: ['Payment received, thank you! Order SS-1042 is confirmed.'],
+    lines: ['Payment received, thank you! Order MS-1042 is confirmed.'],
     buttons: ['My orders'],
     time: '11:06',
   },
@@ -118,7 +118,7 @@ export const buyerMessages: StoryMessage[] = [
     chapter: 4,
     beat: 3,
     side: 'in',
-    lines: ['Order SS-1042 has shipped. We’ll message you when it is out for delivery.'],
+    lines: ['Order MS-1042 has shipped. We’ll message you when it is out for delivery.'],
     buttons: ['My orders'],
     time: '16:41',
   },
@@ -129,7 +129,7 @@ export const sellerEarlier: StoryMessage = {
   chapter: 0,
   beat: 0,
   side: 'in',
-  lines: ['SS-1039 delivered. Collect ₹860 cash on delivery from the courier.'],
+  lines: ['MS-1039 delivered. Collect ₹860 cash on delivery from the courier.'],
   time: 'Yesterday',
 }
 
@@ -138,13 +138,13 @@ export const sellerMessages: StoryMessage[] = [
     chapter: 4,
     beat: 0,
     side: 'in',
-    title: 'New order SS-1042 · ₹540',
-    lines: ['Paid online · Kabir, Jaipur 302017', '2 × Kaju Katli, 1 × Soan Papdi'],
+    title: 'New order MS-1042 · ₹540',
+    lines: ['Paid online · Karthik, Chennai 600020', '2 × Mysore Pak, 1 × Murukku'],
     buttons: ['Mark packed', 'Mark shipped'],
     time: '11:06',
   },
   { chapter: 4, beat: 1, side: 'out', lines: ['Mark shipped'], time: '16:40' },
-  { chapter: 4, beat: 2, side: 'in', lines: ['SS-1042 marked shipped. The buyer has been notified.'], time: '16:40' },
+  { chapter: 4, beat: 2, side: 'in', lines: ['MS-1042 marked shipped. The buyer has been notified.'], time: '16:40' },
 ]
 
 /** Fraction of its chapter after which beat `beat` shows. Beat 0 shows almost as soon as the chapter starts. */

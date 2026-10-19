@@ -2,7 +2,7 @@ import { Badge } from '../../../components/ui/Badge'
 import { Window } from './Window'
 
 const templates = [
-  { name: 'order_shipped', category: 'Utility', language: 'English', status: 'approved' },
+  { name: 'order_shipped', category: 'Utility', language: 'Tamil (ta)', status: 'approved' },
   { name: 'appointment_reminder', category: 'Utility', language: 'Hindi', status: 'approved' },
   { name: 'festive_early_access', category: 'Marketing', language: 'English', status: 'review' },
   { name: 'login_otp', category: 'Authentication', language: 'English', status: 'approved' },

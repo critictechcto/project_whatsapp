@@ -222,7 +222,7 @@ function TemplateCard() {
       </div>
       <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.1em] text-muted">Marketing template</p>
       <p className="mt-2.5 text-[11.5px] leading-snug text-ink">
-        Namaste {'{{1}}'}! Fresh Kaju Katli and Soan Papdi, delivered across Jaipur.
+        Vanakkam {'{{1}}'}! Fresh Mysore Pak and Murukku, delivered across Chennai.
       </p>
       <div className="mt-3 flex gap-1.5">
         {statuses.map((status, beat) => (
@@ -240,8 +240,8 @@ function TemplateCard() {
 }
 
 const products = [
-  { name: 'Kaju Katli 250 g', price: '₹220' },
-  { name: 'Soan Papdi 250 g', price: '₹100' },
+  { name: 'Mysore Pak 250 g', price: '₹220' },
+  { name: 'Murukku 250 g', price: '₹100' },
   { name: 'Motichoor Laddoo', price: '₹180' },
 ]
 
@@ -266,8 +266,8 @@ function Parcel() {
       <span className="sf-parcel-side" />
       <span className="sf-parcel-front">
         <span className="absolute inset-x-3 top-3 rounded-md bg-card px-2 py-1.5 text-left shadow-[0_1px_0_rgb(16_39_31/0.12)]">
-          <span className="block font-mono text-[9px] text-ink">SS-1042 · Kabir</span>
-          <span className="block text-[9px] text-muted">Malviya Nagar, Jaipur</span>
+          <span className="block font-mono text-[9px] text-ink">MS-1042 · Karthik</span>
+          <span className="block text-[9px] text-muted">Adyar, Chennai</span>
           <span className="relative mt-1 block font-mono text-[8.5px] uppercase tracking-[0.08em] text-amber">
             Packed
             <Lit at={shippedAt} fade className="absolute inset-0 bg-card text-accent-2">
@@ -283,9 +283,9 @@ function Parcel() {
 function PaymentCard() {
   return (
     <div className={cn(card, 'w-[230px] p-3.5')}>
-      <p className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">Payment link · Sharma Sweets</p>
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted">Payment link · Murugan Sweets</p>
       <p className="mt-2 font-display text-[1.7rem] font-semibold leading-none tracking-[-0.03em] text-ink">₹540</p>
-      <p className="mt-1 text-[11px] text-muted">Order SS-1042 · UPI or card</p>
+      <p className="mt-1 text-[11px] text-muted">Order MS-1042 · UPI or card</p>
       <div className="relative mt-3 h-7">
         <span className="absolute inset-0 grid place-items-center rounded-md bg-ink text-[11px] font-medium text-paper">
           Pay ₹540

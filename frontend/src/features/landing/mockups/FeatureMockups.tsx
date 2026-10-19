@@ -5,15 +5,15 @@ import { Window } from './Window'
 
 export function ScheduleMockup() {
   const rows = [
-    { icon: CalendarClock, label: 'Send on', value: '20 Sep 2026, 10:00 AM IST' },
-    { icon: Repeat, label: 'Repeat', value: 'Monthly, on the 20th' },
+    { icon: CalendarClock, label: 'Send on', value: 'Tomorrow, 10:00 AM IST' },
+    { icon: Repeat, label: 'Repeat', value: 'Monthly, on the same date' },
     { icon: Users, label: 'Audience', value: 'Class 7 parents · 842 contacts' },
     { icon: Moon, label: 'Quiet hours', value: 'No sends 9:00 PM – 9:00 AM' },
   ]
   const upcoming = [
-    ['20 Sep', 'Term fee reminder', 'Scheduled'],
-    ['20 Oct', 'Term fee reminder', 'Scheduled'],
-    ['20 Nov', 'Term fee reminder', 'Scheduled'],
+    ['Tomorrow', 'Term fee reminder', 'Scheduled'],
+    ['Next month', 'Term fee reminder', 'Scheduled'],
+    ['In 2 months', 'Term fee reminder', 'Scheduled'],
   ]
 
   return (
@@ -32,7 +32,7 @@ export function ScheduleMockup() {
         <ul className="mt-2 space-y-1.5">
           {upcoming.map(([date, name, status]) => (
             <li key={date} className="flex items-center gap-3 text-[12px]">
-              <span className="w-12 font-mono text-muted">{date}</span>
+              <span className="w-[5.5rem] shrink-0 font-mono text-muted">{date}</span>
               <span className="flex-1 truncate">{name}</span>
               <Badge>{status}</Badge>
             </li>
@@ -85,10 +85,10 @@ export function AutomationMockup() {
 
 export function ContactsMockup() {
   const contacts = [
-    { name: 'Priya Sharma', phone: '+91 98XXX 22031', tag: 'Repeat buyer', source: 'Checkout', subscribed: true },
+    { name: 'Priya Raman', phone: '+91 98XXX 22031', tag: 'Repeat buyer', source: 'Checkout', subscribed: true },
     { name: 'Rahul Verma', phone: '+91 99XXX 80412', tag: 'B2B', source: 'Website form', subscribed: true },
     { name: 'Kavya Iyer', phone: '+91 97XXX 11598', tag: 'New', source: 'Click-to-chat ad', subscribed: true },
-    { name: 'Imran Qureshi', phone: '+91 90XXX 67320', tag: 'Repeat buyer', source: 'In-store', subscribed: false },
+    { name: 'Imran Basha', phone: '+91 90XXX 67320', tag: 'Repeat buyer', source: 'In-store', subscribed: false },
     { name: 'Meera Nair', phone: '+91 81XXX 40077', tag: 'New', source: 'CSV import', subscribed: true },
   ]
 
@@ -175,8 +175,8 @@ export function TeamMockup() {
     { number: '+91 80XXX 55120', label: 'Support', quality: 'Medium', tone: 'amber' as const },
   ]
   const members = [
-    { name: 'Neha Kapoor', role: 'Admin', access: 'All numbers' },
-    { name: 'Rohit Das', role: 'Agent', access: 'Support only' },
+    { name: 'Divya Krishnan', role: 'Admin', access: 'All numbers' },
+    { name: 'Senthil Kumar', role: 'Agent', access: 'Support only' },
     { name: 'Farah Khan', role: 'Viewer', access: 'Reports only' },
   ]
 

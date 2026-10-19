@@ -7,6 +7,8 @@ import { TemplateStatusMockup } from './TemplateStatusMockup'
 type Preview = {
   name: string
   category: string
+  /** Template language: a label and its code, as Meta lists them. */
+  language: { label: string; code: string }
   status: 'approved' | 'review'
   /** Message text; numbers are template variables, rendered as {{n}} chips. */
   body: Array<string | number>
@@ -17,6 +19,7 @@ const previews: Preview[] = [
   {
     name: 'login_otp',
     category: 'Authentication',
+    language: { label: 'English', code: 'en' },
     status: 'approved',
     body: [1, ' is your verification code. For your security, do not share this code.'],
     button: 'Copy code',
@@ -24,13 +27,15 @@ const previews: Preview[] = [
   {
     name: 'order_shipped',
     category: 'Utility',
+    language: { label: 'Tamil', code: 'ta' },
     status: 'approved',
-    body: ['Hi ', 1, ', your order ', 2, ' has shipped. Expected delivery: ', 3, '.'],
+    body: ['வணக்கம் ', 1, ', உங்கள் ஆர்டர் ', 2, ' அனுப்பப்பட்டது.'],
     button: 'Track order',
   },
   {
     name: 'festive_early_access',
     category: 'Marketing',
+    language: { label: 'English', code: 'en' },
     status: 'review',
     body: ['Hi ', 1, ', our festive sale opens early for you on ', 2, '. Tap below to shop first.'],
     button: 'Shop now',
@@ -46,7 +51,7 @@ function PreviewCard({ preview }: { preview: Preview }) {
       </div>
       <div className="bg-wallpaper px-3 py-3">
         <div className="rounded-lg rounded-tl-sm bg-white text-[11px] leading-snug shadow-[0_1px_0_rgba(16,39,31,0.1)]">
-          <p className="px-2.5 pt-2">
+          <p lang={preview.language.code} className="px-2.5 pt-2">
             {preview.body.map((part, i) =>
               typeof part === 'number' ? (
                 <span key={i} className="rounded bg-accent-soft px-1 font-mono text-[9.5px] text-accent-2">
@@ -61,7 +66,9 @@ function PreviewCard({ preview }: { preview: Preview }) {
             {preview.button}
           </p>
         </div>
-        <p className="mt-2 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">{preview.category}</p>
+        <p className="mt-2 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted">
+          {preview.category} · {preview.language.label} ({preview.language.code})
+        </p>
       </div>
     </div>
   )
