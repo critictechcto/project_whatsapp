@@ -20,6 +20,13 @@ export type LegalDetails = {
   effectiveDate: string
   /** City whose courts have jurisdiction under the terms, e.g. "Bengaluru". */
   jurisdictionCity: string
+  /**
+   * Public business phone with country code, e.g. "+91 98765 43210". Optional: when set, the footer
+   * and contact page show it with a call link and a "Chat on WhatsApp" link.
+   */
+  phone?: string
+  /** GSTIN, shown in the footer and on the contact page once the business is GST-registered. */
+  gstin?: string
 }
 
 const legal: LegalDetails = {
@@ -73,6 +80,16 @@ export const legalReady = [
   legal.effectiveDate,
   legal.jurisdictionCity,
 ].every((value) => value.trim().length > 0)
+
+/** `tel:` link for a displayed phone number ("+91 98765 43210" → "tel:+919876543210"). */
+export function telHref(phone: string) {
+  return `tel:${phone.replace(/[^\d+]/g, '')}`
+}
+
+/** WhatsApp click-to-chat link for a phone number with country code (wa.me takes digits only). */
+export function whatsappHref(phone: string) {
+  return `https://wa.me/${phone.replace(/\D/g, '')}`
+}
 
 /** The current path; the build-time prerender (no `window`) renders the landing page. */
 function currentPathname() {

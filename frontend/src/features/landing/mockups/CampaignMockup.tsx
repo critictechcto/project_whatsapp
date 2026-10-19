@@ -1,3 +1,4 @@
+import type { RefObject } from 'react'
 import { Check } from 'lucide-react'
 import { Badge } from '../../../components/ui/Badge'
 import { cn } from '../../../lib/cn'
@@ -15,8 +16,10 @@ const stats = [
 
 const PROGRESS = 97
 
-function Stat({ label, value, start }: { label: string; value: number; start: boolean }) {
-  const current = useCountUp(value, start)
+type StatProps = { label: string; value: number; start: boolean; element: RefObject<Element | null> }
+
+function Stat({ label, value, start, element }: StatProps) {
+  const current = useCountUp(value, start, { element })
   return (
     <div>
       <dt className="text-[10.5px] text-muted">{label}</dt>
@@ -27,7 +30,8 @@ function Stat({ label, value, start }: { label: string; value: number; start: bo
 
 export function CampaignMockup({ className }: { className?: string }) {
   const { ref, inView } = useInView<HTMLDivElement>()
-  const progress = useCountUp(PROGRESS, inView)
+  // Final numbers in the prerender; offscreen copies count up from 0 once scrolled into view.
+  const progress = useCountUp(PROGRESS, inView, { element: ref })
 
   return (
     <div ref={ref} aria-hidden="true" className={cn('rounded-xl border border-line bg-card p-4', mockShadow, className)}>
@@ -51,16 +55,14 @@ export function CampaignMockup({ className }: { className?: string }) {
           <span className="font-mono tabular-nums">{progress}%</span>
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line-2">
-          <div
-            className="h-full rounded-full bg-accent transition-[width] duration-[1400ms] ease-soft"
-            style={{ width: inView ? `${PROGRESS}%` : '0%' }}
-          />
+          {/* The bar follows the counted value: full in the prerender, growing with the count. */}
+          <div className="h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       <dl className="mt-4 grid grid-cols-4 gap-2 border-t border-line-2 pt-3">
         {stats.map((stat) => (
-          <Stat key={stat.label} label={stat.label} value={stat.value} start={inView} />
+          <Stat key={stat.label} label={stat.label} value={stat.value} start={inView} element={ref} />
         ))}
       </dl>
 

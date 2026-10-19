@@ -1,6 +1,6 @@
 import { Container } from '../../../components/ui/Container'
 import { Logo } from '../../../components/ui/Logo'
-import { legalReady, sectionHref, site } from '../../../config/site'
+import { legalReady, sectionHref, site, telHref, whatsappHref } from '../../../config/site'
 
 type FooterLink = { label: string; href: string }
 
@@ -40,6 +40,34 @@ function footerColumns(): { title: string; links: FooterLink[] }[] {
   ]
 }
 
+const identityLink =
+  'underline decoration-line underline-offset-[3px] hover:text-accent-2 hover:decoration-accent-2 max-md:inline-flex max-md:min-h-11 max-md:items-center'
+
+/** Who operates the site, from `site.legal`; phone and GSTIN appear only once they are set. */
+function CompanyIdentity() {
+  const { entityName, registeredAddress, phone, gstin } = site.legal
+
+  return (
+    <address className="mt-10 max-w-2xl text-[13px] not-italic leading-relaxed text-muted">
+      <p>
+        {site.name} is operated by {entityName}
+      </p>
+      <p>{registeredAddress}</p>
+      {phone && (
+        <p className="flex flex-wrap gap-x-4 md:mt-1">
+          <a href={telHref(phone)} className={identityLink}>
+            {phone}
+          </a>
+          <a href={whatsappHref(phone)} target="_blank" rel="noopener noreferrer" className={identityLink}>
+            Chat on WhatsApp
+          </a>
+        </p>
+      )}
+      {gstin && <p className="md:mt-1">GSTIN: {gstin}</p>}
+    </address>
+  )
+}
+
 export function Footer() {
   const year = new Date().getFullYear()
 
@@ -74,6 +102,8 @@ export function Footer() {
             ))}
           </nav>
         </div>
+
+        {legalReady && <CompanyIdentity />}
 
         <div className="mt-12 flex flex-col gap-3 border-t border-line pt-6 text-[13px] text-muted md:flex-row md:justify-between">
           {/* The prerender bakes in the build year; a year change before the next deploy must not fail hydration. */}

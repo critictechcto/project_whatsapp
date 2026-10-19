@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react'
-import { ArrowUpRight, LifeBuoy, MessagesSquare } from 'lucide-react'
-import { sectionHref, site } from '../../config/site'
+import { ArrowUpRight, Building2, LifeBuoy, MessagesSquare } from 'lucide-react'
+import { legalReady, sectionHref, site, telHref, whatsappHref } from '../../config/site'
 import { PageLayout } from './PageLayout'
 import { BulletList, ProseSection, TextLink } from './prose'
 
 const META_STATUS_URL = 'https://metastatus.com/whatsapp-business-api'
+
+const cardClass = 'flex flex-col rounded-lg border border-line bg-card p-6 shadow-[inset_0_1px_0_rgb(255_255_255/0.9)]'
+const cardIconClass = 'grid size-10 place-items-center rounded-md bg-accent-soft text-accent-2'
+const cardTitleClass = 'mt-5 font-display text-[1.35rem] font-semibold tracking-[-0.02em]'
+const companyLinkClass =
+  'inline-flex min-h-11 items-center font-mono text-[14px] text-accent-2 underline decoration-accent/40 underline-offset-[3px] hover:decoration-accent-2'
 
 function ContactCard({
   id,
@@ -20,15 +26,11 @@ function ContactCard({
   children: ReactNode
 }) {
   return (
-    <section
-      id={id}
-      aria-labelledby={`${id}-title`}
-      className="flex flex-col rounded-lg border border-line bg-card p-6 shadow-[inset_0_1px_0_rgb(255_255_255/0.9)]"
-    >
-      <span className="grid size-10 place-items-center rounded-md bg-accent-soft text-accent-2" aria-hidden="true">
+    <section id={id} aria-labelledby={`${id}-title`} className={cardClass}>
+      <span className={cardIconClass} aria-hidden="true">
         {icon}
       </span>
-      <h2 id={`${id}-title`} className="mt-5 font-display text-[1.35rem] font-semibold tracking-[-0.02em]">
+      <h2 id={`${id}-title`} className={cardTitleClass}>
         {title}
       </h2>
       <div className="mt-2 flex-1 text-[15px] leading-relaxed text-muted">{children}</div>
@@ -38,6 +40,39 @@ function ContactCard({
       >
         {email}
       </a>
+    </section>
+  )
+}
+
+/** The operating company from `site.legal`; phone and GSTIN appear only once they are set. */
+function CompanyCard() {
+  const { entityName, registeredAddress, phone, gstin } = site.legal
+
+  return (
+    <section id="company" aria-labelledby="company-title" className={`${cardClass} sm:col-span-2`}>
+      <span className={cardIconClass} aria-hidden="true">
+        <Building2 className="size-5" />
+      </span>
+      <h2 id="company-title" className={cardTitleClass}>
+        Company
+      </h2>
+      <address className="mt-2 text-[15px] not-italic leading-relaxed text-muted">
+        <p>
+          {site.name} is operated by <strong className="font-semibold text-ink">{entityName}</strong>
+        </p>
+        <p className="mt-1">Registered address: {registeredAddress}</p>
+        {gstin && <p className="mt-1">GSTIN: {gstin}</p>}
+        {phone && (
+          <p className="mt-4 flex flex-wrap gap-x-6">
+            <a href={telHref(phone)} className={companyLinkClass}>
+              {phone}
+            </a>
+            <a href={whatsappHref(phone)} target="_blank" rel="noopener noreferrer" className={companyLinkClass}>
+              Chat on WhatsApp
+            </a>
+          </p>
+        )}
+      </address>
     </section>
   )
 }
@@ -67,6 +102,7 @@ export function ContactPage() {
         <ContactCard id="support" icon={<LifeBuoy className="size-5" />} title="Support" email={site.email.support}>
           Help with an existing workspace: connecting a number, templates, campaigns, the inbox, your shop or billing.
         </ContactCard>
+        {legalReady && <CompanyCard />}
       </div>
 
       <div className="mt-14">

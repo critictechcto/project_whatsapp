@@ -1,8 +1,27 @@
 import { render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../../App'
 import { site } from '../../config/site'
 import { sitePageFor } from './paths'
+
+// The real config by default; tests flip `legalReady` or add the optional phone/GSTIN.
+const legal = vi.hoisted(() => ({ ready: true, extra: {} as { phone?: string; gstin?: string } }))
+
+vi.mock('../../config/site', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../config/site')>()
+  return {
+    ...actual,
+    get legalReady() {
+      return legal.ready
+    },
+    site: {
+      ...actual.site,
+      get legal() {
+        return { ...actual.site.legal, ...legal.extra }
+      },
+    },
+  }
+})
 
 function visit(path: string) {
   window.history.replaceState(null, '', path)
@@ -15,6 +34,8 @@ function robotsMeta() {
 
 afterEach(() => {
   window.history.replaceState(null, '', '/')
+  legal.ready = true
+  legal.extra = {}
 })
 
 describe('sitePageFor', () => {
@@ -109,6 +130,43 @@ describe('site pages', () => {
       'href',
       'https://metastatus.com/whatsapp-business-api',
     )
+  })
+})
+
+describe('contact page company card', () => {
+  async function companyCard() {
+    visit('/contact/')
+    await screen.findByRole('heading', { level: 1 })
+    return screen.getByRole('region', { name: 'Company' })
+  }
+
+  it('names the operating company and registered address', async () => {
+    const card = await companyCard()
+    expect(within(card).getByText(site.legal.entityName)).toBeInTheDocument()
+    expect(within(card).getByText(`Registered address: ${site.legal.registeredAddress}`)).toBeInTheDocument()
+    expect(card.querySelector('address')).not.toBeNull()
+    expect(within(card).queryByRole('link', { name: 'Chat on WhatsApp' })).not.toBeInTheDocument()
+    expect(card.querySelector('a[href^="tel:"]')).toBeNull()
+    expect(within(card).queryByText(/GSTIN/)).not.toBeInTheDocument()
+  })
+
+  it('shows phone, WhatsApp and GSTIN once they are set', async () => {
+    legal.extra = { phone: '+91 98765 43210', gstin: '33ABCDE1234F1Z5' }
+    const card = await companyCard()
+    expect(within(card).getByRole('link', { name: '+91 98765 43210' })).toHaveAttribute('href', 'tel:+919876543210')
+    expect(within(card).getByRole('link', { name: 'Chat on WhatsApp' })).toHaveAttribute(
+      'href',
+      'https://wa.me/919876543210',
+    )
+    expect(within(card).getByText('GSTIN: 33ABCDE1234F1Z5')).toBeInTheDocument()
+  })
+
+  it('is hidden while legal details are pending', async () => {
+    legal.ready = false
+    visit('/contact/')
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('region', { name: 'Company' })).not.toBeInTheDocument()
+    expect(screen.queryByText(site.legal.registeredAddress, { exact: false })).not.toBeInTheDocument()
   })
 })
 
