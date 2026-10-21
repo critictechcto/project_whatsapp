@@ -373,6 +373,13 @@ class Order(TenantScopedModel):
 
     @property
     def balance_due_paise(self) -> int:
+        """Nothing is due once the order is paid, refunded or collected at the shop."""
+        if self.payment_status in (
+            self.PaymentStatus.PAID,
+            self.PaymentStatus.COD_COLLECTED,
+            self.PaymentStatus.REFUNDED_MANUAL,
+        ):
+            return 0
         return max(self.total_paise - self.amount_paid_paise, 0)
 
     @property

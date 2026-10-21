@@ -1045,9 +1045,12 @@ paths:
   /api/v1/billing/subscription/checkout/:
     post:
       operationId: billing_subscription_checkout_create
-      description: 'Start a checkout on the configured gateway: a prepaid Cashfree
-        order (options for Cashfree Checkout) or a Razorpay subscription (options
-        for Razorpay Checkout).'
+      description: Start a checkout on the configured gateway. payment_mode autopay
+        (the Razorpay default) creates a Razorpay subscription; one_time (the only
+        mode on Cashfree) creates an order for one prepaid period, on Razorpay or
+        Cashfree. 409 subscription_active while an auto-pay subscription is active,
+        or for auto-pay while a prepaid period runs; an active prepaid plan may pay
+        once again to renew or change plan.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -1082,9 +1085,11 @@ paths:
   /api/v1/billing/subscription/verify/:
     post:
       operationId: billing_subscription_verify_create
-      description: 'Cashfree (order_id): ask Cashfree for the order and activate the
-        plan once it is paid; 409 payment_not_completed otherwise. Razorpay: verify
-        the Checkout signature; the status may stay pending until the webhook.'
+      description: 'One-time payments (Cashfree order_id, or Razorpay razorpay_order_id
+        with the payment id and signature): ask the gateway for the order and activate
+        the prepaid plan once it is paid; 409 payment_not_completed otherwise. Razorpay
+        auto-pay (razorpay_subscription_id): verify the Checkout signature; the status
+        may stay pending until the webhook.'
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -3851,6 +3856,7 @@ paths:
         schema:
           type: string
           enum:
+          - advance_paid
           - cod_collected
           - cod_pending
           - paid
@@ -4078,6 +4084,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedOrderEventList'
           description: ''
+  /api/v1/orders/{id}/mark-balance-paid/:
+    post:
+      operationId: orders_mark_balance_paid_create
+      description: 'Bookings with an advance paid (payment_status advance_paid) that
+        are confirmed or completed: the balance was paid at the shop, so the booking
+        becomes paid. Otherwise 409 invalid_order_transition.'
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
   /api/v1/orders/{id}/mark-cod-collected/:
     post:
       operationId: orders_mark_cod_collected_create
@@ -4111,8 +4148,8 @@ paths:
   /api/v1/orders/{id}/mark-refunded/:
     post:
       operationId: orders_mark_refunded_create
-      description: Only paid orders that are cancelled or need attention (otherwise
-        409 invalid_order_transition); refund in Razorpay.
+      description: Only paid (or advance-paid) orders that are cancelled or need attention
+        (otherwise 409 invalid_order_transition); refund in Razorpay.
       parameters:
       - in: header
         name: X-Workspace-ID
@@ -5965,6 +6002,14 @@ components:
           type: string
       required:
       - access
+    AdvanceTypeEnum:
+      enum:
+      - amount
+      - percent
+      type: string
+      description: |-
+        * `amount` - amount
+        * `percent` - percent
     AlertEventEnum:
       enum:
       - new_order
@@ -6857,6 +6902,14 @@ components:
       description: |-
         * `monthly` - monthly
         * `annual` - annual
+    BillingPaymentModeEnum:
+      enum:
+      - autopay
+      - one_time
+      type: string
+      description: |-
+        * `autopay` - autopay
+        * `one_time` - one_time
     BillingProfile:
       type: object
       properties:
@@ -6907,6 +6960,16 @@ components:
     BlankEnum:
       enum:
       - ''
+    BookingPaymentEnum:
+      enum:
+      - store_default
+      - advance
+      - full
+      type: string
+      description: |-
+        * `store_default` - store_default
+        * `advance` - advance
+        * `full` - full
     BookingWindow:
       type: object
       description: A bookable time window of a day, e.g. Morning 09:00-12:00 (24-hour
@@ -7390,19 +7453,36 @@ components:
           maxLength: 32
         interval:
           $ref: '#/components/schemas/BillingIntervalEnum'
+        payment_mode:
+          allOf:
+          - $ref: '#/components/schemas/BillingPaymentModeEnum'
+          description: |-
+            autopay (a Razorpay subscription) or one_time (one prepaid period). Defaults to autopay on Razorpay and one_time on Cashfree, which has no auto-pay.
+
+            * `autopay` - autopay
+            * `one_time` - one_time
       required:
       - interval
       - plan_id
     CheckoutSession:
       type: object
       description: |-
-        Options for Cashfree Checkout (a prepaid order) or Razorpay Checkout (subscription
-        mode); the other provider's fields are null.
+        Options for Razorpay Checkout (an auto-pay subscription or a one-time order) or Cashfree
+        Checkout (a one-time order); fields another flow doesn't use are null.
       properties:
         provider:
           allOf:
           - $ref: '#/components/schemas/PaymentProviderEnum'
           readOnly: true
+        payment_mode:
+          allOf:
+          - $ref: '#/components/schemas/BillingPaymentModeEnum'
+          readOnly: true
+          description: |-
+            autopay (Razorpay subscription) or one_time (prepaid order).
+
+            * `autopay` - autopay
+            * `one_time` - one_time
         name:
           type: string
           readOnly: true
@@ -7422,12 +7502,13 @@ components:
           type: string
           readOnly: true
           nullable: true
-          description: Razorpay only.
+          description: Razorpay auto-pay only.
         order_id:
           type: string
           readOnly: true
           nullable: true
-          description: Cashfree only.
+          description: 'One-time payments: the Razorpay order_… id or the Cashfree
+            order id.'
         payment_session_id:
           type: string
           readOnly: true
@@ -7448,7 +7529,8 @@ components:
           type: integer
           readOnly: true
           nullable: true
-          description: GST-inclusive amount charged; Cashfree only.
+          description: 'One-time payments: the amount charged (GST-inclusive when
+            GST is on).'
       required:
       - amount_paise
       - description
@@ -7456,13 +7538,17 @@ components:
       - mode
       - name
       - order_id
+      - payment_mode
       - payment_session_id
       - prefill
       - provider
       - subscription_id
     CheckoutVerifyRequest:
       type: object
-      description: Either ``order_id`` (Cashfree) or the three ``razorpay_*`` fields.
+      description: |-
+        One of: ``order_id`` (Cashfree); ``razorpay_payment_id`` + ``razorpay_order_id`` +
+        ``razorpay_signature`` (Razorpay one-time); ``razorpay_payment_id`` +
+        ``razorpay_subscription_id`` + ``razorpay_signature`` (Razorpay auto-pay).
       properties:
         order_id:
           type: string
@@ -7473,9 +7559,15 @@ components:
           type: string
           minLength: 1
           maxLength: 64
+        razorpay_order_id:
+          type: string
+          minLength: 1
+          description: Razorpay one-time payments.
+          maxLength: 64
         razorpay_subscription_id:
           type: string
           minLength: 1
+          description: Razorpay auto-pay.
           maxLength: 64
         razorpay_signature:
           type: string
@@ -9542,6 +9634,19 @@ components:
         total_paise:
           type: integer
           readOnly: true
+        advance_paise:
+          type: integer
+          readOnly: true
+          description: The advance a booking must pay, fixed at the payment step;
+            0 without one.
+        amount_paid_paise:
+          type: integer
+          readOnly: true
+          description: The total received online so far.
+        balance_due_paise:
+          type: integer
+          readOnly: true
+          description: max(total_paise - amount_paid_paise, 0).
         item_count:
           type: integer
           readOnly: true
@@ -9696,10 +9801,13 @@ components:
           readOnly: true
       required:
       - address
+      - advance_paise
       - allowed_transitions
+      - amount_paid_paise
       - appointment_at
       - attendance_confirmed_at
       - awb_number
+      - balance_due_paise
       - cancel_reason
       - cancelled_at
       - cod_fee_paise
@@ -9883,6 +9991,7 @@ components:
       - reschedule_requested
       - offer_applied
       - offer_removed
+      - balance_collected
       type: string
       description: |-
         * `created` - created
@@ -9905,6 +10014,7 @@ components:
         * `reschedule_requested` - reschedule_requested
         * `offer_applied` - offer_applied
         * `offer_removed` - offer_removed
+        * `balance_collected` - balance_collected
     OrderItem:
       type: object
       properties:
@@ -10000,6 +10110,19 @@ components:
         total_paise:
           type: integer
           readOnly: true
+        advance_paise:
+          type: integer
+          readOnly: true
+          description: The advance a booking must pay, fixed at the payment step;
+            0 without one.
+        amount_paid_paise:
+          type: integer
+          readOnly: true
+          description: The total received online so far.
+        balance_due_paise:
+          type: integer
+          readOnly: true
+          description: max(total_paise - amount_paid_paise, 0).
         item_count:
           type: integer
           readOnly: true
@@ -10027,7 +10150,10 @@ components:
           format: date-time
           readOnly: true
       required:
+      - advance_paise
+      - amount_paid_paise
       - appointment_at
+      - balance_due_paise
       - contact
       - created_at
       - id
@@ -11193,6 +11319,31 @@ components:
           minimum: 5
           nullable: true
           description: Services only; must be null for products.
+        booking_payment:
+          allOf:
+          - $ref: '#/components/schemas/BookingPaymentEnum'
+          description: |-
+            Default store_default. Products must be store_default.
+
+            * `store_default` - store_default
+            * `advance` - advance
+            * `full` - full
+        advance_type:
+          description: |-
+            Required with advance; "" otherwise.
+
+            * `amount` - amount
+            * `percent` - percent
+          oneOf:
+          - $ref: '#/components/schemas/AdvanceTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        advance_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+          nullable: true
+          description: 'Required with advance: paise (at least 100, below the effective
+            price) for amount, 1-99 for percent. Null otherwise.'
         name:
           type: string
           minLength: 1
@@ -11323,6 +11474,11 @@ components:
         booking_day_before_reminder:
           type: boolean
           description: Also remind buyers at 18:00 the day before.
+        booking_cancellation_policy:
+          type: string
+          description: 'Shown to buyers before they pay a booking ("Cancellation policy:
+            …").'
+          maxLength: 300
         booking_confirmed_template_id:
           type: string
           format: uuid
@@ -11545,6 +11701,7 @@ components:
       - cod_pending
       - cod_collected
       - refunded_manual
+      - advance_paid
       type: string
       description: |-
         * `unpaid` - unpaid
@@ -11552,6 +11709,7 @@ components:
         * `cod_pending` - cod_pending
         * `cod_collected` - cod_collected
         * `refunded_manual` - refunded_manual
+        * `advance_paid` - advance_paid
     PhoneNumber:
       type: object
       description: Never exposes the registration PIN.
@@ -11812,6 +11970,31 @@ components:
           readOnly: true
           nullable: true
           description: Services only; null for products.
+        booking_payment:
+          allOf:
+          - $ref: '#/components/schemas/BookingPaymentEnum'
+          readOnly: true
+          description: |-
+            What a booking pays online; always store_default for products.
+
+            * `store_default` - store_default
+            * `advance` - advance
+            * `full` - full
+        advance_type:
+          readOnly: true
+          description: |-
+            Set with an advance; "" otherwise.
+
+            * `amount` - amount
+            * `percent` - percent
+          oneOf:
+          - $ref: '#/components/schemas/AdvanceTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        advance_value:
+          type: integer
+          readOnly: true
+          nullable: true
+          description: Paise for amount, 1-99 for percent; null without an advance.
         name:
           type: string
           readOnly: true
@@ -11882,7 +12065,10 @@ components:
           format: date-time
           readOnly: true
       required:
+      - advance_type
+      - advance_value
       - availability
+      - booking_payment
       - collection
       - created_at
       - currency
@@ -12000,6 +12186,31 @@ components:
           minimum: 5
           nullable: true
           description: Services only; must be null for products.
+        booking_payment:
+          allOf:
+          - $ref: '#/components/schemas/BookingPaymentEnum'
+          description: |-
+            Default store_default. Products must be store_default.
+
+            * `store_default` - store_default
+            * `advance` - advance
+            * `full` - full
+        advance_type:
+          description: |-
+            Required with advance; "" otherwise.
+
+            * `amount` - amount
+            * `percent` - percent
+          oneOf:
+          - $ref: '#/components/schemas/AdvanceTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        advance_value:
+          type: integer
+          maximum: 2147483647
+          minimum: 1
+          nullable: true
+          description: 'Required with advance: paise (at least 100, below the effective
+            price) for amount, 1-99 for percent. Null otherwise.'
         name:
           type: string
           minLength: 1
@@ -12344,6 +12555,11 @@ components:
         booking_day_before_reminder:
           type: boolean
           description: Also remind buyers at 18:00 the day before.
+        booking_cancellation_policy:
+          type: string
+          description: 'Shown to buyers before they pay a booking ("Cancellation policy:
+            …").'
+          maxLength: 300
         booking_confirmed_template_id:
           type: string
           format: uuid
@@ -12407,11 +12623,22 @@ components:
           oneOf:
           - $ref: '#/components/schemas/PaymentProviderEnum'
           - $ref: '#/components/schemas/NullEnum'
+        payment_mode:
+          readOnly: true
+          nullable: true
+          description: |-
+            autopay (a Razorpay subscription that charges again by itself) or one_time (a prepaid period, renewed by paying again); null before a paid plan, e.g. on a trial.
+
+            * `autopay` - autopay
+            * `one_time` - one_time
+          oneOf:
+          - $ref: '#/components/schemas/BillingPaymentModeEnum'
+          - $ref: '#/components/schemas/NullEnum'
         auto_renews:
           type: boolean
           readOnly: true
-          description: True for an active Razorpay subscription; Cashfree plans are
-            prepaid.
+          description: True for an active auto-pay subscription; prepaid plans never
+            renew.
         gst_rate_percent:
           type: integer
           readOnly: true
@@ -12430,6 +12657,7 @@ components:
       - current_period_start
       - gst_rate_percent
       - interval
+      - payment_mode
       - plan
       - provider
       - status

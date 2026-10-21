@@ -479,7 +479,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Start a checkout on the configured gateway: a prepaid Cashfree order (options for Cashfree Checkout) or a Razorpay subscription (options for Razorpay Checkout). */
+        /** @description Start a checkout on the configured gateway. payment_mode autopay (the Razorpay default) creates a Razorpay subscription; one_time (the only mode on Cashfree) creates an order for one prepaid period, on Razorpay or Cashfree. 409 subscription_active while an auto-pay subscription is active, or for auto-pay while a prepaid period runs; an active prepaid plan may pay once again to renew or change plan. */
         post: operations["billing_subscription_checkout_create"];
         delete?: never;
         options?: never;
@@ -496,7 +496,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Cashfree (order_id): ask Cashfree for the order and activate the plan once it is paid; 409 payment_not_completed otherwise. Razorpay: verify the Checkout signature; the status may stay pending until the webhook. */
+        /** @description One-time payments (Cashfree order_id, or Razorpay razorpay_order_id with the payment id and signature): ask the gateway for the order and activate the prepaid plan once it is paid; 409 payment_not_completed otherwise. Razorpay auto-pay (razorpay_subscription_id): verify the Checkout signature; the status may stay pending until the webhook. */
         post: operations["billing_subscription_verify_create"];
         delete?: never;
         options?: never;
@@ -1466,6 +1466,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/{id}/mark-balance-paid/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bookings with an advance paid (payment_status advance_paid) that are confirmed or completed: the balance was paid at the shop, so the booking becomes paid. Otherwise 409 invalid_order_transition. */
+        post: operations["orders_mark_balance_paid_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/{id}/mark-cod-collected/": {
         parameters: {
             query?: never;
@@ -1483,23 +1500,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/orders/{id}/mark-balance-paid/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Bookings with payment_status advance_paid that are confirmed or completed (the balance was paid at the shop); otherwise 409 invalid_transition. */
-        post: operations["orders_mark_balance_paid_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/orders/{id}/mark-refunded/": {
         parameters: {
             query?: never;
@@ -1509,7 +1509,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Only paid orders that are cancelled or need attention (otherwise 409 invalid_order_transition); refund in Razorpay. */
+        /** @description Only paid (or advance-paid) orders that are cancelled or need attention (otherwise 409 invalid_order_transition); refund in Razorpay. */
         post: operations["orders_mark_refunded_create"];
         delete?: never;
         options?: never;
@@ -2826,7 +2826,7 @@ export interface components {
             plan_id: string;
             interval: components["schemas"]["BillingIntervalEnum"];
             /**
-             * @description Razorpay: autopay (a recurring subscription) or one_time (a prepaid order). Defaults to autopay; Cashfree is always one_time.
+             * @description autopay (a Razorpay subscription) or one_time (one prepaid period). Defaults to autopay on Razorpay and one_time on Cashfree, which has no auto-pay.
              *
              *     * `autopay` - autopay
              *     * `one_time` - one_time
@@ -2834,11 +2834,17 @@ export interface components {
             payment_mode?: components["schemas"]["BillingPaymentModeEnum"];
         };
         /**
-         * @description Options for Cashfree Checkout (a prepaid order) or Razorpay Checkout (subscription
-         *     mode); the other provider's fields are null.
+         * @description Options for Razorpay Checkout (an auto-pay subscription or a one-time order) or Cashfree
+         *     Checkout (a one-time order); fields another flow doesn't use are null.
          */
         CheckoutSession: {
             readonly provider: components["schemas"]["PaymentProviderEnum"];
+            /**
+             * @description autopay (Razorpay subscription) or one_time (prepaid order).
+             *
+             *     * `autopay` - autopay
+             *     * `one_time` - one_time
+             */
             readonly payment_mode: components["schemas"]["BillingPaymentModeEnum"];
             readonly name: string;
             readonly description: string;
@@ -2847,7 +2853,7 @@ export interface components {
             readonly key_id: string | null;
             /** @description Razorpay auto-pay only. */
             readonly subscription_id: string | null;
-            /** @description Cashfree order id, or the Razorpay order (`order_…`) of a one-time payment. */
+            /** @description One-time payments: the Razorpay order_… id or the Cashfree order id. */
             readonly order_id: string | null;
             /** @description Cashfree only. */
             readonly payment_session_id: string | null;
@@ -2858,16 +2864,22 @@ export interface components {
              *     * `production` - production
              */
             readonly mode: (components["schemas"]["CashfreeModeEnum"] | components["schemas"]["NullEnum"]) | null;
-            /** @description GST-inclusive amount charged; one-time payments only. */
+            /** @description One-time payments: the amount charged (GST-inclusive when GST is on). */
             readonly amount_paise: number | null;
         };
-        /** @description Either ``order_id`` (Cashfree), or ``razorpay_payment_id`` and ``razorpay_signature`` with ``razorpay_subscription_id`` (auto-pay) or ``razorpay_order_id`` (one-time). */
+        /**
+         * @description One of: ``order_id`` (Cashfree); ``razorpay_payment_id`` + ``razorpay_order_id`` +
+         *     ``razorpay_signature`` (Razorpay one-time); ``razorpay_payment_id`` +
+         *     ``razorpay_subscription_id`` + ``razorpay_signature`` (Razorpay auto-pay).
+         */
         CheckoutVerifyRequest: {
             /** @description Cashfree. */
             order_id?: string;
             razorpay_payment_id?: string;
-            razorpay_subscription_id?: string;
+            /** @description Razorpay one-time payments. */
             razorpay_order_id?: string;
+            /** @description Razorpay auto-pay. */
+            razorpay_subscription_id?: string;
             razorpay_signature?: string;
         };
         Collection: {
@@ -3684,7 +3696,7 @@ export interface components {
             readonly kind: components["schemas"]["OrderKindEnum"];
             readonly contact: components["schemas"]["ConversationContact"];
             readonly total_paise: number;
-            /** @description The advance a booking must pay, fixed at the payment step; 0 otherwise. */
+            /** @description The advance a booking must pay, fixed at the payment step; 0 without one. */
             readonly advance_paise: number;
             /** @description The total received online so far. */
             readonly amount_paid_paise: number;
@@ -3869,7 +3881,7 @@ export interface components {
             readonly kind: components["schemas"]["OrderKindEnum"];
             readonly contact: components["schemas"]["ConversationContact"];
             readonly total_paise: number;
-            /** @description The advance a booking must pay, fixed at the payment step; 0 otherwise. */
+            /** @description The advance a booking must pay, fixed at the payment step; 0 without one. */
             readonly advance_paise: number;
             /** @description The total received online so far. */
             readonly amount_paid_paise: number;
@@ -4539,11 +4551,22 @@ export interface components {
             kind?: components["schemas"]["ProductKindEnum"];
             /** @description Services only; must be null for products. */
             duration_minutes?: number | null;
-            /** @description Services only; products must be store_default. */
+            /**
+             * @description Default store_default. Products must be store_default.
+             *
+             *     * `store_default` - store_default
+             *     * `advance` - advance
+             *     * `full` - full
+             */
             booking_payment?: components["schemas"]["BookingPaymentEnum"];
-            /** @description Required with advance; blank otherwise. */
+            /**
+             * @description Required with advance; "" otherwise.
+             *
+             *     * `amount` - amount
+             *     * `percent` - percent
+             */
             advance_type?: components["schemas"]["AdvanceTypeEnum"] | components["schemas"]["BlankEnum"];
-            /** @description Paise for amount (at least 100, below the effective price), 1-99 for percent; null unless advance. */
+            /** @description Required with advance: paise (at least 100, below the effective price) for amount, 1-99 for percent. Null otherwise. */
             advance_value?: number | null;
             name?: string;
             description?: string;
@@ -4592,7 +4615,7 @@ export interface components {
             booking_reminder_hours?: number;
             /** @description Also remind buyers at 18:00 the day before. */
             booking_day_before_reminder?: boolean;
-            /** @description Shown to buyers before they pay; at most 300 characters. */
+            /** @description Shown to buyers before they pay a booking ("Cancellation policy: …"). */
             booking_cancellation_policy?: string;
             /** Format: uuid */
             booking_confirmed_template_id?: string | null;
@@ -4796,11 +4819,22 @@ export interface components {
             readonly kind: components["schemas"]["ProductKindEnum"];
             /** @description Services only; null for products. */
             readonly duration_minutes: number | null;
-            /** @description Services only; products are always store_default. */
+            /**
+             * @description What a booking pays online; always store_default for products.
+             *
+             *     * `store_default` - store_default
+             *     * `advance` - advance
+             *     * `full` - full
+             */
             readonly booking_payment: components["schemas"]["BookingPaymentEnum"];
-            /** @description Required with advance; blank otherwise. */
+            /**
+             * @description Set with an advance; "" otherwise.
+             *
+             *     * `amount` - amount
+             *     * `percent` - percent
+             */
             readonly advance_type: components["schemas"]["AdvanceTypeEnum"] | components["schemas"]["BlankEnum"];
-            /** @description Paise for amount, 1-99 for percent; null unless advance. */
+            /** @description Paise for amount, 1-99 for percent; null without an advance. */
             readonly advance_value: number | null;
             readonly name: string;
             readonly description: string;
@@ -4876,11 +4910,22 @@ export interface components {
             kind?: components["schemas"]["ProductKindEnum"];
             /** @description Services only; must be null for products. */
             duration_minutes?: number | null;
-            /** @description Services only; products must be store_default. */
+            /**
+             * @description Default store_default. Products must be store_default.
+             *
+             *     * `store_default` - store_default
+             *     * `advance` - advance
+             *     * `full` - full
+             */
             booking_payment?: components["schemas"]["BookingPaymentEnum"];
-            /** @description Required with advance; blank otherwise. */
+            /**
+             * @description Required with advance; "" otherwise.
+             *
+             *     * `amount` - amount
+             *     * `percent` - percent
+             */
             advance_type?: components["schemas"]["AdvanceTypeEnum"] | components["schemas"]["BlankEnum"];
-            /** @description Paise for amount (at least 100, below the effective price), 1-99 for percent; null unless advance. */
+            /** @description Required with advance: paise (at least 100, below the effective price) for amount, 1-99 for percent. Null otherwise. */
             advance_value?: number | null;
             name: string;
             description?: string;
@@ -5030,7 +5075,7 @@ export interface components {
             booking_reminder_hours?: number;
             /** @description Also remind buyers at 18:00 the day before. */
             booking_day_before_reminder?: boolean;
-            /** @description Shown to buyers before they pay; at most 300 characters. */
+            /** @description Shown to buyers before they pay a booking ("Cancellation policy: …"). */
             booking_cancellation_policy?: string;
             /** Format: uuid */
             booking_confirmed_template_id?: string | null;
@@ -5060,13 +5105,13 @@ export interface components {
              */
             readonly provider: (components["schemas"]["PaymentProviderEnum"] | components["schemas"]["NullEnum"]) | null;
             /**
-             * @description How the paid plan is paid for; null on a trial.
+             * @description autopay (a Razorpay subscription that charges again by itself) or one_time (a prepaid period, renewed by paying again); null before a paid plan, e.g. on a trial.
              *
              *     * `autopay` - autopay
              *     * `one_time` - one_time
              */
             readonly payment_mode: (components["schemas"]["BillingPaymentModeEnum"] | components["schemas"]["NullEnum"]) | null;
-            /** @description True for an active auto-pay subscription; one-time plans are prepaid. */
+            /** @description True for an active auto-pay subscription; prepaid plans never renew. */
             readonly auto_renews: boolean;
             /** @description GST added to plan prices at checkout; 0 while UpChatz doesn't charge GST. */
             readonly gst_rate_percent: number;
@@ -8566,7 +8611,7 @@ export interface operations {
             };
         };
     };
-    orders_mark_cod_collected_create: {
+    orders_mark_balance_paid_create: {
         parameters: {
             query?: never;
             header: {
@@ -8590,7 +8635,7 @@ export interface operations {
             };
         };
     };
-    orders_mark_balance_paid_create: {
+    orders_mark_cod_collected_create: {
         parameters: {
             query?: never;
             header: {

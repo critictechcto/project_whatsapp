@@ -175,7 +175,9 @@ def test_patch_validates_against_the_stored_values(admin, workspace):
 def test_switching_to_a_product_returns_to_the_store_setting(admin, workspace):
     service = ProductFactory(workspace=workspace, service=True, booking_payment="full")
 
-    response = admin.patch(detail(PRODUCTS, service), {"kind": "product"}, format="json")
+    response = admin.patch(
+        detail(PRODUCTS, service), {"kind": "product", "duration_minutes": None}, format="json"
+    )
 
     assert response.status_code == 200, response.content
     assert response.json()["booking_payment"] == "store_default"

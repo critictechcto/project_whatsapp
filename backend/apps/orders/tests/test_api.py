@@ -78,6 +78,9 @@ def test_list_item_shape(auth_client, workspace):
         "requested_date": None,
         "appointment_at": None,
         "reschedule_requested_at": None,
+        "advance_paise": 0,
+        "amount_paid_paise": 0,
+        "balance_due_paise": order.total_paise,
         "created_at": item["created_at"],
         "updated_at": item["updated_at"],
     }

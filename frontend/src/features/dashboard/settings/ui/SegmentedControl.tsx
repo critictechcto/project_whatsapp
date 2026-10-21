@@ -48,12 +48,12 @@ export function SegmentedControl<V extends string>({ label, options, value, onVa
             tabIndex={checked ? 0 : -1}
             onClick={() => onValueChange(option.value)}
             className={cn(
-              'inline-flex h-8 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+              'inline-flex h-8 min-h-11 sm:min-h-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
               checked ? 'bg-card text-ink shadow-sm ring-1 ring-line' : 'text-muted hover:text-ink',
             )}
           >
             {option.label}
-            {option.hint && <span className="font-mono text-[11px] text-accent-2">{option.hint}</span>}
+            {option.hint && <span className="font-mono text-xs text-accent-2">{option.hint}</span>}
           </button>
         )
       })}

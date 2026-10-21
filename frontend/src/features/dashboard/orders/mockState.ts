@@ -657,6 +657,7 @@ export function seededOrder(key: string): OrderRecord {
 
 /** The backend's read-only `balance_due_paise`. */
 function balanceDue(order: MockOrder): number {
+  if (['paid', 'cod_collected', 'refunded_manual'].includes(order.payment_status)) return 0
   return Math.max(order.total_paise - order.amount_paid_paise, 0)
 }
 
