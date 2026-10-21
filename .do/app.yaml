@@ -292,7 +292,7 @@ envs:
     type: SECRET
     scope: RUN_AND_BUILD_TIME
 
-  # --- Billing (Razorpay, UpChatz subscriptions) --------------------------------------------
+  # --- Billing (Razorpay: auto-pay subscriptions and pay-once orders) -----------------------
   - key: RAZORPAY_KEY_ID
     value: CHANGE_ME
     scope: RUN_AND_BUILD_TIME
@@ -325,9 +325,9 @@ envs:
     value: "false"
     scope: RUN_AND_BUILD_TIME
 
-  # --- Billing (Cashfree prepaid plans; the gateway for new checkouts) ----------------------
+  # --- Billing gateway for new checkouts: razorpay, or cashfree (dormant, pay once only) ----
   - key: BILLING_PROVIDER
-    value: cashfree
+    value: razorpay
     scope: RUN_AND_BUILD_TIME
   # sandbox uses the TEST_* keys; switch to production (live keys) when the owner says so.
   - key: CASHFREE_ENV

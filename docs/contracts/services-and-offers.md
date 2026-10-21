@@ -6,7 +6,7 @@ Agents build against this document. Conventions from `docs/contracts/wave-2.md` 
 
 - A catalog item is a **product** (delivered) or a **service** (booked). One store can list both.
 - A bot cart holds products **or** services, never both, so an order is a **delivery** or a **booking**.
-- Booking checkout has no address step: the buyer picks a **day**, then a **time window**, then pays online now or **at the shop** (after the service). The order becomes a **booking request**; the seller confirms the exact time. The buyer gets a confirmation and a reminder.
+- Booking checkout has no address step: the buyer picks a **day**, then a **time window**, then pays online now or **at the shop** (after the service). A service can instead require an advance or full payment online: see [booking-payments.md](booking-payments.md). The order becomes a **booking request**; the seller confirms the exact time. The buyer gets a confirmation and a reminder.
 - **Offer codes**: a seller creates a code (e.g. `DIWALI`). A buyer who sends exactly the code gets the offer reply and a **claim** is recorded (with the Click-to-WhatsApp ad source when present). The buyer's next checkout applies the discount. Staff can **redeem** a claim at the counter, which also counts walk-ins who never ordered on WhatsApp.
 
 ## Ownership

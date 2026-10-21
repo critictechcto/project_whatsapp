@@ -424,10 +424,11 @@ RAZORPAY_TIMEOUT = env.float("RAZORPAY_TIMEOUT", default=20.0)
 
 # --- Billing provider (Cashfree prepaid plans or Razorpay subscriptions) ----------------------
 
-# Gateway for new checkouts (docs/contracts/billing-cashfree.md). Existing Razorpay subscriptions
-# keep working through /webhooks/razorpay/ whatever this says.
+# Gateway for new checkouts (docs/contracts/billing-razorpay.md): razorpay offers auto-pay
+# subscriptions and pay-once orders; cashfree (dormant, billing-cashfree.md) only pay-once orders.
+# Existing Razorpay subscriptions keep working through /webhooks/razorpay/ whatever this says.
 BILLING_PROVIDERS = ("razorpay", "cashfree")
-BILLING_PROVIDER = env("BILLING_PROVIDER", default="cashfree").strip().lower()
+BILLING_PROVIDER = env("BILLING_PROVIDER", default="razorpay").strip().lower()
 if BILLING_PROVIDER not in BILLING_PROVIDERS:
     raise ImproperlyConfigured(
         f"BILLING_PROVIDER must be one of {', '.join(BILLING_PROVIDERS)}, not {BILLING_PROVIDER!r}."

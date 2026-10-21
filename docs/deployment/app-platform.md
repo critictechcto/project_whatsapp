@@ -84,9 +84,10 @@ The other variables:
 | `META_APP_ID`, `META_APP_SECRET` | Meta App Dashboard → App settings → Basic |
 | `META_EMBEDDED_SIGNUP_CONFIG_ID` | Facebook Login for Business → Configurations |
 | `PLATFORM_WA_*` | UpChatz's own alerts number (WABA ID, phone number ID, display number, system-user token). Leave these empty to turn seller alerts off. |
-| `TEST_CASHFREE_API_APP_ID`, `TEST_CASHFREE_API_SECRET` | Cashfree Merchant Dashboard in **test mode** → Developers → API Keys. Used while `CASHFREE_ENV=sandbox` (the spec's default) |
-| `CASHFREE_API_APP_ID`, `CASHFREE_API_SECRET` | The same page in **production** mode, once Cashfree has activated the account. Used only when `CASHFREE_ENV=production` |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_PLAN_IDS` | Razorpay Dashboard (live mode). Needed only for existing Razorpay subscriptions or with `BILLING_PROVIDER=razorpay` |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Razorpay Dashboard → Account & Settings → API Keys (`rzp_test_…` in test mode, `rzp_live_…` once live). Plan billing runs on Razorpay (`BILLING_PROVIDER=razorpay`, the spec's value) |
+| `RAZORPAY_WEBHOOK_SECRET` | A long random string you choose; enter the same value on the Razorpay webhook (step 5) |
+| `RAZORPAY_PLAN_IDS` | The six Razorpay plan ids (step 5), as JSON. Needed for auto-pay only; pay once works without them |
+| `TEST_CASHFREE_API_APP_ID`, `TEST_CASHFREE_API_SECRET`, `CASHFREE_API_APP_ID`, `CASHFREE_API_SECRET` | Optional. Cashfree is dormant; these matter only if `BILLING_PROVIDER` is set back to `cashfree` |
 | `BILLING_SELLER_*` | UpChatz's legal name, GSTIN, state code and address, as printed on invoices |
 | `RESEND_API_KEY` | Resend → API Keys, **Sending access** limited to `upchatz.com` (verify the domain first: DKIM `resend._domainkey` plus the `send` MX/TXT records, and a `_dmarc` TXT, in DigitalOcean DNS). `DEFAULT_FROM_EMAIL` and `EMAIL_REPLY_TO` are set in the spec. Without a key the API falls back to SMTP with `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` |
 | `SENTRY_DSN` | Optional; leave it empty to turn Sentry off |
@@ -109,7 +110,7 @@ Never run `doctl apps update --spec .do/app.yaml` against the live app, because 
 
 Before DNS is live, the default `*.ondigitalocean.app` URL returns 400, because `DJANGO_ALLOWED_HOSTS` only lists `app.upchatz.com`. To test on that URL anyway, temporarily add its host to `DJANGO_ALLOWED_HOSTS`, and its origin to the `CSRF`, `CORS` and `WS` origin lists. Remove them afterwards.
 
-## 5. Meta, Cashfree and Razorpay settings
+## 5. Meta, Razorpay and Cashfree settings
 
 **Meta App Dashboard → WhatsApp → Configuration**
 - Callback URL: `https://app.upchatz.com/webhooks/meta/`
@@ -126,15 +127,15 @@ Before DNS is live, the default `*.ondigitalocean.app` URL returns 400, because 
 - Add `https://app.upchatz.com` to *Allowed Domains for the JavaScript SDK* and to *Valid OAuth Redirect URIs*.
 - Add `upchatz.com` to *App Domains* under App settings → Basic.
 
-**Cashfree (UpChatz prepaid plans)**
-- `BILLING_PROVIDER=cashfree` sends new checkouts to Cashfree. Plans are paid a month or a year at a time and never charged automatically; owners get a renewal email 7 days and 1 day before the plan ends.
-- In the Cashfree Merchant Dashboard (Developers → Webhooks), add `https://app.upchatz.com/webhooks/cashfree/billing/` for payment events, in test mode now and again in production later. Cashfree signs webhooks with the API secret key, so there is no separate webhook secret. Each order also sends this URL as its `notify_url`, and the dashboard verifies every payment with Cashfree itself, so a missed webhook doesn't lose a payment.
-- **Going live:** fill in `CASHFREE_API_APP_ID` and `CASHFREE_API_SECRET`, change `CASHFREE_ENV` to `production`, add the webhook URL in production mode, and redeploy.
+**Razorpay (UpChatz plans: auto-pay and pay once)**
+- `BILLING_PROVIDER=razorpay` sends new checkouts to Razorpay. On the Plans page the owner chooses **Auto-pay** (a Razorpay subscription: UPI AutoPay or card mandate, charged each month or year) or **Pay once** (a Razorpay order for one month or year; nothing is charged automatically, and owners get a renewal email 7 days and 1 day before the plan ends).
+- Webhook (Razorpay Dashboard → Account & Settings → Webhooks): URL `https://app.upchatz.com/webhooks/razorpay/`, secret = `RAZORPAY_WEBHOOK_SECRET`, events `order.paid`, `payment.failed`, `subscription.authenticated`, `subscription.activated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`. The dashboard also verifies each payment with Razorpay itself, so a missed webhook doesn't lose a payment.
+- Payment capture (Account & Settings → Payment capture): **automatic**, so pay-once orders become paid without a manual capture.
+- Auto-pay plans (Subscriptions → Plans): create one plan per UpChatz plan and interval at the prices in `frontend/src/config/site.ts` (annual = 10 months' price), then set `RAZORPAY_PLAN_IDS` to `{"starter":{"monthly":"plan_…","annual":"plan_…"},"growth":{…},"pro":{…}}`. Some Razorpay accounts must ask Razorpay to enable Subscriptions first. UPI AutoPay has a per-debit cap set by NPCI, so large annual plans may need a card mandate.
+- Test mode and live mode have separate keys, plans and webhooks: repeat these steps in live mode when going live.
 
-**Razorpay (UpChatz subscriptions)**
-- Webhook URL: `https://app.upchatz.com/webhooks/razorpay/`
-- Secret: the value of `RAZORPAY_WEBHOOK_SECRET`
-- Keep this configured while any workspace still has a Razorpay subscription, even after switching new checkouts to Cashfree.
+**Cashfree (dormant)**
+- Cashfree is not used while `BILLING_PROVIDER=razorpay`. To switch back, set `BILLING_PROVIDER=cashfree` with its keys and add `https://app.upchatz.com/webhooks/cashfree/billing/` in the Cashfree Merchant Dashboard (Developers → Webhooks); see `docs/contracts/billing-cashfree.md`.
 
 Sellers' own payment webhooks are shown to them in the dashboard. Those URLs are built from `PUBLIC_API_BASE_URL`.
 

@@ -1,5 +1,7 @@
 # Billing through Cashfree (prepaid plans)
 
+> **Dormant.** Plan billing moved to Razorpay (auto-pay and pay once): see [billing-razorpay.md](billing-razorpay.md). This flow still works when `BILLING_PROVIDER=cashfree`. Where this document says a rule applies to a "Cashfree plan", it now applies to every prepaid (`one_time`) plan.
+
 UpChatz's own subscription billing can run on **Cashfree Payment Gateway orders** (prepaid, no auto-debit) or on the existing **Razorpay subscriptions**. `BILLING_PROVIDER` (`cashfree` | `razorpay`, default `cashfree`) picks the gateway for **new checkouts**. Existing Razorpay subscriptions keep working through `/webhooks/razorpay/` whatever the setting. Sellers' own Razorpay/Cashfree payment links for orders (`apps.payments`) are unrelated and unchanged.
 
 ## Settings (`config/settings/base.py`)
