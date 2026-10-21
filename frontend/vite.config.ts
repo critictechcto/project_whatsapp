@@ -101,6 +101,8 @@ export default defineConfig(({ mode, isSsrBuild }) => {
         VITE_API_MODE: 'live',
         VITE_API_URL: 'http://localhost:3000',
         VITE_WS_URL: 'ws://localhost:3000',
+        // The Pages workflow sets this for the build; tests read prices from VITE_API_URL instead.
+        VITE_PRICING_API_URL: '',
       },
     },
   }
