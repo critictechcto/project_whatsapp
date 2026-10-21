@@ -11,6 +11,9 @@ from .models import Collection, Product, kind_field_errors
 PRODUCT_FIELDS = (
     "kind",
     "duration_minutes",
+    "booking_payment",
+    "advance_type",
+    "advance_value",
     "name",
     "description",
     "price_paise",
@@ -52,9 +55,39 @@ def _check_sale_price(product: Product) -> None:
 
 
 def _check_kind(product: Product) -> None:
-    errors = kind_field_errors(product.kind, product.stock_qty, product.duration_minutes)
+    errors = kind_field_errors(
+        product.kind,
+        product.stock_qty,
+        product.duration_minutes,
+        booking_payment=product.booking_payment,
+        advance_type=product.advance_type,
+        advance_value=product.advance_value,
+        effective_price_paise=product.effective_price_paise,
+    )
     if errors:
         raise serializers.ValidationError(errors)
+
+
+def _clear_booking_payment(product: Product, data: dict) -> list[str]:
+    """Fields the request left out that can't carry over: a product (or a kind switch to one)
+    goes back to ``store_default``, and only an advance keeps its type and value. Returns the
+    fields changed."""
+    changed = []
+    if (
+        product.kind != Product.Kind.SERVICE
+        and "booking_payment" not in data
+        and product.booking_payment != Product.BookingPayment.STORE_DEFAULT
+    ):
+        product.booking_payment = Product.BookingPayment.STORE_DEFAULT
+        changed.append("booking_payment")
+    if product.booking_payment != Product.BookingPayment.ADVANCE:
+        if "advance_type" not in data and product.advance_type:
+            product.advance_type = ""
+            changed.append("advance_type")
+        if "advance_value" not in data and product.advance_value is not None:
+            product.advance_value = None
+            changed.append("advance_value")
+    return changed
 
 
 # --- Products ---------------------------------------------------------------------------------
@@ -74,6 +107,7 @@ def create_product(workspace, data: dict) -> Product:
             setattr(product, name, data[name])
     if "position" not in data:
         product.position = _next_position(products)
+    _clear_booking_payment(product, data)
     _check_sale_price(product)
     _check_kind(product)
     try:
@@ -97,6 +131,7 @@ def update_product(product: Product, data: dict) -> Product:
     if "collection_id" in data:
         product.collection = _collection(product.workspace, data["collection_id"])
         changed.append("collection")
+    changed += [name for name in _clear_booking_payment(product, data) if name not in changed]
     _check_sale_price(product)
     _check_kind(product)
     product.save(update_fields=[*changed, "updated_at"])

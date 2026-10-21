@@ -21,3 +21,10 @@ def format_inr(paise: int) -> str:
     sign = "-" if paise < 0 else ""
     rupees, remainder = divmod(abs(int(paise)), 100)
     return f"{sign}₹{_group_en_in(rupees)}.{remainder:02d}"
+
+
+def format_inr_short(paise: int) -> str:
+    """Like :func:`format_inr` without ``.00`` for whole rupees (``"₹1,450"``), for button
+    titles."""
+    text = format_inr(paise)
+    return text[:-3] if text.endswith(".00") else text

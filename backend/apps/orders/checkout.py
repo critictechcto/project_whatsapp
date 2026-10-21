@@ -13,6 +13,11 @@ Bookings (services, docs/contracts/services-and-offers.md) skip the address: the
 day (``chk:day``) and a window (``chk:win``), then *Pay online* or *Pay at the shop*; the
 finished checkout lands in ``requested`` for the seller to confirm a time. A claimed offer code
 is applied when the checkout starts (or later, :func:`apply_offer_to_active_checkout`).
+
+Services may require an advance or full payment online (docs/contracts/booking-payments.md):
+the strictest line decides ``Order.booking_payment`` and ``advance_paise`` when the checkout
+starts and whenever the totals change. An advance booking offers *Pay ₹A advance* (``chk:pay``
+``advance``) or *Pay ₹T in full*; a paid advance leaves the booking ``advance_paid``.
 """
 
 import json
@@ -25,7 +30,7 @@ from functools import partial
 from django.db import transaction
 from django.utils import timezone
 
-from apps.catalog.models import Product
+from apps.catalog.models import MIN_ADVANCE_PAISE, Product
 from apps.catalog.services import OutOfStock, PricedCart, public_image_url
 from apps.contacts.models import Contact
 from apps.inbox import interactive, sending
@@ -44,7 +49,7 @@ from common.phone import InvalidPhoneNumber, normalize_e164
 from . import booking, buyer, lifecycle, notifications, transitions
 from .exceptions import CheckoutRejected
 from .models import Order, OrderEvent, OrderItem, ShopperAddress
-from .money import format_inr
+from .money import format_inr, format_inr_short
 from .store import (
     checkout_ttl_minutes,
     footer_for,
@@ -65,6 +70,17 @@ ADDRESS_UNSUPPORTED_ERROR = "1026"
 PINCODE_RE = re.compile(r"^[0-9]{6}$")
 PINCODE_IN_TEXT_RE = re.compile(r"(?<!\d)(\d{3})\s?(\d{3})(?!\d)")
 STALE_TEXT = "This option is no longer available."
+ONLINE_REQUIRED_TEXT = (
+    "This service needs online payment to book, and the store can't take online payments right "
+    "now. Please contact the store."
+)
+BookingPayment = Order.BookingPayment
+REQUIREMENT_RANK = {
+    BookingPayment.STORE_DEFAULT: 0,
+    BookingPayment.ADVANCE: 1,
+    BookingPayment.FULL: 2,
+}
+MAX_BUTTON_TITLE = 20
 MAX_RECENT_ORDERS = 10
 
 DROP_REASONS = {
@@ -208,7 +224,70 @@ def cod_allowed(store_settings, order: Order) -> bool:
 
 
 def pay_at_shop_allowed(store_settings, order: Order) -> bool:
-    return order.is_booking and store_settings.pay_at_shop_enabled
+    return (
+        order.is_booking
+        and store_settings.pay_at_shop_enabled
+        and order.booking_payment == BookingPayment.STORE_DEFAULT
+    )
+
+
+def booking_requirement(lines, total_paise: int) -> tuple[str, int]:
+    """``(requirement, advance_paise)`` for booking lines given as ``(product, quantity,
+    line_total_paise)``: the strictest line wins (full, then advance, then store_default). The
+    advance is the sum of the line advances, capped at ``total - ₹1``; an advance that reaches
+    the total (or would be under ₹1) means full payment."""
+    requirement, advance = BookingPayment.STORE_DEFAULT, 0
+    for product, quantity, line_total in lines:
+        if product is None or product.kind != Product.Kind.SERVICE:
+            continue
+        line_requirement = product.booking_payment
+        if REQUIREMENT_RANK.get(line_requirement, 0) > REQUIREMENT_RANK[requirement]:
+            requirement = line_requirement
+        advance += product.advance_for_line(quantity, line_total)
+    if requirement != BookingPayment.ADVANCE:
+        return requirement, 0
+    if advance >= total_paise:
+        return BookingPayment.FULL, 0
+    advance = min(advance, total_paise - MIN_ADVANCE_PAISE)
+    if advance < MIN_ADVANCE_PAISE:
+        return BookingPayment.FULL, 0
+    return BookingPayment.ADVANCE, advance
+
+
+def update_booking_requirement(order: Order) -> bool:
+    """Recompute ``booking_payment`` and ``advance_paise`` from the order lines and the current
+    total (after an offer, for example); True when either changed."""
+    if not order.is_booking:
+        return False
+    items = order.items.select_related("product")
+    requirement, advance = booking_requirement(
+        [(item.product, item.quantity, item.line_total_paise) for item in items],
+        order.total_paise,
+    )
+    if order.booking_payment == requirement and order.advance_paise == advance:
+        return False
+    order.booking_payment, order.advance_paise = requirement, advance
+    fields = ["booking_payment", "advance_paise", "updated_at"]
+    if requirement != BookingPayment.ADVANCE and order.pay_advance:
+        order.pay_advance = False
+        fields.insert(0, "pay_advance")
+    order.save(update_fields=fields)
+    return True
+
+
+def link_amount(order: Order) -> int:
+    """What the payment link charges: the advance when the buyer chose it, else the total."""
+    if (
+        order.pay_advance
+        and order.booking_payment == BookingPayment.ADVANCE
+        and 0 < order.advance_paise < order.total_paise
+    ):
+        return order.advance_paise
+    return order.total_paise
+
+
+def _title(text: str, fallback: str) -> str:
+    return text if len(text) <= MAX_BUTTON_TITLE else fallback
 
 
 def online_allowed(order: Order) -> bool:
@@ -257,6 +336,7 @@ def _apply_offer(order: Order) -> bool:
             "updated_at",
         ]
     )
+    update_booking_requirement(order)
     lifecycle.record_event(
         order,
         OrderEvent.Type.OFFER_APPLIED,
@@ -327,8 +407,17 @@ def start_checkout(
         _send_rejection(conversation, body, source, reject_key)
         raise CheckoutRejected("mixed_cart", body)
     is_booking = kind == Order.Kind.BOOKING
+    requirement, advance = BookingPayment.STORE_DEFAULT, 0
     if is_booking:
         name = store_display_name(store_settings)
+        requirement, advance = booking_requirement(
+            [(line.product, line.quantity, line.line_total_paise) for line in lines], subtotal
+        )
+        if requirement != BookingPayment.STORE_DEFAULT and not (
+            payment_services.online_payments_ready(workspace)
+        ):
+            _send_rejection(conversation, ONLINE_REQUIRED_TEXT, source, reject_key)
+            raise CheckoutRejected("payment_unavailable", ONLINE_REQUIRED_TEXT)
         if not (
             payment_services.online_payments_ready(workspace) or store_settings.pay_at_shop_enabled
         ):
@@ -379,6 +468,8 @@ def start_checkout(
             subtotal_paise=subtotal,
             shipping_paise=shipping,
             total_paise=subtotal + shipping,
+            booking_payment=requirement,
+            advance_paise=advance,
             quoted_total_paise=quoted_total_paise,
             expires_at=_deadline(),
         )
@@ -984,18 +1075,48 @@ def offer_payment(
     return buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
 
 
+def _booking_payment_options(order: Order, store_settings, *, retry: bool) -> list:
+    options = []
+    online = online_allowed(order)
+    if online and retry:
+        options.append((build_reply_id("chk", "retry", order.pk), "Try again"))
+    elif online and order.booking_payment == BookingPayment.ADVANCE:
+        options += [
+            (
+                build_reply_id("chk", "pay", order.pk, "advance"),
+                _title(f"Pay {format_inr_short(order.advance_paise)} advance", "Pay advance"),
+            ),
+            (
+                build_reply_id("chk", "pay", order.pk, "online"),
+                _title(f"Pay {format_inr_short(order.total_paise)} in full", "Pay in full"),
+            ),
+        ]
+    elif online:
+        options.append((build_reply_id("chk", "pay", order.pk, "online"), "Pay online"))
+    if pay_at_shop_allowed(store_settings, order):
+        options.append((build_reply_id("chk", "pay", order.pk, "shop"), "Pay at the shop"))
+    return options
+
+
+def booking_payment_prompt(order: Order) -> str:
+    """The line under the summary: what the booking must pay, or the question."""
+    if order.booking_payment == BookingPayment.ADVANCE:
+        return (
+            f"Pay {format_inr(order.advance_paise)} now to book. The rest, "
+            f"{format_inr(max(order.total_paise - order.advance_paise, 0))}, is paid at the shop."
+        )
+    if order.booking_payment == BookingPayment.FULL:
+        return "Full payment is needed to book."
+    return "How would you like to pay?"
+
+
 def _offer_booking_payment(
     order: Order, store_settings, *, idempotency_key: str, note: str, retry: bool
 ) -> Message | None:
-    """*Pay online* / *Pay at the shop* / *Cancel booking*."""
-    options = []
-    if online_allowed(order):
-        if retry:
-            options.append((build_reply_id("chk", "retry", order.pk), "Try again"))
-        else:
-            options.append((build_reply_id("chk", "pay", order.pk, "online"), "Pay online"))
-    if pay_at_shop_allowed(store_settings, order):
-        options.append((build_reply_id("chk", "pay", order.pk, "shop"), "Pay at the shop"))
+    """*Pay online* / *Pay at the shop* / *Cancel booking*; for an advance booking *Pay ₹A
+    advance* / *Pay ₹T in full* / *Cancel booking*; for a full-payment booking *Pay online* /
+    *Cancel booking*."""
+    options = _booking_payment_options(order, store_settings, retry=retry)
     if not options:
         body = "\n\n".join(
             filter(
@@ -1012,7 +1133,9 @@ def _offer_booking_payment(
         )
     options.append(_cancel_button(order))
     lines = [note, ""] if note else []
-    lines += [buyer.order_summary(order), "", "How would you like to pay?"]
+    lines += [buyer.order_summary(order), "", booking_payment_prompt(order)]
+    if policy := (store_settings.booking_cancellation_policy or "").strip():
+        lines += ["", f"Cancellation policy: {policy}"]
     content = interactive.reply_buttons(
         buyer.truncate("\n".join(lines)), options, footer=footer_for(store_settings)
     )
@@ -1047,7 +1170,9 @@ def _try_reserve(order: Order) -> OutOfStock | None:
     return None
 
 
-def _choose_online(message: Message, order: Order, store_settings) -> None:
+def _choose_online(
+    message: Message, order: Order, store_settings, *, advance: bool = False
+) -> None:
     if not online_allowed(order):
         offer_payment(
             order,
@@ -1060,6 +1185,7 @@ def _choose_online(message: Message, order: Order, store_settings) -> None:
         _out_of_stock(message, order, failure, store_settings)
         return
     order.payment_method = Order.PaymentMethod.ONLINE
+    order.pay_advance = advance
     order.cod_fee_paise = 0
     order.total_paise = order_total(order)
     order.checkout_attempt += 1
@@ -1239,12 +1365,21 @@ def _chk_edit(message, conversation, order, reply, store_settings) -> None:
 
 def _chk_pay(message, conversation, order, reply, store_settings) -> None:
     method = reply.args[1] if len(reply.args) > 1 else ""
-    methods = ("online", "shop") if order.is_booking else ("online", "cod")
+    if order.is_booking:
+        methods = {
+            BookingPayment.STORE_DEFAULT: ("online", "shop"),
+            BookingPayment.ADVANCE: ("online", "advance"),
+            BookingPayment.FULL: ("online",),
+        }.get(order.booking_payment, ("online",))
+    else:
+        methods = ("online", "cod")
     if order.status != Status.AWAITING_PAYMENT_METHOD or method not in methods:
         _send_stale(conversation, message)
         return
     if method == "online":
         _choose_online(message, order, store_settings)
+    elif method == "advance":
+        _choose_online(message, order, store_settings, advance=True)
     elif method == "shop":
         _choose_shop(message, order, store_settings)
     else:
@@ -1258,7 +1393,12 @@ def _chk_retry(message, conversation, order, reply, store_settings) -> None:
     ):
         _send_stale(conversation, message)
         return
-    _choose_online(message, order, store_settings)
+    _choose_online(
+        message,
+        order,
+        store_settings,
+        advance=order.pay_advance and order.booking_payment == BookingPayment.ADVANCE,
+    )
 
 
 def _chk_cancel(message, conversation, order, reply, store_settings) -> None:
@@ -1448,9 +1588,9 @@ def _ord_bcancel(message, conversation, order) -> None:
 
 def _ord_bcancel_yes(message, conversation, order) -> None:
     lifecycle.cancel_order(order, actor=BUYER, reason="Cancelled by the buyer.", notify_buyer=False)
-    body = f"Your booking {order.number} is cancelled."
-    if order.payment_status == Order.PaymentStatus.PAID:
-        body += " The store will refund your payment."
+    body = f"Your booking {order.number} is cancelled." + notifications.cancelled_payment_text(
+        order
+    )
     buyer.send_to_buyer(
         order,
         interactive.reply_buttons(body, [_menu_button()]),
@@ -1516,7 +1656,7 @@ def create_and_send_payment_link(order_id, attempt: int) -> None:
         workspace=order.workspace,
         order_id=order.pk,
         reference_id=f"{order.number}-{attempt}",
-        amount_paise=order.total_paise,
+        amount_paise=link_amount(order),
         description=(
             f"{noun(order).capitalize()} {order.number} from {store_display_name(store_settings)}"
         )[:250],
@@ -1546,16 +1686,26 @@ def create_and_send_payment_link(order_id, attempt: int) -> None:
                 OrderEvent.Type.PAYMENT_LINK_CREATED,
                 actor=SYSTEM,
                 detail=f"Payment link {link.reference_id} for {format_inr(link.amount_paise)}.",
-                metadata={"payment_link_id": str(link.pk), "attempt": attempt},
+                metadata={
+                    "payment_link_id": str(link.pk),
+                    "attempt": attempt,
+                    "amount_paise": link.amount_paise,
+                    "advance": link.amount_paise < order.total_paise,
+                },
             )
+        due = (
+            f"{format_inr(link.amount_paise)} advance (total {format_inr(order.total_paise)})"
+            if link.amount_paise < order.total_paise
+            else format_inr(link.amount_paise)
+        )
         body = (
-            f"{noun(order).capitalize()} {order.number}: {format_inr(order.total_paise)}.\n\n"
+            f"{noun(order).capitalize()} {order.number}: {due}.\n\n"
             "Tap below to pay securely. The link expires in "
             f"{payment_link_expiry_minutes()} minutes."
         )
         content = interactive.cta_url(
             body,
-            f"Pay {format_inr(order.total_paise)}"[:20],
+            f"Pay {format_inr(link.amount_paise)}"[:20],
             link.short_url,
             footer=footer_for(store_settings),
         )
@@ -1673,7 +1823,12 @@ def on_payment_link_paid(event) -> None:
             metadata=metadata,
         )
         was_cod = order.payment_status == Order.PaymentStatus.COD_PENDING
-        order.payment_status = Order.PaymentStatus.PAID
+        order.amount_paid_paise += max(int(event.amount_paise or 0), 0)
+        full = order.amount_paid_paise >= order.total_paise
+        order.payment_status = (
+            Order.PaymentStatus.PAID if full else Order.PaymentStatus.ADVANCE_PAID
+        )
+        paid_detail = "Paid online." if full else "Advance paid online."
         order.payment_method = Order.PaymentMethod.ONLINE
         order.paid_at = event.paid_at or timezone.now()
 
@@ -1681,7 +1836,7 @@ def on_payment_link_paid(event) -> None:
         done = transitions.CHECKOUT_DONE.get(order.kind, Status.CONFIRMED)
         if order.status in transitions.CHECKOUT_STATUSES:
             if _try_reserve(order) is None:
-                lifecycle.set_status(order, done, actor=SYSTEM, system=True, detail="Paid online.")
+                lifecycle.set_status(order, done, actor=SYSTEM, system=True, detail=paid_detail)
                 _checkout_done(order, link_id)
             else:
                 _flag_paid_order(order, event, "Paid, but some items are out of stock.")
@@ -1710,7 +1865,7 @@ def on_payment_link_paid(event) -> None:
                 )
         else:
             order.save()
-            detail = "Paid online."
+            detail = paid_detail
             if was_cod:
                 detail = "Paid online after choosing cash on delivery; don't collect cash."
             lifecycle.record_event(order, OrderEvent.Type.NOTE, actor=SYSTEM, detail=detail)

@@ -316,12 +316,28 @@ class OrderViewSet(WorkspaceScopedGenericViewSet):
         return _order_response(order)
 
     @extend_schema(
+        operation_id="orders_mark_balance_paid_create",
+        request=None,
+        responses=OrderSerializer,
+        description=(
+            "Bookings with an advance paid (payment_status advance_paid) that are confirmed or "
+            "completed: the balance was paid at the shop, so the booking becomes paid. "
+            "Otherwise 409 invalid_order_transition."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="mark-balance-paid")
+    def mark_balance_paid(self, request, pk=None):
+        order = self.get_object()
+        services.mark_balance_paid(order, actor=DASHBOARD, user=request.user)
+        return _order_response(order)
+
+    @extend_schema(
         operation_id="orders_mark_refunded_create",
         request=None,
         responses=OrderSerializer,
         description=(
-            "Only paid orders that are cancelled or need attention (otherwise 409 "
-            "invalid_order_transition); refund in Razorpay."
+            "Only paid (or advance-paid) orders that are cancelled or need attention (otherwise "
+            "409 invalid_order_transition); refund in Razorpay."
         ),
     )
     @action(detail=True, methods=["post"], url_path="mark-refunded")

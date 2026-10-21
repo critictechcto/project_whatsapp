@@ -23,6 +23,11 @@ DEFAULT_MAX_QTY_PER_ORDER = 10
 MAX_QTY_PER_ORDER = 99
 MIN_DURATION_MINUTES = 5
 MAX_DURATION_MINUTES = 600
+# Booking payment (docs/contracts/booking-payments.md): an advance amount is at least ₹1 and
+# below the price; a percent advance is 1-99.
+MIN_ADVANCE_PAISE = 100
+MIN_ADVANCE_PERCENT = 1
+MAX_ADVANCE_PERCENT = 99
 
 sku_validator = RegexValidator(
     r"^[A-Za-z0-9_-]{1,100}$", "Use 1-100 letters, digits, underscores or hyphens."
@@ -93,6 +98,15 @@ class Product(TenantScopedModel):
         IN_STOCK = "in_stock", "In stock"
         OUT_OF_STOCK = "out_of_stock", "Out of stock"
 
+    class BookingPayment(models.TextChoices):
+        STORE_DEFAULT = "store_default", "Use store setting"
+        ADVANCE = "advance", "Advance payment"
+        FULL = "full", "Full payment"
+
+    class AdvanceType(models.TextChoices):
+        AMOUNT = "amount", "Amount"
+        PERCENT = "percent", "Percent"
+
     class SyncStatus(models.TextChoices):
         NOT_SYNCED = "not_synced", "Not synced"
         PENDING = "pending", "Pending"
@@ -110,6 +124,14 @@ class Product(TenantScopedModel):
     kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.PRODUCT)
     # Services only (5-600 minutes, optional); always null for products.
     duration_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Services only: what a booking must pay online. ``advance`` needs ``advance_type`` and
+    # ``advance_value`` (paise for ``amount``, 1-99 for ``percent``); products are always
+    # ``store_default``.
+    booking_payment = models.CharField(
+        max_length=16, choices=BookingPayment.choices, default=BookingPayment.STORE_DEFAULT
+    )
+    advance_type = models.CharField(max_length=8, choices=AdvanceType.choices, blank=True)
+    advance_value = models.PositiveIntegerField(null=True, blank=True)
     name = models.CharField(max_length=200)
     description = models.TextField(max_length=1000, blank=True)
     price_paise = models.PositiveIntegerField(validators=[MinValueValidator(MIN_PRICE_PAISE)])
@@ -182,6 +204,27 @@ class Product(TenantScopedModel):
                 ),
                 name="catalog_product_kind_fields",
             ),
+            models.CheckConstraint(
+                condition=(
+                    Q(booking_payment="advance", kind="service")
+                    & (
+                        Q(advance_type="amount", advance_value__gte=MIN_ADVANCE_PAISE)
+                        | Q(
+                            advance_type="percent",
+                            advance_value__gte=MIN_ADVANCE_PERCENT,
+                            advance_value__lte=MAX_ADVANCE_PERCENT,
+                        )
+                    )
+                )
+                | Q(
+                    booking_payment="full",
+                    kind="service",
+                    advance_type="",
+                    advance_value__isnull=True,
+                )
+                | Q(booking_payment="store_default", advance_type="", advance_value__isnull=True),
+                name="catalog_product_booking_payment",
+            ),
         ]
         indexes = [
             models.Index(
@@ -215,6 +258,18 @@ class Product(TenantScopedModel):
     def is_service(self) -> bool:
         return self.kind == self.Kind.SERVICE
 
+    def advance_for_line(self, quantity: int, line_total_paise: int) -> int:
+        """The advance one cart line needs: ``advance_value * quantity`` for an amount,
+        ``ceil(line_total * percent / 100)`` for a percent; 0 unless the service takes an
+        advance."""
+        if self.booking_payment != self.BookingPayment.ADVANCE or not self.advance_value:
+            return 0
+        if self.advance_type == self.AdvanceType.AMOUNT:
+            return self.advance_value * quantity
+        if self.advance_type == self.AdvanceType.PERCENT:
+            return -(-line_total_paise * self.advance_value // 100)
+        return 0
+
     @property
     def is_stock_tracked(self) -> bool:
         return self.stock_qty is not None and not self.is_service
@@ -227,9 +282,20 @@ class Product(TenantScopedModel):
         return self.Availability.IN_STOCK
 
 
-def kind_field_errors(kind: str, stock_qty, duration_minutes) -> dict[str, list[str]]:
+def kind_field_errors(
+    kind: str,
+    stock_qty,
+    duration_minutes,
+    *,
+    booking_payment: str = Product.BookingPayment.STORE_DEFAULT,
+    advance_type: str = "",
+    advance_value=None,
+    effective_price_paise: int | None = None,
+) -> dict[str, list[str]]:
     """Field errors for the kind rules: services never track stock and may have a duration of
-    5-600 minutes; products have no duration."""
+    5-600 minutes; products have no duration. Only services may ask for an advance or full
+    payment at booking; an advance needs a type and a value (an amount of at least ₹1 and below
+    the effective price, or 1-99 percent)."""
     errors: dict[str, list[str]] = {}
     if kind == Product.Kind.SERVICE:
         if stock_qty is not None:
@@ -242,7 +308,43 @@ def kind_field_errors(kind: str, stock_qty, duration_minutes) -> dict[str, list[
             ]
     elif duration_minutes is not None:
         errors["duration_minutes"] = ["Only services have a duration."]
+    errors.update(
+        _booking_payment_errors(
+            kind, booking_payment, advance_type, advance_value, effective_price_paise
+        )
+    )
     return errors
+
+
+def _booking_payment_errors(
+    kind, booking_payment, advance_type, advance_value, effective_price_paise
+) -> dict[str, list[str]]:
+    if booking_payment not in Product.BookingPayment.values:
+        return {"booking_payment": ["Choose store_default, advance or full."]}
+    if booking_payment != Product.BookingPayment.STORE_DEFAULT and kind != Product.Kind.SERVICE:
+        return {"booking_payment": ["Only services can ask for payment at booking."]}
+    if booking_payment != Product.BookingPayment.ADVANCE:
+        errors = {}
+        if advance_type:
+            errors["advance_type"] = ["Only an advance payment has an advance type."]
+        if advance_value is not None:
+            errors["advance_value"] = ["Only an advance payment has an advance value."]
+        return errors
+    if advance_type not in Product.AdvanceType.values:
+        return {"advance_type": ["Choose amount or percent for the advance."]}
+    if advance_value is None:
+        return {"advance_value": ["Enter the advance."]}
+    if advance_type == Product.AdvanceType.PERCENT:
+        if not MIN_ADVANCE_PERCENT <= advance_value <= MAX_ADVANCE_PERCENT:
+            return {
+                "advance_value": [f"Use {MIN_ADVANCE_PERCENT} to {MAX_ADVANCE_PERCENT} percent."]
+            }
+        return {}
+    if advance_value < MIN_ADVANCE_PAISE:
+        return {"advance_value": ["The advance must be at least ₹1."]}
+    if effective_price_paise is not None and advance_value >= effective_price_paise:
+        return {"advance_value": ["The advance must be less than the price."]}
+    return {}
 
 
 class MetaCatalog(TenantScopedModel):

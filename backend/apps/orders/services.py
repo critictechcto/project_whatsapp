@@ -20,6 +20,7 @@ from .exceptions import CheckoutRejected
 from .lifecycle import (
     cancel_order,
     confirm_booking,
+    mark_balance_paid,
     mark_cod_collected,
     mark_refunded,
     open_orders_for_workspaces,
@@ -44,6 +45,7 @@ __all__ = [
     "get_store_settings",
     "handle_checkout_reply",
     "handle_checkout_text",
+    "mark_balance_paid",
     "mark_cod_collected",
     "mark_refunded",
     "next_order_number",

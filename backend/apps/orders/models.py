@@ -91,6 +91,8 @@ class StoreSettings(UUIDTimeStampedModel):
     booking_days_ahead = models.PositiveSmallIntegerField(default=7)
     booking_reminder_hours = models.PositiveSmallIntegerField(default=3)
     booking_day_before_reminder = models.BooleanField(default=True)
+    # Shown to buyers in the booking payment prompt ("Cancellation policy: …").
+    booking_cancellation_policy = models.CharField(max_length=300, blank=True)
     # The store number; null means the workspace default number.
     phone_number = models.ForeignKey(
         "whatsapp.PhoneNumber",
@@ -220,6 +222,7 @@ class Order(TenantScopedModel):
         COD_PENDING = "cod_pending", "COD pending"
         COD_COLLECTED = "cod_collected", "COD collected"
         REFUNDED_MANUAL = "refunded_manual", "Refunded manually"
+        ADVANCE_PAID = "advance_paid", "Advance paid"
 
     class PaymentMethod(models.TextChoices):
         ONLINE = "online", "Online"
@@ -233,6 +236,14 @@ class Order(TenantScopedModel):
     class Source(models.TextChoices):
         BOT = "bot", "Bot"
         NATIVE_CART = "native_cart", "Native cart"
+
+    class BookingPayment(models.TextChoices):
+        """What a booking must pay online: the strictest of its services
+        (docs/contracts/booking-payments.md)."""
+
+        STORE_DEFAULT = "store_default", "Store setting"
+        ADVANCE = "advance", "Advance"
+        FULL = "full", "Full payment"
 
     CHECKOUT_STATUSES = transitions.CHECKOUT_STATUSES
     OPEN_STATUSES = transitions.OPEN_STATUSES
@@ -271,6 +282,16 @@ class Order(TenantScopedModel):
     # apps.offers.
     offer_claim_id = models.UUIDField(null=True, blank=True)
     total_paise = models.PositiveIntegerField(default=0)
+    # Bookings: the online payment the services require, fixed at the payment step. advance_paise
+    # is 0 unless the requirement is ``advance``; ``pay_advance`` is the buyer's choice to pay
+    # only the advance (kept for *Try again*).
+    booking_payment = models.CharField(
+        max_length=16, choices=BookingPayment.choices, default=BookingPayment.STORE_DEFAULT
+    )
+    advance_paise = models.PositiveIntegerField(default=0)
+    pay_advance = models.BooleanField(default=False)
+    # The total received online so far (an advance, or the full amount).
+    amount_paid_paise = models.PositiveIntegerField(default=0)
     # The total the buyer's WhatsApp cart showed, when it came from a native cart.
     quoted_total_paise = models.PositiveIntegerField(null=True, blank=True)
     currency = models.CharField(max_length=3, default=CURRENCY)
@@ -351,6 +372,10 @@ class Order(TenantScopedModel):
         return self.kind == self.Kind.BOOKING
 
     @property
+    def balance_due_paise(self) -> int:
+        return max(self.total_paise - self.amount_paid_paise, 0)
+
+    @property
     def allowed_transitions(self) -> list[str]:
         return transitions.allowed_transitions(self.status, kind=self.kind)
 
@@ -405,6 +430,7 @@ class OrderEvent(TenantScopedModel):
         RESCHEDULE_REQUESTED = "reschedule_requested", "Reschedule requested"
         OFFER_APPLIED = "offer_applied", "Offer applied"
         OFFER_REMOVED = "offer_removed", "Offer removed"
+        BALANCE_COLLECTED = "balance_collected", "Balance collected"
 
     class Actor(models.TextChoices):
         BUYER = "buyer", "Buyer"

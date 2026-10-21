@@ -276,6 +276,10 @@ def item_summary(order: Order) -> str:
 
 
 def payment_label(order: Order) -> str:
+    if order.payment_status == Order.PaymentStatus.ADVANCE_PAID:
+        paid = getattr(order, "amount_paid_paise", 0) or 0
+        balance = max(order.total_paise - paid, 0)
+        return f"Advance {format_inr(paid)} paid, {format_inr(balance)} at the shop"
     if order.payment_method == Order.PaymentMethod.COD:
         return "Cash on delivery"
     if order.payment_method == PAY_AT_SHOP:

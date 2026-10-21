@@ -100,6 +100,16 @@ class OrderListItemSerializer(serializers.Serializer):
     )
     contact = ConversationContactSerializer(read_only=True)
     total_paise = serializers.IntegerField(read_only=True)
+    advance_paise = serializers.IntegerField(
+        read_only=True,
+        help_text="The advance a booking must pay, fixed at the payment step; 0 without one.",
+    )
+    amount_paid_paise = serializers.IntegerField(
+        read_only=True, help_text="The total received online so far."
+    )
+    balance_due_paise = serializers.IntegerField(
+        read_only=True, help_text="max(total_paise - amount_paid_paise, 0)."
+    )
     item_count = serializers.IntegerField(read_only=True)
     requested_date = serializers.DateField(read_only=True, allow_null=True)
     appointment_at = serializers.DateTimeField(read_only=True, allow_null=True)
@@ -322,6 +332,12 @@ class StoreSettingsSerializer(serializers.Serializer):
     )
     booking_day_before_reminder = serializers.BooleanField(
         required=False, help_text="Also remind buyers at 18:00 the day before."
+    )
+    booking_cancellation_policy = serializers.CharField(
+        max_length=300,
+        required=False,
+        allow_blank=True,
+        help_text='Shown to buyers before they pay a booking ("Cancellation policy: …").',
     )
     booking_confirmed_template_id = serializers.UUIDField(allow_null=True, required=False)
     booking_cancelled_template_id = serializers.UUIDField(allow_null=True, required=False)

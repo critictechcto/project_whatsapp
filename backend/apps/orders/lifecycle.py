@@ -27,6 +27,7 @@ from common import events, realtime
 from . import booking, notifications, transitions
 from .exceptions import InvalidOrderTransition
 from .models import Order, OrderEvent, StoreSettings
+from .money import format_inr
 
 logger = logging.getLogger(__name__)
 
@@ -354,10 +355,47 @@ def mark_cod_collected(order: Order, *, actor: str, user=None) -> Order:
     return order
 
 
+def mark_balance_paid(order: Order, *, actor: str, user=None) -> Order:
+    """The buyer paid the rest of an advance-paid booking at the shop
+    (docs/contracts/booking-payments.md). ``amount_paid_paise`` stays the online total."""
+    with transaction.atomic():
+        order = _locked(order)
+        if order.payment_status != Order.PaymentStatus.ADVANCE_PAID or order.status not in (
+            Status.CONFIRMED,
+            Status.COMPLETED,
+        ):
+            raise InvalidOrderTransition(
+                order.status,
+                Order.PaymentStatus.PAID,
+                allowed=order.allowed_transitions,
+                detail=(
+                    "The balance can be marked paid only for bookings with an advance paid that "
+                    "are confirmed or completed."
+                ),
+            )
+        balance = order.balance_due_paise
+        order.payment_status = Order.PaymentStatus.PAID
+        order.cod_collected_at = timezone.now()
+        order.save()
+        record_event(
+            order,
+            OrderEvent.Type.BALANCE_COLLECTED,
+            actor=actor,
+            user=user,
+            detail=f"Balance {format_inr(balance)} paid at the shop.",
+            metadata={"balance_paise": balance},
+        )
+        payment_changed(order, actor=actor, user=user)
+    return order
+
+
 def mark_refunded(order: Order, *, actor: str, user=None) -> Order:
     with transaction.atomic():
         order = _locked(order)
-        if order.payment_status != Order.PaymentStatus.PAID or order.status not in (
+        if order.payment_status not in (
+            Order.PaymentStatus.PAID,
+            Order.PaymentStatus.ADVANCE_PAID,
+        ) or order.status not in (
             Status.CANCELLED,
             Status.NEEDS_ATTENTION,
         ):

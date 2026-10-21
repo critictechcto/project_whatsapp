@@ -31,6 +31,7 @@ NOTIFIED_STATUSES = ("confirmed", "packed", "shipped", "delivered", "cancelled")
 BOOKING_NOTIFICATIONS = {"confirmed": "booking_confirmed", "cancelled": "booking_cancelled"}
 REMINDERS = ("booking_reminder", "booking_day_before")
 PAID_BOOKING_NOTE = "Your booking is paid."
+PENDING_BOOKING_NOTE = "Payment pending."
 
 
 def reminder_buttons(order: Order) -> list[tuple[str, str]]:
@@ -43,13 +44,30 @@ def reminder_buttons(order: Order) -> list[tuple[str, str]]:
 
 
 def booking_payment_note(order: Order) -> str:
-    """``Pay at the shop after your service: ₹X.`` while a pay-at-shop booking is unpaid."""
+    """The payment line of booking reminders (docs/contracts/booking-payments.md)."""
+    status = order.payment_status
     if (
         order.payment_method == Order.PaymentMethod.PAY_AT_SHOP
-        and order.payment_status == Order.PaymentStatus.COD_PENDING
+        and status == Order.PaymentStatus.COD_PENDING
     ):
         return f"Pay at the shop after your service: {format_inr(order.total_paise)}."
-    return PAID_BOOKING_NOTE
+    if status == Order.PaymentStatus.ADVANCE_PAID:
+        return (
+            f"Advance {format_inr(order.amount_paid_paise)} paid. Pay the rest, "
+            f"{format_inr(order.balance_due_paise)}, at the shop."
+        )
+    if status in (Order.PaymentStatus.PAID, Order.PaymentStatus.COD_COLLECTED):
+        return PAID_BOOKING_NOTE
+    return PENDING_BOOKING_NOTE
+
+
+def cancelled_payment_text(order: Order) -> str:
+    """What a cancelled order or booking says about money already paid online."""
+    if order.payment_status == Order.PaymentStatus.PAID:
+        return " The store will refund your payment."
+    if order.payment_status == Order.PaymentStatus.ADVANCE_PAID:
+        return " The store will contact you about your advance."
+    return ""
 
 
 def quick_reply_payloads(template, order: Order) -> dict[int, str]:
@@ -129,7 +147,10 @@ def shipped_text(name: str, order: Order) -> str:
 def payment_phrase(order: Order) -> str:
     if order.payment_method == Order.PaymentMethod.COD:
         return "Cash on delivery"
-    if order.payment_method == Order.PaymentMethod.PAY_AT_SHOP:
+    if (
+        order.payment_method == Order.PaymentMethod.PAY_AT_SHOP
+        or order.payment_status == Order.PaymentStatus.ADVANCE_PAID
+    ):
         return buyer.payment_label(order)
     return "Paid online"
 
@@ -170,9 +191,7 @@ def session_content(order: Order, notification: str):
     if notification == "cancelled":
         reason = f" Reason: {order.cancel_reason}." if order.cancel_reason else ""
         body = f"Hi {name}, your order {order.number} has been cancelled.{reason}"
-        if order.payment_status == Order.PaymentStatus.PAID:
-            body += " The store will refund your payment."
-        return sending.TextContent(body)
+        return sending.TextContent(body + cancelled_payment_text(order))
     raise ValueError(f"Unknown order notification {notification!r}.")
 
 
@@ -217,9 +236,7 @@ def booking_session_content(order: Order, notification: str, *, name, view, foot
     if notification == "booking_cancelled":
         reason = f" Reason: {order.cancel_reason}." if order.cancel_reason else ""
         body = f"Hi {name}, your booking {order.number} has been cancelled.{reason}"
-        if order.payment_status == Order.PaymentStatus.PAID:
-            body += " The store will refund your payment."
-        return sending.TextContent(body)
+        return sending.TextContent(body + cancelled_payment_text(order))
     raise ValueError(f"Unknown order notification {notification!r}.")
 
 

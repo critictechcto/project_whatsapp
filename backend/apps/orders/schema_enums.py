@@ -21,7 +21,14 @@ ORDER_STATUSES = (
     "needs_attention",
 )
 ORDER_STAGES = ("checkout", "open", "closed")
-PAYMENT_STATUSES = ("unpaid", "paid", "cod_pending", "cod_collected", "refunded_manual")
+PAYMENT_STATUSES = (
+    "unpaid",
+    "paid",
+    "cod_pending",
+    "cod_collected",
+    "refunded_manual",
+    "advance_paid",
+)
 PAYMENT_METHODS = ("online", "cod", "pay_at_shop")
 ORDER_KINDS = ("delivery", "booking")
 ORDER_SOURCES = ("bot", "native_cart")
@@ -46,6 +53,7 @@ ORDER_EVENT_TYPES = (
     "reschedule_requested",
     "offer_applied",
     "offer_removed",
+    "balance_collected",
 )
 ORDER_EVENT_ACTORS = ("buyer", "dashboard", "seller_whatsapp", "system")
 # OrderTransitionRequest.to_status: the statuses a member may move an order to by hand.

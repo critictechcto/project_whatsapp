@@ -39,8 +39,9 @@ SIMPLE_FIELDS = (
     "booking_days_ahead",
     "booking_reminder_hours",
     "booking_day_before_reminder",
+    "booking_cancellation_policy",
 )
-STRIPPED_FIELDS = ("store_name", "order_prefix")
+STRIPPED_FIELDS = ("store_name", "order_prefix", "booking_cancellation_policy")
 
 # Body variables each notification fills (notifications.template_params).
 TEMPLATE_PARAM_COUNTS = {

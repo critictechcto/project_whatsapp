@@ -11,6 +11,8 @@ from .models import (
     MIN_PRICE_PAISE,
 )
 from .schema_enums import (
+    ADVANCE_TYPES,
+    BOOKING_PAYMENTS,
     CATALOG_SYNC_STATUSES,
     META_CATALOG_STATUSES,
     META_REVIEW_STATUSES,
@@ -36,6 +38,22 @@ class ProductSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=PRODUCT_KINDS, read_only=True)
     duration_minutes = serializers.IntegerField(
         read_only=True, allow_null=True, help_text="Services only; null for products."
+    )
+    booking_payment = serializers.ChoiceField(
+        choices=BOOKING_PAYMENTS,
+        read_only=True,
+        help_text="What a booking pays online; always store_default for products.",
+    )
+    advance_type = serializers.ChoiceField(
+        choices=ADVANCE_TYPES,
+        allow_blank=True,
+        read_only=True,
+        help_text='Set with an advance; "" otherwise.',
+    )
+    advance_value = serializers.IntegerField(
+        read_only=True,
+        allow_null=True,
+        help_text="Paise for amount, 1-99 for percent; null without an advance.",
     )
     name = serializers.CharField(read_only=True)
     description = serializers.CharField(read_only=True)
@@ -78,6 +96,27 @@ class ProductWriteSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
         help_text="Services only; must be null for products.",
+    )
+    booking_payment = serializers.ChoiceField(
+        choices=BOOKING_PAYMENTS,
+        required=False,
+        help_text="Default store_default. Products must be store_default.",
+    )
+    advance_type = serializers.ChoiceField(
+        choices=ADVANCE_TYPES,
+        allow_blank=True,
+        required=False,
+        help_text='Required with advance; "" otherwise.',
+    )
+    advance_value = serializers.IntegerField(
+        min_value=1,
+        max_value=MAX_INT,
+        required=False,
+        allow_null=True,
+        help_text=(
+            "Required with advance: paise (at least 100, below the effective price) for amount, "
+            "1-99 for percent. Null otherwise."
+        ),
     )
     name = serializers.CharField(max_length=200)
     description = serializers.CharField(max_length=1000, required=False, allow_blank=True)

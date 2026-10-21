@@ -50,6 +50,7 @@ PAYMENT_LABELS = {
     Order.PaymentStatus.COD_PENDING: "Cash on delivery",
     Order.PaymentStatus.COD_COLLECTED: "Cash on delivery (paid)",
     Order.PaymentStatus.REFUNDED_MANUAL: "Refunded",
+    Order.PaymentStatus.ADVANCE_PAID: "Advance paid",
 }
 PAY_AT_SHOP_LABELS = {
     Order.PaymentStatus.COD_PENDING: "Pay at the shop",
@@ -178,7 +179,17 @@ def format_address(address: dict | None) -> str:
     return "\n".join(part for part in parts if part)
 
 
+def advance_paid_label(order: Order) -> str:
+    """``Advance ₹A paid, ₹B at the shop``."""
+    return (
+        f"Advance {format_inr(order.amount_paid_paise)} paid, "
+        f"{format_inr(order.balance_due_paise)} at the shop"
+    )
+
+
 def payment_label(order: Order) -> str:
+    if order.payment_status == Order.PaymentStatus.ADVANCE_PAID:
+        return advance_paid_label(order)
     if order.payment_method == Order.PaymentMethod.PAY_AT_SHOP and (
         label := PAY_AT_SHOP_LABELS.get(order.payment_status)
     ):

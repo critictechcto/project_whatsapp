@@ -38,6 +38,17 @@ DEMO_SERVICES = [
     ),
 ]
 
+# Payment at booking (docs/contracts/booking-payments.md): one service takes a 20% advance and
+# one full payment.
+DEMO_SERVICE_PAYMENTS = {
+    "SS-TASTING-SESSION": {"booking_payment": Product.BookingPayment.FULL},
+    "SS-WEDDING-CONSULT": {
+        "booking_payment": Product.BookingPayment.ADVANCE,
+        "advance_type": Product.AdvanceType.PERCENT,
+        "advance_value": 20,
+    },
+}
+
 # (sku, name, collection, price_paise, sale_price_paise, stock_qty, availability, description)
 DEMO_PRODUCTS = [
     (
@@ -203,5 +214,6 @@ def seed(workspace) -> None:
                 "duration_minutes": duration,
                 "description": description,
                 "position": position,
+                **DEMO_SERVICE_PAYMENTS.get(sku, {}),
             },
         )

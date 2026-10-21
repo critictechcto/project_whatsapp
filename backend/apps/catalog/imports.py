@@ -70,6 +70,9 @@ UPDATE_FIELDS = (
     "is_active",
     "kind",
     "duration_minutes",
+    "booking_payment",
+    "advance_type",
+    "advance_value",
     "updated_at",
 )
 
@@ -280,10 +283,21 @@ def _write(workspace, parsed: list[tuple[int, str, dict]], result: ImportResult)
             fields["stock_qty"] = None
         if kind == Product.Kind.PRODUCT and "duration_minutes" not in fields:
             fields["duration_minutes"] = None
+        # The file has no booking payment columns: a product goes back to the store setting,
+        # and a service keeps its own (checked against the new price).
+        if kind == Product.Kind.PRODUCT:
+            fields["booking_payment"] = Product.BookingPayment.STORE_DEFAULT
+            fields["advance_type"] = ""
+            fields["advance_value"] = None
+        effective_price = sale_price if sale_price is not None and sale_price < price else price
         kind_errors = kind_field_errors(
             kind,
             fields.get("stock_qty", product.stock_qty),
             fields.get("duration_minutes", product.duration_minutes),
+            booking_payment=fields.get("booking_payment", product.booking_payment),
+            advance_type=fields.get("advance_type", product.advance_type),
+            advance_value=fields.get("advance_value", product.advance_value),
+            effective_price_paise=effective_price,
         )
         if kind_errors:
             result.skip(line, sku, next(iter(kind_errors.values()))[0])
