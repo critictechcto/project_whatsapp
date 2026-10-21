@@ -1483,6 +1483,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/{id}/mark-balance-paid/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Bookings with payment_status advance_paid that are confirmed or completed (the balance was paid at the shop); otherwise 409 invalid_transition. */
+        post: operations["orders_mark_balance_paid_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/{id}/mark-refunded/": {
         parameters: {
             query?: never;
@@ -2177,6 +2194,12 @@ export interface components {
             access: string;
         };
         /**
+         * @description * `amount` - amount
+         *     * `percent` - percent
+         * @enum {string}
+         */
+        AdvanceTypeEnum: "amount" | "percent";
+        /**
          * @description * `new_order` - new_order
          *     * `new_booking` - new_booking
          *     * `needs_attention` - needs_attention
@@ -2603,6 +2626,13 @@ export interface components {
         };
         /** @enum {unknown} */
         BlankEnum: "";
+        /**
+         * @description * `store_default` - store_default
+         *     * `advance` - advance
+         *     * `full` - full
+         * @enum {string}
+         */
+        BookingPaymentEnum: "store_default" | "advance" | "full";
         /** @description A bookable time window of a day, e.g. Morning 09:00-12:00 (24-hour ``HH:MM``). */
         BookingWindow: {
             label: string;
@@ -3654,6 +3684,12 @@ export interface components {
             readonly kind: components["schemas"]["OrderKindEnum"];
             readonly contact: components["schemas"]["ConversationContact"];
             readonly total_paise: number;
+            /** @description The advance a booking must pay, fixed at the payment step; 0 otherwise. */
+            readonly advance_paise: number;
+            /** @description The total received online so far. */
+            readonly amount_paid_paise: number;
+            /** @description max(total_paise - amount_paid_paise, 0). */
+            readonly balance_due_paise: number;
             readonly item_count: number;
             /** Format: date */
             readonly requested_date: string | null;
@@ -3789,9 +3825,10 @@ export interface components {
          *     * `reschedule_requested` - reschedule_requested
          *     * `offer_applied` - offer_applied
          *     * `offer_removed` - offer_removed
+         *     * `balance_collected` - balance_collected
          * @enum {string}
          */
-        OrderEventTypeEnum: "created" | "status_changed" | "price_changed" | "address_received" | "payment_link_created" | "payment_received" | "payment_link_expired" | "cod_collected" | "refunded_manual" | "stock_released" | "notification_sent" | "notification_failed" | "note" | "time_requested" | "appointment_set" | "reminder_sent" | "attendance_confirmed" | "reschedule_requested" | "offer_applied" | "offer_removed";
+        OrderEventTypeEnum: "created" | "status_changed" | "price_changed" | "address_received" | "payment_link_created" | "payment_received" | "payment_link_expired" | "cod_collected" | "refunded_manual" | "stock_released" | "notification_sent" | "notification_failed" | "note" | "time_requested" | "appointment_set" | "reminder_sent" | "attendance_confirmed" | "reschedule_requested" | "offer_applied" | "offer_removed" | "balance_collected";
         OrderItem: {
             /** Format: uuid */
             readonly id: string;
@@ -3832,6 +3869,12 @@ export interface components {
             readonly kind: components["schemas"]["OrderKindEnum"];
             readonly contact: components["schemas"]["ConversationContact"];
             readonly total_paise: number;
+            /** @description The advance a booking must pay, fixed at the payment step; 0 otherwise. */
+            readonly advance_paise: number;
+            /** @description The total received online so far. */
+            readonly amount_paid_paise: number;
+            /** @description max(total_paise - amount_paid_paise, 0). */
+            readonly balance_due_paise: number;
             readonly item_count: number;
             /** Format: date */
             readonly requested_date: string | null;
@@ -4496,6 +4539,12 @@ export interface components {
             kind?: components["schemas"]["ProductKindEnum"];
             /** @description Services only; must be null for products. */
             duration_minutes?: number | null;
+            /** @description Services only; products must be store_default. */
+            booking_payment?: components["schemas"]["BookingPaymentEnum"];
+            /** @description Required with advance; blank otherwise. */
+            advance_type?: components["schemas"]["AdvanceTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description Paise for amount (at least 100, below the effective price), 1-99 for percent; null unless advance. */
+            advance_value?: number | null;
             name?: string;
             description?: string;
             price_paise?: number;
@@ -4543,6 +4592,8 @@ export interface components {
             booking_reminder_hours?: number;
             /** @description Also remind buyers at 18:00 the day before. */
             booking_day_before_reminder?: boolean;
+            /** @description Shown to buyers before they pay; at most 300 characters. */
+            booking_cancellation_policy?: string;
             /** Format: uuid */
             booking_confirmed_template_id?: string | null;
             /** Format: uuid */
@@ -4648,9 +4699,10 @@ export interface components {
          *     * `cod_pending` - cod_pending
          *     * `cod_collected` - cod_collected
          *     * `refunded_manual` - refunded_manual
+         *     * `advance_paid` - advance_paid
          * @enum {string}
          */
-        PaymentStatusEnum: "unpaid" | "paid" | "cod_pending" | "cod_collected" | "refunded_manual";
+        PaymentStatusEnum: "unpaid" | "paid" | "cod_pending" | "cod_collected" | "refunded_manual" | "advance_paid";
         /** @description Never exposes the registration PIN. */
         PhoneNumber: {
             /** Format: uuid */
@@ -4744,6 +4796,12 @@ export interface components {
             readonly kind: components["schemas"]["ProductKindEnum"];
             /** @description Services only; null for products. */
             readonly duration_minutes: number | null;
+            /** @description Services only; products are always store_default. */
+            readonly booking_payment: components["schemas"]["BookingPaymentEnum"];
+            /** @description Required with advance; blank otherwise. */
+            readonly advance_type: components["schemas"]["AdvanceTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description Paise for amount, 1-99 for percent; null unless advance. */
+            readonly advance_value: number | null;
             readonly name: string;
             readonly description: string;
             readonly price_paise: number;
@@ -4818,6 +4876,12 @@ export interface components {
             kind?: components["schemas"]["ProductKindEnum"];
             /** @description Services only; must be null for products. */
             duration_minutes?: number | null;
+            /** @description Services only; products must be store_default. */
+            booking_payment?: components["schemas"]["BookingPaymentEnum"];
+            /** @description Required with advance; blank otherwise. */
+            advance_type?: components["schemas"]["AdvanceTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description Paise for amount (at least 100, below the effective price), 1-99 for percent; null unless advance. */
+            advance_value?: number | null;
             name: string;
             description?: string;
             price_paise: number;
@@ -4966,6 +5030,8 @@ export interface components {
             booking_reminder_hours?: number;
             /** @description Also remind buyers at 18:00 the day before. */
             booking_day_before_reminder?: boolean;
+            /** @description Shown to buyers before they pay; at most 300 characters. */
+            booking_cancellation_policy?: string;
             /** Format: uuid */
             booking_confirmed_template_id?: string | null;
             /** Format: uuid */
@@ -8331,7 +8397,7 @@ export interface operations {
                 /** @description Number of results to return per page. */
                 page_size?: number;
                 payment_method?: "cod" | "online" | "pay_at_shop";
-                payment_status?: "cod_collected" | "cod_pending" | "paid" | "refunded_manual" | "unpaid";
+                payment_status?: "advance_paid" | "cod_collected" | "cod_pending" | "paid" | "refunded_manual" | "unpaid";
                 /** @description Order number, contact name or phone. */
                 search?: string;
                 stage?: "checkout" | "closed" | "open";
@@ -8501,6 +8567,30 @@ export interface operations {
         };
     };
     orders_mark_cod_collected_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_mark_balance_paid_create: {
         parameters: {
             query?: never;
             header: {

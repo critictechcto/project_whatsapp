@@ -86,6 +86,9 @@ function bookingErrors(body: StoreSettingsPatch): Record<string, string[]> {
   if (body.booking_day_before_reminder !== undefined && typeof body.booking_day_before_reminder !== 'boolean') {
     errors.booking_day_before_reminder = ['Must be a valid boolean.']
   }
+  if (body.booking_cancellation_policy !== undefined && body.booking_cancellation_policy.length > 300) {
+    errors.booking_cancellation_policy = ['Ensure this field has no more than 300 characters.']
+  }
   return errors
 }
 

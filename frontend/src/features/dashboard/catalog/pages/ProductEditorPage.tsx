@@ -25,10 +25,11 @@ import { parseRupeesToPaise } from '../../../../lib/money'
 import { useWorkspace } from '../../../../lib/workspace'
 import { SegmentedControl } from '../../settings/ui/SegmentedControl'
 import { catalogKeys, createProduct, fetchProduct, updateProduct, uploadProductImage, useCollections, useMetaCatalogs, useProduct } from '../api'
+import { BookingPaymentFields } from '../components/BookingPaymentFields'
 import { ImageField } from '../components/ImageField'
 import { ReviewBadge } from '../components/ReviewBadge'
 import { CharCount, ConfirmDialog, FormError, Note } from '../components/shared'
-import { availabilityLabels, syncInfo } from '../lib/labels'
+import { availabilityLabels, bookingAvailabilityLabels, syncInfo } from '../lib/labels'
 import { productCardMessage } from '../lib/preview'
 import {
   DESCRIPTION_MAX,
@@ -308,10 +309,17 @@ function ProductEditor({ product }: { product: Product | undefined }) {
                 <Field label="Sale price (₹)" error={errors.salePrice?.message} hint="Optional. Buyers see the price struck through.">
                   <Input inputMode="decimal" prefix="₹" placeholder="599" {...register('salePrice')} />
                 </Field>
-                <Field label="Availability" error={errors.availability?.message}>
-                  <Select options={availabilityValues.map((value) => ({ value, label: availabilityLabels[value] }))} {...register('availability')} />
+                <Field label={service ? 'Bookings' : 'Availability'} error={errors.availability?.message}>
+                  <Select
+                    options={availabilityValues.map((value) => ({ value, label: (service ? bookingAvailabilityLabels : availabilityLabels)[value] }))}
+                    {...register('availability')}
+                  />
                 </Field>
-                <Field label="Max quantity per order" error={errors.maxQty?.message} hint="1 to 99.">
+                <Field
+                  label={service ? 'Max people per booking' : 'Max quantity per order'}
+                  error={errors.maxQty?.message}
+                  hint={service ? 'For example 2 lets a buyer book for two people.' : '1 to 99.'}
+                >
                   <Input inputMode="numeric" {...register('maxQty')} />
                 </Field>
                 {service && (
@@ -331,6 +339,8 @@ function ProductEditor({ product }: { product: Product | undefined }) {
                 </>
               )}
             </section>
+
+            {service && <BookingPaymentFields control={control} register={register} errors={errors} />}
 
             <section aria-labelledby="product-organise" className="flex flex-col gap-4 rounded-xl border border-line bg-card p-5">
               <h2 id="product-organise" className="font-display text-base font-semibold text-ink">

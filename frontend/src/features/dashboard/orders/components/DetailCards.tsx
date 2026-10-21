@@ -110,10 +110,28 @@ export function AddressCard({ order }: { order: Order }) {
 export function PaymentCard({ order }: { order: Order }) {
   const { timeZone } = useWorkspace()
   const link = order.payment_link
+  // A booking paid in part online (an advance): show what was paid and what is left for the shop.
+  const partOnline = order.amount_paid_paise < order.total_paise && (order.advance_paise > 0 || order.amount_paid_paise > 0)
   const items: { label: string; value: ReactNode }[] = [
-    { label: 'Method', value: order.payment_method ? paymentMethodLabels[order.payment_method] : 'Not chosen yet' },
+    {
+      label: 'Method',
+      value: !order.payment_method
+        ? 'Not chosen yet'
+        : partOnline && order.payment_method === 'online'
+          ? 'Advance online, the rest at the shop'
+          : paymentMethodLabels[order.payment_method],
+    },
     { label: 'Payment', value: <PaymentBadge status={order.payment_status} method={order.payment_method} /> },
   ]
+  if (partOnline) {
+    if (order.advance_paise > 0) items.push({ label: 'Advance', value: formatPaise(order.advance_paise) })
+    items.push({ label: 'Paid online', value: formatPaise(order.amount_paid_paise) })
+    if (order.payment_status === 'advance_paid') {
+      items.push({ label: 'Balance due', value: <span className="font-medium">{formatPaise(order.balance_due_paise)}</span> })
+    } else if (order.payment_status === 'paid' && order.amount_paid_paise > 0 && order.balance_due_paise > 0) {
+      items.push({ label: 'Paid at the shop', value: formatPaise(order.balance_due_paise) })
+    }
+  }
   if (link) {
     items.push(
       { label: 'Payment link', value: <PaymentLinkBadge status={link.status} /> },
@@ -138,7 +156,9 @@ export function PaymentCard({ order }: { order: Order }) {
     <SectionCard title="Payment">
       <DetailList items={items} />
       <p className="mt-3 border-t border-line-2 pt-3 text-[13px] text-muted">
-        {order.payment_method === 'cod'
+        {order.payment_status === 'advance_paid'
+          ? `The buyer paid a ${formatPaise(order.amount_paid_paise)} advance online. Collect the ${formatPaise(order.balance_due_paise)} balance at the shop, then mark it paid here.`
+          : order.payment_method === 'cod'
           ? `Collect ${formatPaise(order.total_paise)} in cash when the parcel is delivered.`
           : order.payment_method === 'pay_at_shop'
             ? `The buyer pays ${formatPaise(order.total_paise)} at the shop after the service. Mark it paid here once they do.`
@@ -148,6 +168,17 @@ export function PaymentCard({ order }: { order: Order }) {
   )
 }
 
+function bookingPaymentLabel(order: Order): string {
+  if (order.payment_method === 'pay_at_shop') return 'Pay at the shop'
+  if (!order.payment_method) return 'Not chosen yet'
+  // A booking that needs an advance, unless the buyer paid it all online.
+  if (order.advance_paise > 0 && order.amount_paid_paise < order.total_paise) {
+    if (order.payment_status === 'unpaid') return `Online: a ${formatPaise(order.advance_paise)} advance or in full`
+    return `${formatPaise(order.advance_paise)} advance online, the rest at the shop`
+  }
+  return 'Online'
+}
+
 /** For bookings, in place of the address and tracking cards: what the buyer asked for and the agreed time. */
 export function BookingCard({ order }: { order: Order }) {
   const { timeZone } = useWorkspace()
@@ -155,7 +186,7 @@ export function BookingCard({ order }: { order: Order }) {
     { label: 'Requested day', value: order.requested_date ? formatDay(order.requested_date) : 'Not chosen yet' },
     { label: 'Requested time', value: order.requested_window ? formatWindow(order.requested_window) : 'Not chosen yet' },
     { label: 'Appointment', value: order.appointment_at ? formatDateTime(order.appointment_at, timeZone) : 'Not confirmed yet' },
-    { label: 'Payment', value: order.payment_method === 'pay_at_shop' ? 'Pay at the shop' : order.payment_method ? 'Online' : 'Not chosen yet' },
+    { label: 'Payment', value: bookingPaymentLabel(order) },
   ]
   if (order.day_before_reminder_sent_at) {
     items.push({ label: 'Reminder sent', value: `${formatDateTime(order.day_before_reminder_sent_at, timeZone)} (evening before)` })

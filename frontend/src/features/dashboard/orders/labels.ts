@@ -37,6 +37,7 @@ export const paymentStatusInfo: Record<PaymentStatus, Info> = {
   paid: { label: 'Paid', tone: 'green' },
   cod_pending: { label: 'COD pending', tone: 'amber' },
   cod_collected: { label: 'COD collected', tone: 'green' },
+  advance_paid: { label: 'Advance paid', tone: 'blue' },
   unpaid: { label: 'Unpaid', tone: 'neutral' },
   refunded_manual: { label: 'Refunded', tone: 'neutral' },
 }
@@ -130,6 +131,7 @@ export const eventTypeLabels: Record<EventType, string> = {
   payment_received: 'Payment received',
   payment_link_expired: 'Payment link expired',
   cod_collected: 'Cash on delivery collected',
+  balance_collected: 'Balance paid at the shop',
   refunded_manual: 'Marked refunded',
   stock_released: 'Items returned to stock',
   notification_sent: 'Buyer notified',

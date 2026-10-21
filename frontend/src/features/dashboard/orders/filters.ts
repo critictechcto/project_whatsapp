@@ -16,6 +16,7 @@ export const orderTabs: { value: OrderTab; label: string }[] = [
 
 export const paymentStatusOptions: { value: PaymentStatus; label: string }[] = [
   { value: 'paid', label: 'Paid' },
+  { value: 'advance_paid', label: 'Advance paid' },
   { value: 'unpaid', label: 'Unpaid' },
   { value: 'cod_pending', label: 'COD pending' },
   { value: 'cod_collected', label: 'COD collected' },

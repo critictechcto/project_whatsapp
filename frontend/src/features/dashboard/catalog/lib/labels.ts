@@ -1,5 +1,6 @@
 import type { Tone } from '../../../../components/app'
-import type { CatalogSyncStatus, MetaCatalogStatus, MetaReviewStatus, ProductAvailability } from './types'
+import { formatPaise } from '../../../../lib/money'
+import type { BookingPayment, CatalogSyncStatus, MetaCatalogStatus, MetaReviewStatus, Product, ProductAvailability } from './types'
 
 type Info = { label: string; tone: Tone; explanation: string }
 
@@ -27,4 +28,24 @@ export const catalogStatusInfo: Record<MetaCatalogStatus, { label: string; tone:
 export const availabilityLabels: Record<ProductAvailability, string> = {
   in_stock: 'In stock',
   out_of_stock: 'Out of stock',
+}
+
+/** Services use the same values, worded as bookings. */
+export const bookingAvailabilityLabels: Record<ProductAvailability, string> = {
+  in_stock: 'Open',
+  out_of_stock: 'Paused',
+}
+
+export const bookingPaymentLabels: Record<BookingPayment, string> = {
+  store_default: 'Use store setting',
+  advance: 'Advance payment',
+  full: 'Full payment',
+}
+
+/** "Advance ₹200", "Advance 20%" or "Full payment" for a service that sets it; null otherwise. */
+export function bookingPaymentSummary(product: Pick<Product, 'kind' | 'booking_payment' | 'advance_type' | 'advance_value'>): string | null {
+  if (product.kind !== 'service') return null
+  if (product.booking_payment === 'full') return 'Full payment'
+  if (product.booking_payment !== 'advance' || product.advance_value == null) return null
+  return product.advance_type === 'amount' ? `Advance ${formatPaise(product.advance_value)}` : `Advance ${product.advance_value}%`
 }

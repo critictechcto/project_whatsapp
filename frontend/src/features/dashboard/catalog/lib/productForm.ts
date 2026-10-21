@@ -10,6 +10,10 @@ export const MIN_PRICE_PAISE = 100
 export const MAX_QTY_LIMIT = 99
 export const MIN_DURATION_MINUTES = 5
 export const MAX_DURATION_MINUTES = 600
+/** Booking advance limits from the contract: an amount of at least ₹1 (below the price), or 1–99 percent. */
+export const MIN_ADVANCE_PAISE = 100
+export const MIN_ADVANCE_PERCENT = 1
+export const MAX_ADVANCE_PERCENT = 99
 
 const INTEGER_RE = /^\d+$/
 
@@ -30,6 +34,9 @@ export function productSchema(mode: ProductFormMode) {
       stockQty: z.string().trim(),
       duration: z.string().trim(),
       maxQty: z.string().trim(),
+      bookingPayment: z.enum(['store_default', 'advance', 'full']),
+      advanceType: z.enum(['amount', 'percent']),
+      advanceValue: z.string().trim(),
       isActive: z.boolean(),
     })
     .superRefine((values, ctx) => {
@@ -62,6 +69,10 @@ export function productSchema(mode: ProductFormMode) {
         if (!INTEGER_RE.test(values.duration) || duration < MIN_DURATION_MINUTES || duration > MAX_DURATION_MINUTES) {
           ctx.addIssue({ code: 'custom', path: ['duration'], message: `Enter the length in minutes, from ${MIN_DURATION_MINUTES} to ${MAX_DURATION_MINUTES}.` })
         }
+        if (values.bookingPayment === 'advance') {
+          const message = advanceValueError(values, price)
+          if (message) ctx.addIssue({ code: 'custom', path: ['advanceValue'], message })
+        }
       }
 
       if (!service && values.trackStock && !INTEGER_RE.test(values.stockQty)) {
@@ -77,6 +88,32 @@ export function productSchema(mode: ProductFormMode) {
 
 export type ProductFormValues = z.infer<ReturnType<typeof productSchema>>
 
+/** The advance check the backend makes: amount ≥ ₹1 and below the effective price, or a whole 1–99 percent. */
+function advanceValueError(
+  values: Pick<ProductFormValues, 'advanceType' | 'advanceValue' | 'salePrice'>,
+  price: number | null,
+): string | null {
+  if (values.advanceType === 'percent') {
+    const percent = Number(values.advanceValue)
+    if (!INTEGER_RE.test(values.advanceValue) || percent < MIN_ADVANCE_PERCENT || percent > MAX_ADVANCE_PERCENT) {
+      return `Enter a whole percentage from ${MIN_ADVANCE_PERCENT} to ${MAX_ADVANCE_PERCENT}.`
+    }
+    return null
+  }
+  if (!values.advanceValue) return 'Enter the advance in rupees.'
+  const amount = parseRupeesToPaise(values.advanceValue)
+  if (amount === null) return 'Enter an amount in rupees, like 200 or 200.50.'
+  if (amount < MIN_ADVANCE_PAISE) return 'The advance must be at least ₹1.'
+  const sale = values.salePrice ? parseRupeesToPaise(values.salePrice) : null
+  const effective = sale ?? price
+  if (effective !== null && amount >= effective) return 'The advance must be less than the price.'
+  return null
+}
+
+function rupees(paise: number): string {
+  return paiseToRupeesString(paise).replace(/\.00$/, '')
+}
+
 export function productDefaults(product?: Product): ProductFormValues {
   return {
     kind: product?.kind ?? 'product',
@@ -91,7 +128,22 @@ export function productDefaults(product?: Product): ProductFormValues {
     stockQty: product?.stock_qty != null ? String(product.stock_qty) : '',
     duration: String(product?.duration_minutes ?? 60),
     maxQty: String(product?.max_qty_per_order ?? 10),
+    bookingPayment: product?.booking_payment ?? 'store_default',
+    advanceType: product?.advance_type === 'amount' ? 'amount' : 'percent',
+    advanceValue:
+      product?.advance_value == null ? '' : product.advance_type === 'amount' ? rupees(product.advance_value) : String(product.advance_value),
     isActive: product?.is_active ?? true,
+  }
+}
+
+/** The booking payment fields of the body: only services ask for an advance or full payment. */
+function bookingPaymentBody(values: ProductFormValues): Pick<ProductWriteRequest, 'booking_payment' | 'advance_type' | 'advance_value'> {
+  const payment = values.kind === 'service' ? values.bookingPayment : 'store_default'
+  if (payment !== 'advance') return { booking_payment: payment, advance_type: '', advance_value: null }
+  return {
+    booking_payment: payment,
+    advance_type: values.advanceType,
+    advance_value: values.advanceType === 'amount' ? parseRupeesToPaise(values.advanceValue) : Number(values.advanceValue),
   }
 }
 
@@ -110,6 +162,7 @@ export function toProductBody(values: ProductFormValues, mode: ProductFormMode):
     stock_qty: values.kind === 'product' && values.trackStock ? Number(values.stockQty) : null,
     duration_minutes: values.kind === 'service' ? Number(values.duration) : null,
     max_qty_per_order: Number(values.maxQty),
+    ...bookingPaymentBody(values),
     is_active: values.isActive,
   }
   if (mode === 'edit') {
@@ -128,6 +181,9 @@ export const productFieldMap: Record<string, string> = {
   stock_qty: 'stockQty',
   duration_minutes: 'duration',
   max_qty_per_order: 'maxQty',
+  booking_payment: 'bookingPayment',
+  advance_type: 'advanceType',
+  advance_value: 'advanceValue',
   is_active: 'isActive',
 }
 
@@ -143,5 +199,8 @@ export const productFormFields = [
   'duration',
   'kind',
   'maxQty',
+  'bookingPayment',
+  'advanceType',
+  'advanceValue',
   'isActive',
 ] as const

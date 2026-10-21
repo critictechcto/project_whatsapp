@@ -87,6 +87,8 @@ export const orderMutations = {
   cancel: (id: string, body: CancelBody) => unwrap(api.POST('/api/v1/orders/{id}/cancel/', { ...pathOf(id), body })),
   /** Also "Mark paid at shop" for `pay_at_shop` bookings. */
   markCodCollected: (id: string) => unwrap(api.POST('/api/v1/orders/{id}/mark-cod-collected/', pathOf(id))),
+  /** A booking with an online advance: the rest was paid at the shop. */
+  markBalancePaid: (id: string) => unwrap(api.POST('/api/v1/orders/{id}/mark-balance-paid/', pathOf(id))),
   markRefunded: (id: string) => unwrap(api.POST('/api/v1/orders/{id}/mark-refunded/', pathOf(id))),
   updateNotes: (id: string, notes: string) => unwrap(api.PATCH('/api/v1/orders/{id}/', { ...pathOf(id), body: { notes } })),
   confirmBooking: (id: string, body: ConfirmBookingBody) =>
@@ -119,8 +121,8 @@ export function invalidateOrder(queryClient: QueryClient, workspaceId: string, i
 /** Writes an order returned by a mutation into the caches right away, then refetches what depends on it. */
 export function storeOrder(queryClient: QueryClient, workspaceId: string, order: Order) {
   queryClient.setQueryData(orderKeys.detail(workspaceId, order.id), order)
-  const { status, payment_status, payment_method, updated_at } = order
-  patchLists(queryClient, workspaceId, order.id, { status, payment_status, payment_method, updated_at })
+  const { status, payment_status, payment_method, amount_paid_paise, balance_due_paise, updated_at } = order
+  patchLists(queryClient, workspaceId, order.id, { status, payment_status, payment_method, amount_paid_paise, balance_due_paise, updated_at })
   invalidateOrder(queryClient, workspaceId, order.id)
 }
 

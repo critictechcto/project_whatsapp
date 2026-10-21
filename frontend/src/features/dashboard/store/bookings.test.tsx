@@ -81,6 +81,33 @@ describe('booking settings', () => {
   })
 })
 
+describe('cancellation policy', () => {
+  it('limits the policy to 300 characters', () => {
+    const values = settingsToForm(storeState(ids.sharmaSweets).settings)
+    expect(settingsSchema.safeParse({ ...values, booking_cancellation_policy: 'x'.repeat(300) }).success).toBe(true)
+    const result = settingsSchema.safeParse({ ...values, booking_cancellation_policy: 'x'.repeat(301) })
+    expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toContain('Use 300 characters or fewer.')
+  })
+
+  it('edits and saves the policy', async () => {
+    signIn()
+    const { user } = renderDashboard(`${storePath}/settings`)
+
+    const scope = within(await screen.findByRole('region', { name: 'Bookings' }, lazy))
+    const policy = scope.getByLabelText(/^Cancellation policy/)
+    expect(policy).toHaveValue(storeState(ids.sharmaSweets).settings.booking_cancellation_policy)
+    expect(scope.getByText('Shown to buyers before they pay.')).toBeInTheDocument()
+
+    await user.clear(policy)
+    await user.type(policy, '  Free cancellation up to 12 hours before.  ')
+    expect(scope.getByText('44/300')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save settings' }))
+    await waitFor(() =>
+      expect(storeState(ids.sharmaSweets).settings.booking_cancellation_policy).toBe('Free cancellation up to 12 hours before.'),
+    )
+  })
+})
+
 describe('booking templates', () => {
   it('shows the booking templates step on the setup checklist', async () => {
     signIn()

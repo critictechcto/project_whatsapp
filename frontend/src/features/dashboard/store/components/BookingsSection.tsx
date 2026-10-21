@@ -1,8 +1,9 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { Controller, useFieldArray, useWatch, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form'
-import { Button, Checkbox, Field, Input, Switch } from '../../../../components/app'
+import { Button, Checkbox, Field, Input, Switch, Textarea } from '../../../../components/app'
+import { cn } from '../../../../lib/cn'
 import { SectionCard } from '../../settings/ui/SectionCard'
-import { MAX_BOOKING_WINDOWS, WINDOW_LABEL_MAX, weekdays, type SettingsFormValues } from '../settingsForm'
+import { CANCELLATION_POLICY_MAX, MAX_BOOKING_WINDOWS, WINDOW_LABEL_MAX, weekdays, type SettingsFormValues } from '../settingsForm'
 
 type BookingsSectionProps = {
   control: Control<SettingsFormValues>
@@ -14,6 +15,7 @@ type BookingsSectionProps = {
 export function BookingsSection({ control, register, errors }: BookingsSectionProps) {
   const windows = useFieldArray({ control, name: 'booking_windows' })
   const labels = useWatch({ control, name: 'booking_windows' })
+  const policy = useWatch({ control, name: 'booking_cancellation_policy' })
   const windowsError = errors.booking_windows?.root?.message ?? errors.booking_windows?.message
 
   return (
@@ -35,6 +37,21 @@ export function BookingsSection({ control, register, errors }: BookingsSectionPr
             />
           )}
         />
+
+        <Field
+          label="Cancellation policy"
+          error={errors.booking_cancellation_policy?.message}
+          hint={
+            <span className="flex justify-between gap-3">
+              <span>Shown to buyers before they pay.</span>
+              <span className={cn('font-mono text-[12px]', (policy?.length ?? 0) > CANCELLATION_POLICY_MAX ? 'text-signal' : 'text-muted')}>
+                {policy?.length ?? 0}/{CANCELLATION_POLICY_MAX}
+              </span>
+            </span>
+          }
+        >
+          <Textarea rows={3} placeholder="Cancel up to 24 hours before for a full refund." {...register('booking_cancellation_policy')} />
+        </Field>
 
         <Controller
           control={control}

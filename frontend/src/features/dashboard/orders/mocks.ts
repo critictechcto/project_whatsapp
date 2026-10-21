@@ -1,5 +1,6 @@
 import type { Schemas } from '../../../api/types'
 import { formatInZone } from '../../../lib/datetime'
+import { formatPaise } from '../../../lib/money'
 import { db } from '../../../mocks/db'
 import { mockRealtime } from '../../../mocks/realtime'
 import { ids } from '../../../mocks/seed'
@@ -205,6 +206,25 @@ export const handlers: AreaMockHandlers = [
     }
     order.payment_status = 'cod_collected'
     addEvent(record, 'cod_collected', 'dashboard', { userId, detail: atShop ? 'Paid at the shop.' : '' })
+    emitUpdated(record)
+    return response(200).json(orderBody(record))
+  }),
+
+  http.post('/api/v1/orders/{id}/mark-balance-paid/', async ({ request, params, response }) => {
+    await mockDelay()
+    const loaded = load(request, params.id, 'agent')
+    if ('error' in loaded) return response.untyped(loaded.error)
+    const { record, userId } = loaded
+    const order = record.order
+    if (order.payment_status !== 'advance_paid' || !['confirmed', 'completed'].includes(order.status)) {
+      return response.untyped(
+        invalidTransition(record, order.status, 'Only confirmed or completed bookings with an advance paid can have their balance marked paid.'),
+      )
+    }
+    const balance = Math.max(order.total_paise - order.amount_paid_paise, 0)
+    // amount_paid_paise stays the online total; the balance was paid at the shop.
+    order.payment_status = 'paid'
+    addEvent(record, 'balance_collected', 'dashboard', { userId, detail: `Balance ${formatPaise(balance)} paid at the shop.` })
     emitUpdated(record)
     return response(200).json(orderBody(record))
   }),

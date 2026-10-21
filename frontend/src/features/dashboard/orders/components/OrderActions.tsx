@@ -24,6 +24,7 @@ function isSimple(action: OrderAction): action is SimpleAction {
 
 function runSimple(order: Order, action: SimpleAction, notify: boolean): Promise<Order> {
   if (action === 'cod' || action === 'paid_at_shop') return orderMutations.markCodCollected(order.id)
+  if (action === 'balance_paid') return orderMutations.markBalancePaid(order.id)
   if (action === 'refund') return orderMutations.markRefunded(order.id)
   return orderMutations.transition(order.id, { to_status: action, notify_buyer: notify })
 }

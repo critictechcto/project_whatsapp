@@ -1,6 +1,7 @@
 /**
  * In-memory catalog data for the mock API (mock mode and tests): Sharma Sweets with 3 collections,
- * 12 products (one rejected in Meta review, one out of stock), one service and a connected Meta catalog.
+ * 12 products (one rejected in Meta review, one out of stock), three services (store default, a 20% advance,
+ * full payment) and a connected Meta catalog.
  * Rebuilt whenever the shared mock database is reset (`db.users` changes identity).
  */
 import type { Schemas } from '../../../api/types'
@@ -61,6 +62,9 @@ type Seed = {
   hue: number
   /** A service (booked, not shipped) with its length in minutes. */
   durationMinutes?: number
+  /** Services only: an advance (`{ type, value }`, value in paise or percent) or full payment at booking. */
+  advance?: { type: Schemas['AdvanceTypeEnum']; value: number }
+  fullPayment?: boolean
 }
 
 const seeds: Seed[] = [
@@ -96,6 +100,27 @@ const seeds: Seed[] = [
     durationMinutes: 60,
     hue: 15,
   },
+  // Services that need online payment to book: a 20% advance, and full payment.
+  {
+    sku: 'MEHENDI-BRIDAL',
+    name: 'Bridal mehendi (both hands)',
+    description: 'Full-arm bridal mehendi with natural henna. Book with a 20% advance; pay the rest at the shop.',
+    price: 450000,
+    collection: 3,
+    durationMinutes: 180,
+    advance: { type: 'percent', value: 20 },
+    hue: 120,
+  },
+  {
+    sku: 'SWEETS-CLASS-90',
+    name: 'Sweet-making class',
+    description: 'A 90-minute hands-on class: make kaju katli and besan laddus to take home. Paid in full when you book.',
+    price: 120000,
+    collection: 3,
+    durationMinutes: 90,
+    fullPayment: true,
+    hue: 52,
+  },
 ]
 
 function build(): CatalogMockState {
@@ -123,6 +148,9 @@ function build(): CatalogMockState {
       stock_qty: seed.stock ?? null,
       kind: seed.durationMinutes ? 'service' : 'product',
       duration_minutes: seed.durationMinutes ?? null,
+      booking_payment: seed.advance ? 'advance' : seed.fullPayment ? 'full' : 'store_default',
+      advance_type: seed.advance?.type ?? '',
+      advance_value: seed.advance?.value ?? null,
       max_qty_per_order: 10,
       position: index,
       is_active: seed.active ?? true,

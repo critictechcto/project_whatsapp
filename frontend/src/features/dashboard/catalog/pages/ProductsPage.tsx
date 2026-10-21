@@ -24,7 +24,7 @@ import { CatalogLayout } from '../components/CatalogLayout'
 import { ImportDialog } from '../components/ImportDialog'
 import { ReorderDialog } from '../components/ReorderDialog'
 import { ReviewBadge } from '../components/ReviewBadge'
-import { availabilityLabels, reviewInfo } from '../lib/labels'
+import { availabilityLabels, bookingAvailabilityLabels, bookingPaymentSummary, reviewInfo } from '../lib/labels'
 import { formatDuration } from '../lib/preview'
 import {
   availabilityValues,
@@ -145,6 +145,7 @@ export function ProductsPage() {
                   Service{product.duration_minutes ? ` · ${formatDuration(product.duration_minutes)}` : ''}
                 </StatusBadge>
               )}
+              {bookingPaymentSummary(product) && <StatusBadge tone="blue">{bookingPaymentSummary(product)}</StatusBadge>}
             </p>
           </div>
         </div>
@@ -170,7 +171,8 @@ export function ProductsPage() {
       hideOnMobile: true,
       cell: (product) => {
         const soldOut = product.availability === 'out_of_stock' || product.stock_qty === 0
-        return <StatusBadge tone={soldOut ? 'amber' : 'green'}>{soldOut ? availabilityLabels.out_of_stock : availabilityLabels.in_stock}</StatusBadge>
+        const labels = product.kind === 'service' ? bookingAvailabilityLabels : availabilityLabels
+        return <StatusBadge tone={soldOut ? 'amber' : 'green'}>{soldOut ? labels.out_of_stock : labels.in_stock}</StatusBadge>
       },
     },
     {

@@ -21,6 +21,7 @@ function rupees({ optional }: { optional: boolean }) {
 
 export const MAX_BOOKING_WINDOWS = 10
 export const WINDOW_LABEL_MAX = 24
+export const CANCELLATION_POLICY_MAX = 300
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 
 /** Monday = 0, as the API numbers days. */
@@ -64,6 +65,10 @@ export const settingsSchema = z.object({
   phone_number_id: z.string(),
   // Bookings (services).
   pay_at_shop_enabled: z.boolean(),
+  booking_cancellation_policy: z
+    .string()
+    .trim()
+    .max(CANCELLATION_POLICY_MAX, `Use ${CANCELLATION_POLICY_MAX} characters or fewer.`),
   booking_days: z.array(z.number().int().min(0).max(6)).min(1, 'Pick at least one day you take bookings.'),
   booking_windows: z
     .array(
@@ -117,6 +122,7 @@ export function settingsToForm(settings: StoreSettings): SettingsFormValues {
     powered_by_footer: settings.powered_by_footer ?? true,
     phone_number_id: settings.phone_number_id ?? '',
     pay_at_shop_enabled: settings.pay_at_shop_enabled ?? true,
+    booking_cancellation_policy: settings.booking_cancellation_policy ?? '',
     booking_days: [...(settings.booking_days ?? [0, 1, 2, 3, 4, 5, 6])].sort((a, b) => a - b),
     booking_windows: (settings.booking_windows ?? DEFAULT_BOOKING_WINDOWS).map((window) => ({ ...window })),
     booking_days_ahead: String(settings.booking_days_ahead ?? 7),
@@ -146,6 +152,7 @@ export function formToPatch(values: SettingsFormValues): StoreSettingsPatch {
     powered_by_footer: values.powered_by_footer,
     phone_number_id: values.phone_number_id || null,
     pay_at_shop_enabled: values.pay_at_shop_enabled,
+    booking_cancellation_policy: values.booking_cancellation_policy.trim(),
     booking_days: [...values.booking_days].sort((a, b) => a - b),
     booking_windows: values.booking_windows.map(({ label, start, end }) => ({ label: label.trim(), start, end })),
     booking_days_ahead: Number(values.booking_days_ahead),

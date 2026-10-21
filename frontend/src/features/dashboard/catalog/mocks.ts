@@ -6,7 +6,18 @@ import { parseRupeesToPaise } from '../../../lib/money'
 import type { AreaMockHandlers } from '../registry/types'
 import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseCsv } from './lib/csv'
 import { IMAGE_TYPES, MAX_IMAGE_BYTES } from './lib/image'
-import { DESCRIPTION_MAX, MAX_DURATION_MINUTES, MAX_QTY_LIMIT, MIN_DURATION_MINUTES, MIN_PRICE_PAISE, NAME_MAX, SKU_RE } from './lib/productForm'
+import {
+  DESCRIPTION_MAX,
+  MAX_ADVANCE_PERCENT,
+  MAX_DURATION_MINUTES,
+  MAX_QTY_LIMIT,
+  MIN_ADVANCE_PAISE,
+  MIN_ADVANCE_PERCENT,
+  MIN_DURATION_MINUTES,
+  MIN_PRICE_PAISE,
+  NAME_MAX,
+  SKU_RE,
+} from './lib/productForm'
 import type { ProductWriteRequest } from './lib/types'
 import { catalogMock, mockProductImage, type MockCollection, type MockMetaCatalog, type MockProduct } from './mockState'
 
@@ -116,7 +127,31 @@ function validateProduct(workspaceId: string, body: ProductBody, existing?: Mock
   if (body.max_qty_per_order !== undefined && (!Number.isInteger(body.max_qty_per_order) || body.max_qty_per_order < 1 || body.max_qty_per_order > MAX_QTY_LIMIT)) {
     errors.max_qty_per_order = [`Ensure this value is between 1 and ${MAX_QTY_LIMIT}.`]
   }
+  Object.assign(errors, bookingPaymentErrors(body, kind, sale ?? price ?? 0, existing))
   return Object.keys(errors).length ? validationError(errors) : null
+}
+
+/** Mirrors the backend's `kind_field_errors()` for the booking payment fields. */
+function bookingPaymentErrors(body: ProductBody, kind: Schemas['ProductKindEnum'], effectivePrice: number, existing?: MockProduct) {
+  const errors: Record<string, string[]> = {}
+  const payment = body.booking_payment ?? existing?.booking_payment ?? 'store_default'
+  if (kind !== 'service') {
+    if (payment !== 'store_default') errors.booking_payment = ['Only services can ask for an advance or full payment.']
+    return errors
+  }
+  if (payment !== 'advance') return errors
+  const type = body.advance_type !== undefined ? body.advance_type : existing?.advance_type
+  const value = body.advance_value !== undefined ? body.advance_value : existing?.advance_value
+  if (type !== 'amount' && type !== 'percent') {
+    errors.advance_type = ['Choose an amount or a percentage.']
+    return errors
+  }
+  if (value == null || !Number.isInteger(value)) errors.advance_value = ['Enter the advance.']
+  else if (type === 'percent' && (value < MIN_ADVANCE_PERCENT || value > MAX_ADVANCE_PERCENT)) {
+    errors.advance_value = [`Ensure this value is between ${MIN_ADVANCE_PERCENT} and ${MAX_ADVANCE_PERCENT}.`]
+  } else if (type === 'amount' && value < MIN_ADVANCE_PAISE) errors.advance_value = ['The advance must be at least ₹1.']
+  else if (type === 'amount' && value >= effectivePrice) errors.advance_value = ['The advance must be less than the price.']
+  return errors
 }
 
 function applyProduct(product: MockProduct, body: ProductBody) {
@@ -129,7 +164,17 @@ function applyProduct(product: MockProduct, body: ProductBody) {
   if (body.stock_qty !== undefined) product.stock_qty = body.stock_qty
   if (body.kind !== undefined) product.kind = body.kind
   if (body.duration_minutes !== undefined) product.duration_minutes = body.duration_minutes
-  if (product.kind === 'product') product.duration_minutes = null
+  if (body.booking_payment !== undefined) product.booking_payment = body.booking_payment
+  if (body.advance_type !== undefined) product.advance_type = body.advance_type
+  if (body.advance_value !== undefined) product.advance_value = body.advance_value
+  if (product.kind === 'product') {
+    product.duration_minutes = null
+    product.booking_payment = 'store_default'
+  }
+  if (product.booking_payment !== 'advance') {
+    product.advance_type = ''
+    product.advance_value = null
+  }
   if (body.max_qty_per_order !== undefined) product.max_qty_per_order = body.max_qty_per_order
   if (body.position !== undefined) product.position = body.position
   if (body.is_active !== undefined) product.is_active = body.is_active
@@ -275,6 +320,9 @@ function newProduct(workspaceId: string, body: ProductBody): MockProduct {
     stock_qty: null,
     kind: 'product',
     duration_minutes: null,
+    booking_payment: 'store_default',
+    advance_type: '',
+    advance_value: null,
     max_qty_per_order: 10,
     position: products.length ? Math.max(...products.map((p) => p.position)) + 1 : 0,
     is_active: true,

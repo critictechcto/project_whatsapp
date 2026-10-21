@@ -9,6 +9,7 @@ import { DEFAULT_BOOKING_WINDOWS, type BookingTemplateField } from './api'
 
 type BookingSettingsField =
   | 'pay_at_shop_enabled'
+  | 'booking_cancellation_policy'
   | 'booking_days'
   | 'booking_windows'
   | 'booking_days_ahead'
@@ -125,6 +126,7 @@ function defaultSettings(workspaceId: string): MockStoreSettings {
     store_link: hasNumber ? `https://wa.me/${seedPhoneNumber.phone_e164.slice(1)}?text=Hi` : null,
     notification_templates: { confirmed: null, packed: null, shipped: null, delivered: null, cancelled: null, payment_reminder: null },
     pay_at_shop_enabled: true,
+    booking_cancellation_policy: '',
     booking_days: [0, 1, 2, 3, 4, 5, 6],
     booking_windows: DEFAULT_BOOKING_WINDOWS.map((window) => ({ ...window })),
     booking_days_ahead: 7,
@@ -150,6 +152,7 @@ function build(): Map<string, WorkspaceStore> {
     cod_max_order_paise: 300_000,
     serviceable_pincodes: ['302001', '302004', '302017'],
     support_message: 'Thanks for writing to Sharma Sweets. Priya from our team will reply within an hour (10 am to 7 pm).',
+    booking_cancellation_policy: 'Cancel up to 24 hours before for a full refund of your advance. Later cancellations keep the advance.',
     notification_templates: { ...sharma.notification_templates, shipped: seedTemplates[0].id },
   })
 
@@ -170,7 +173,7 @@ function build(): Map<string, WorkspaceStore> {
         settings: sharma,
         account,
         activeProducts: 12,
-        activeServices: 1,
+        activeServices: 3,
         starterTemplates: [],
         recipients: [
           {

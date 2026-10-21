@@ -41,10 +41,15 @@ const products: MockProduct[] = [
   // Services, booked rather than shipped (index 12 onwards).
   { sku: 'DIWALI-GLOW-60', name: 'Diwali Glow facial', price: 149_900, color: '#e8b4a0', image: true },
   { sku: 'HAIR-SPA-45', name: 'Hair spa', price: 89_900, color: '#b9a3c9', image: false },
+  // Services that need online payment: a 20% advance, and full payment.
+  { sku: 'MEHENDI-BRIDAL', name: 'Bridal mehendi (both hands)', price: 450_000, color: '#9fbf8a', image: true },
+  { sku: 'SWEETS-CLASS-90', name: 'Sweet-making class', price: 120_000, color: '#e2c27a', image: true },
 ]
 
 const DIWALI_GLOW = 12
 const HAIR_SPA = 13
+const BRIDAL_MEHENDI = 14
+const SWEETS_CLASS = 15
 
 const bookingWindows: BookingWindow[] = [
   { label: 'Morning', start: '09:00', end: '12:00' },
@@ -144,6 +149,8 @@ type Seed = {
   reminderAnswer?: 'attend' | 'reschedule'
   /** An offer code applied at checkout. */
   offer?: [code: string, discountPaise: number]
+  /** An online booking that paid this advance (paise) rather than the full total. */
+  advancePaise?: number
 }
 
 /** Seeds in chronological order; numbers are assigned from SS-1001 in this order. */
@@ -269,6 +276,18 @@ const seeds: Seed[] = [
     booking: { inDays: 1, window: 1 },
     reminderAnswer: 'reschedule',
   },
+  // A 20% advance paid online; the ₹3,600 balance is due at the shop.
+  {
+    key: 'bookingAdvance',
+    hoursAgo: 20,
+    contact: 13,
+    lines: [[BRIDAL_MEHENDI, 1]],
+    status: 'confirmed',
+    method: 'online',
+    booking: { inDays: 3, window: 0 },
+    advancePaise: 90_000,
+  },
+  { key: 'bookingPaidOnline', hoursAgo: 0.8, contact: 26, lines: [[SWEETS_CLASS, 2]], status: 'requested', method: 'online', booking: { inDays: 4, window: 1 } },
 ]
 
 const SHIPPING_PAISE = 6_000
@@ -322,6 +341,9 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     source: seed.source ?? 'bot',
     contact: person,
     total_paise: total,
+    advance_paise: 0,
+    amount_paid_paise: 0,
+    balance_due_paise: total,
     item_count: items.reduce((sum, item) => sum + item.quantity, 0),
     created_at: iso(),
     updated_at: iso(),
@@ -415,6 +437,26 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     event('time_requested', 'buyer', `${formatInZone(`${date}T12:00:00Z`, 'UTC', 'EEE d MMM')}, ${window.label.toLowerCase()} (${window.start}–${window.end})`)
     order.payment_method = seed.method ?? 'pay_at_shop'
     if (order.payment_method === 'pay_at_shop') order.payment_status = 'cod_pending'
+    if (order.payment_method === 'online') {
+      // Paid online through a link: the advance, or the full total.
+      const amount = seed.advancePaise ?? total
+      order.advance_paise = seed.advancePaise ?? 0
+      tick(1)
+      order.payment_link = {
+        id: `4b5c6d7e-8f9a-4b0c-8d1e-${String(n).padStart(12, '0')}`,
+        short_url: `https://rzp.io/rzp/ss${(1000 + n).toString(36)}b${n}`,
+        status: 'created',
+        amount_paise: amount,
+        expires_at: new Date(t + LINK_EXPIRY_MINUTES * MINUTE).toISOString(),
+        paid_at: null,
+      }
+      event('payment_link_created', 'system', `Sent a ${formatPaise(amount)} payment link.`)
+      tick(3)
+      order.payment_link = { ...order.payment_link, status: 'paid', paid_at: iso() }
+      order.amount_paid_paise = amount
+      order.payment_status = amount >= total ? 'paid' : 'advance_paid'
+      event('payment_received', 'system', seed.advancePaise ? `${formatPaise(amount)} advance received.` : `${formatPaise(amount)} received.`)
+    }
     move('requested', 'buyer', order.payment_method === 'pay_at_shop' ? 'Chose to pay at the shop.' : '')
     if (seed.status === 'requested') return finish()
 
@@ -491,6 +533,7 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
       tick(6)
       order.payment_link = { ...order.payment_link, status: 'paid', paid_at: iso() }
       order.payment_status = 'paid'
+      order.amount_paid_paise = total
       event('payment_received', 'system', `${formatPaise(total)} paid after the checkout expired.`)
       move('needs_attention', 'system', 'Payment arrived after the checkout expired.')
       return finish()
@@ -510,6 +553,7 @@ function buildRecord(workspaceId: string, n: number, seed: Seed, now: number): O
     tick(4)
     order.payment_link = { ...order.payment_link, status: 'paid', paid_at: iso() }
     order.payment_status = 'paid'
+    order.amount_paid_paise = total
     event('payment_received', 'system', `${formatPaise(total)} received.`)
     move('confirmed', 'system')
   } else {
@@ -611,8 +655,17 @@ export function seededOrder(key: string): OrderRecord {
   return record
 }
 
+/** The backend's read-only `balance_due_paise`. */
+function balanceDue(order: MockOrder): number {
+  return Math.max(order.total_paise - order.amount_paid_paise, 0)
+}
+
 export function toOrder(record: OrderRecord): Order {
-  return { ...record.order, allowed_transitions: [...transitionsFor(record.order.kind, record.order.status)] }
+  return {
+    ...record.order,
+    balance_due_paise: balanceDue(record.order),
+    allowed_transitions: [...transitionsFor(record.order.kind, record.order.status)],
+  }
 }
 
 /**
@@ -621,12 +674,12 @@ export function toOrder(record: OrderRecord): Order {
  */
 export function toListItem({ order }: OrderRecord): OrderListItem & { reschedule_requested_at: string | null } {
   const {
-    id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count,
-    requested_date, appointment_at, created_at, updated_at, reschedule_requested_at,
+    id, number, kind, status, payment_status, payment_method, source, contact, total_paise, advance_paise, amount_paid_paise,
+    item_count, requested_date, appointment_at, created_at, updated_at, reschedule_requested_at,
   } = order
   return {
-    id, number, kind, status, payment_status, payment_method, source, contact, total_paise, item_count,
-    requested_date, appointment_at, created_at, updated_at, reschedule_requested_at,
+    id, number, kind, status, payment_status, payment_method, source, contact, total_paise, advance_paise, amount_paid_paise,
+    balance_due_paise: balanceDue(order), item_count, requested_date, appointment_at, created_at, updated_at, reschedule_requested_at,
   }
 }
 

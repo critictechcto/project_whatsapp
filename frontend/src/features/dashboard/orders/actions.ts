@@ -13,11 +13,12 @@ export type OrderAction =
   | 'completed'
   | 'no_show'
   | 'paid_at_shop'
+  | 'balance_paid'
   | 'refund'
   | 'cancel'
 
 /** Actions moving the order forward; the first available one is the primary button. */
-export const progressActions: readonly OrderAction[] = ['confirm_time', 'confirmed', 'packed', 'shipped', 'delivered', 'completed', 'cod', 'paid_at_shop']
+export const progressActions: readonly OrderAction[] = ['confirm_time', 'confirmed', 'packed', 'shipped', 'delivered', 'completed', 'cod', 'paid_at_shop', 'balance_paid']
 
 function bookingActions(order: Order): OrderAction[] {
   const allowed = order.allowed_transitions
@@ -34,6 +35,10 @@ function bookingActions(order: Order): OrderAction[] {
     (order.status === 'confirmed' || order.status === 'completed')
   ) {
     actions.push('paid_at_shop')
+  }
+  // An advance was paid online; the balance is paid at the shop.
+  if (order.payment_status === 'advance_paid' && (order.status === 'confirmed' || order.status === 'completed')) {
+    actions.push('balance_paid')
   }
   return actions
 }
@@ -90,6 +95,7 @@ export const actionLabels: Record<OrderAction, string> = {
   completed: 'Mark completed',
   no_show: 'Mark no-show',
   paid_at_shop: 'Mark paid at shop',
+  balance_paid: 'Mark balance paid',
   refund: 'Mark refunded',
   cancel: 'Cancel order',
 }
@@ -151,6 +157,13 @@ export function simpleActionCopy(action: SimpleAction, order: Order): Copy {
       description: `Records that the buyer paid ${formatPaise(order.total_paise)} at the shop.`,
       confirm: 'Mark paid',
       success: 'Marked paid at the shop',
+      notify: false,
+    },
+    balance_paid: {
+      title: `Mark the ${formatPaise(order.balance_due_paise)} balance as paid at the shop?`,
+      description: `The buyer paid ${formatPaise(order.amount_paid_paise)} online when they booked. This records the rest as paid at the shop.`,
+      confirm: 'Mark balance paid',
+      success: 'Balance marked paid',
       notify: false,
     },
     refund: {

@@ -171,6 +171,65 @@ describe('booking reminders and replies', () => {
 })
 
 describe('orders list kind filter', () => {
+  it('offers to mark the balance paid only after an advance on a confirmed or completed booking', () => {
+    const admin = () => true
+    const advance = toOrder(seededOrder('bookingAdvance'))
+    expect(advance.payment_status).toBe('advance_paid')
+    expect(availableOrderActions(advance, admin)).toContain('balance_paid')
+    expect(availableOrderActions(advance, admin)).not.toContain('paid_at_shop')
+    const completed = withStatus(advance, { status: 'completed', allowed_transitions: [] })
+    expect(availableOrderActions(completed, admin)).toEqual(['balance_paid'])
+    expect(availableOrderActions(withStatus(advance, { status: 'requested' }), admin)).not.toContain('balance_paid')
+    expect(availableOrderActions(withStatus(completed, { payment_status: 'paid' }), admin)).toEqual([])
+    expect(eventTitle({ type: 'balance_collected', to_status: '', reminder: '' })).toBe('Balance paid at the shop')
+  })
+
+  it('shows the advance and balance, and marks the balance paid at the shop', async () => {
+    const { user, record } = await openOrder('bookingAdvance')
+    const order = record.order
+    expect(order.advance_paise).toBe(90_000)
+    const balance = order.total_paise - order.advance_paise
+
+    const payment = region('Payment')
+    expect(within(payment).getByText('Advance paid')).toBeInTheDocument()
+    const row = (label: string) => within(payment).getByText(label, { selector: 'dt' }).nextElementSibling
+    expect(row('Method')).toHaveTextContent('Advance online, the rest at the shop')
+    expect(row('Advance')).toHaveTextContent(formatPaise(order.advance_paise))
+    expect(row('Paid online')).toHaveTextContent(formatPaise(order.advance_paise))
+    expect(row('Balance due')).toHaveTextContent(formatPaise(balance))
+    expect(payment).toHaveTextContent(
+      `The buyer paid a ${formatPaise(order.advance_paise)} advance online. Collect the ${formatPaise(balance)} balance at the shop, then mark it paid here.`,
+    )
+    expect(within(region('Booking')).getByText(`${formatPaise(order.advance_paise)} advance online, the rest at the shop`)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mark paid at the shop' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Mark balance paid' }))
+    const dialog = await findDialog()
+    expect(within(dialog).getByRole('heading', { name: `Mark the ${formatPaise(balance)} balance as paid at the shop?` })).toBeInTheDocument()
+    expect(dialog).toHaveTextContent(`The buyer paid ${formatPaise(order.advance_paise)} online when they booked.`)
+    await user.click(within(dialog).getByRole('button', { name: 'Mark balance paid' }))
+    expect(await screen.findByText('Balance marked paid', {}, slow)).toBeInTheDocument()
+    expect(record.order.payment_status).toBe('paid')
+    await waitFor(() => expect(within(region('Payment')).queryByText('Advance paid')).not.toBeInTheDocument())
+    expect(within(region('Payment')).getAllByText('Paid').length).toBeGreaterThan(0)
+    expect(within(region('Payment')).queryByText('Balance due', { selector: 'dt' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mark balance paid' })).not.toBeInTheDocument()
+  })
+
+  it('filters to bookings with an advance paid', async () => {
+    signIn()
+    const { user, router } = renderDashboard(`${ws}/orders`)
+    const advance = seededOrder('bookingAdvance').order
+    const requested = seededOrder('bookingRequested').order
+    expect(await screen.findByRole('link', { name: advance.number }, slow)).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('Payment status'), 'advance_paid')
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('payment')).toBe('advance_paid'))
+    await waitFor(() => expect(screen.queryByRole('link', { name: requested.number })).not.toBeInTheDocument(), slow)
+    const row = screen.getByRole('link', { name: advance.number }).closest('tr')!
+    expect(within(row).getByText('Advance paid')).toBeInTheDocument()
+  })
+
   it('filters to bookings and marks them in the list', async () => {
     signIn()
     const { user, router } = renderDashboard(`${ws}/orders`)
