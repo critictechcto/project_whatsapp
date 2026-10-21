@@ -1,5 +1,7 @@
-"""Billing models. Money is integer paise; plan prices exclude GST."""
+"""Billing models. Money is integer paise. Plan prices come from Razorpay plans
+(:mod:`apps.billing.prices`); UpChatz stores no price of its own."""
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
@@ -43,12 +45,22 @@ class PaymentMode(models.TextChoices):
 
 
 class Plan(models.Model):
-    """A subscription plan. ``limits`` maps metric keys to a cap; ``null`` means unlimited."""
+    """A subscription plan. ``limits`` maps metric keys to a cap; ``null`` means unlimited.
+
+    The price of each interval is the amount of its Razorpay plan (:mod:`apps.billing.prices`)."""
 
     slug = models.SlugField(primary_key=True, max_length=32)
     name = models.CharField(max_length=64)
-    monthly_price_paise = models.PositiveIntegerField(help_text="Per month, before GST.")
-    annual_price_paise = models.PositiveIntegerField(help_text="Per year, before GST.")
+    razorpay_plan_id_monthly = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Razorpay plan (plan_...) billed monthly. Blank: RAZORPAY_PLAN_IDS, if set.",
+    )
+    razorpay_plan_id_annual = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Razorpay plan (plan_...) billed yearly. Blank: RAZORPAY_PLAN_IDS, if set.",
+    )
     limits = models.JSONField(default=dict, blank=True)
     features = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
@@ -62,12 +74,62 @@ class Plan(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    def price_paise(self, interval: str) -> int:
-        return self.annual_price_paise if interval == "annual" else self.monthly_price_paise
+    def configured_razorpay_plan_id(self, interval: str) -> str:
+        """The plan's own field for ``interval`` (no settings fallback)."""
+        if interval == "annual":
+            return self.razorpay_plan_id_annual
+        return self.razorpay_plan_id_monthly
+
+    def settings_razorpay_plan_id(self, interval: str) -> str:
+        """``RAZORPAY_PLAN_IDS[slug][interval]``, or ``""``."""
+        value = ((settings.RAZORPAY_PLAN_IDS or {}).get(self.slug) or {}).get(interval)
+        return value if isinstance(value, str) else ""
+
+    def razorpay_plan_id(self, interval: str) -> str:
+        """The Razorpay plan id for ``interval``: the field, else ``RAZORPAY_PLAN_IDS``, else
+        ``""``."""
+        return self.configured_razorpay_plan_id(interval) or self.settings_razorpay_plan_id(
+            interval
+        )
+
+    def price_paise(self, interval: str) -> int | None:
+        """The price before GST, from the Razorpay plan; None when this interval can't be
+        bought right now. Never raises."""
+        from .prices import price_paise
+
+        return price_paise(self, interval)
 
     def limit(self, metric: str) -> int | None:
         value = (self.limits or {}).get(metric)
         return None if value is None else int(value)
+
+
+class RazorpayPlan(models.Model):
+    """A read-only copy of a Razorpay plan. Razorpay plans can't change once created, so the copy
+    never goes stale. ``plan``/``interval`` record which UpChatz plan it was fetched for, so
+    webhooks still map subscriptions on an older Razorpay plan."""
+
+    id = models.CharField(primary_key=True, max_length=64, help_text="Razorpay plan_... id.")
+    plan = models.ForeignKey(
+        Plan, on_delete=models.SET_NULL, null=True, blank=True, related_name="razorpay_plans"
+    )
+    interval = models.CharField(
+        max_length=16, choices=(("monthly", "Monthly"), ("annual", "Annual"))
+    )
+    period = models.CharField(max_length=16, help_text="Razorpay's period: monthly, yearly, ...")
+    period_interval = models.PositiveSmallIntegerField(help_text="Periods per billing cycle.")
+    amount_paise = models.PositiveIntegerField(
+        help_text="Charged by Razorpay per cycle; GST-inclusive when GST is on."
+    )
+    currency = models.CharField(max_length=3)
+    item_name = models.CharField(max_length=255, blank=True)
+    fetched_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("plan_id", "interval", "-fetched_at")
+
+    def __str__(self) -> str:
+        return f"{self.id} ({self.item_name or self.interval})"
 
 
 class Subscription(UUIDTimeStampedModel):

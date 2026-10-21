@@ -8,7 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.billing import invoices, services, webhooks
-from apps.billing.models import BillingProfile, Invoice, RazorpayEvent, Subscription
+from apps.billing.models import BillingProfile, Invoice, Plan, RazorpayEvent, Subscription
 from apps.billing.tests.helpers import (
     KARNATAKA_PROFILE,
     MAHARASHTRA_PROFILE,
@@ -248,13 +248,59 @@ def test_same_state_buyer_invoice_splits_cgst_and_sgst(client, workspace, checko
     assert invoice.total_paise == 707882
 
 
-def test_charge_amount_without_gst_is_flagged(client, workspace, checkout, caplog):
+def test_invoice_follows_the_amount_actually_charged(client, workspace, checkout):
+    """A subscriber on an older Razorpay plan is invoiced for what they paid, not today's price."""
     BillingProfile.objects.create(workspace=workspace, **MAHARASHTRA_PROFILE)
 
-    post_webhook(client, charged_payload(amount=599900))
+    post_webhook(client, charged_payload(amount=589_882))  # 4,999.00 + 18% IGST
 
-    assert "includes GST" in caplog.text
-    assert Invoice.objects.filter(workspace=workspace).count() == 1
+    invoice = Invoice.objects.get(workspace=workspace)
+    assert (invoice.subtotal_paise, invoice.igst_paise, invoice.total_paise) == (
+        499_900,
+        89_982,
+        589_882,
+    )
+
+
+def test_invoice_of_an_amount_without_an_exact_base_still_adds_up(client, workspace, checkout):
+    BillingProfile.objects.create(workspace=workspace, **KARNATAKA_PROFILE)
+    reachable = {
+        invoices.compute_gst(
+            base, buyer_state_code="29", seller_state_code="29", rate_percent=18
+        ).total_paise
+        for base in range(508_000, 509_000)
+    }
+    amount = next(total for total in range(599_000, 600_000) if total not in reachable)
+
+    post_webhook(client, charged_payload(amount=amount))
+
+    invoice = Invoice.objects.get(workspace=workspace)
+    assert invoice.total_paise == amount
+    assert invoice.subtotal_paise + invoice.cgst_paise + invoice.sgst_paise == amount
+    assert abs(invoice.cgst_paise - invoice.sgst_paise) <= 1
+
+
+def test_charge_on_an_older_razorpay_plan_maps_through_its_saved_copy(
+    client, workspace, checkout, settings
+):
+    """The Pro plan moved to a new Razorpay plan; a renewal on the old one still means Pro."""
+    BillingProfile.objects.create(workspace=workspace, **MAHARASHTRA_PROFILE)
+    settings.RAZORPAY_PLAN_IDS = {}
+    Plan.objects.filter(slug="pro").update(razorpay_plan_id_monthly="plan_NewPro01")
+    subscription = reload(checkout)
+    subscription.checkout_plan_id = None
+    subscription.checkout_interval = ""
+    subscription.save()
+
+    post_webhook(client, charged_payload())  # on plan_test_pro_monthly, saved as a copy
+
+    subscription = reload(checkout)
+    assert (subscription.status, subscription.plan_id, subscription.interval) == (
+        "active",
+        "pro",
+        "monthly",
+    )
+    assert Invoice.objects.get(workspace=workspace).total_paise == 707882
 
 
 @pytest.mark.parametrize(

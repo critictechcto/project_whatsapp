@@ -17,6 +17,7 @@ from contextlib import contextmanager
 from typing import Any, Protocol
 
 from django.conf import settings
+from django.utils.module_loading import import_string
 
 from common.razorpay import (
     API_BASE_URL,
@@ -69,6 +70,8 @@ class RazorpayClient(Protocol):
 
     def fetch_order_payments(self, order_id: str) -> list[JSON]: ...
 
+    def fetch_plan(self, plan_id: str) -> JSON: ...
+
 
 def _checked_id(subscription_id: str) -> str:
     return checked_id(subscription_id, label="Razorpay subscription id")
@@ -120,21 +123,107 @@ class HttpRazorpayClient(RazorpayTransport):
         items = data.get("items")
         return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
 
+    def fetch_plan(self, plan_id: str) -> JSON:
+        """``GET /v1/plans/{id}``: the plan's period and its ``item`` (amount, currency)."""
+        return self.request("GET", f"/plans/{checked_id(plan_id, label='Razorpay plan id')}")
+
     def _request(self, method: str, path: str, *, json: JSON | None = None) -> JSON:
         """Kept for callers of the wave-2 private name."""
         return self.request(method, path, json=json)
 
 
+# Test fixtures for the fake's default plans: price before GST per month (annual = 10 months).
+FAKE_MONTHLY_PRICES_PAISE = {"starter": 999_00, "growth": 2_499_00, "pro": 5_999_00}
+FAKE_ANNUAL_MONTHS = 10
+
+
+def _fake_gst_inclusive(price_paise: int) -> int:
+    """What Razorpay would charge for ``price_paise`` with the GST settings now in force."""
+    from .invoices import compute_gst
+
+    rate = settings.BILLING_GST_RATE_PERCENT if settings.BILLING_GST_ENABLED else 0
+    seller = settings.BILLING_SELLER_STATE_CODE
+    return compute_gst(
+        price_paise, buyer_state_code=seller, seller_state_code=seller, rate_percent=rate
+    ).total_paise
+
+
+def fake_plan_entity(
+    plan_id: str,
+    *,
+    amount: int,
+    period: str = "monthly",
+    interval: int = 1,
+    currency: str = "INR",
+    name: str = "",
+) -> JSON:
+    """A Razorpay ``plan`` entity."""
+    return {
+        "id": plan_id,
+        "entity": "plan",
+        "period": period,
+        "interval": interval,
+        "item": {
+            "id": f"item_{plan_id}"[:64],
+            "name": name or plan_id,
+            "amount": amount,
+            "currency": currency,
+        },
+        "notes": {},
+    }
+
+
 class FakeRazorpayClient:
-    """In-memory Razorpay for tests. ``calls`` records every call; set ``fail_with`` to raise."""
+    """In-memory Razorpay for tests. ``calls`` records every call; set ``fail_with`` to raise.
+
+    It knows a plan for each id of the test ``RAZORPAY_PLAN_IDS`` (``plan_test_<slug>_<interval>``,
+    priced from :data:`FAKE_MONTHLY_PRICES_PAISE` and GST-inclusive under the current GST
+    settings); :meth:`add_plan` adds (or replaces) others."""
 
     def __init__(self) -> None:
         self.subscriptions: dict[str, JSON] = {}
         self.orders: dict[str, JSON] = {}
         self.payments: dict[str, list[JSON]] = {}
+        self.plans: dict[str, JSON] = {}
         self.calls: list[tuple[str, dict]] = []
         self.fail_with: RazorpayError | None = None
         self._ids = itertools.count(1)
+
+    def add_plan(self, plan_id: str, **kwargs: Any) -> JSON:
+        """Add a plan (``amount`` in paise, as charged; ``period``, ``interval``, ``currency``,
+        ``name`` optional)."""
+        entity = fake_plan_entity(plan_id, **kwargs)
+        self.plans[plan_id] = entity
+        return dict(entity)
+
+    def fetch_plan(self, plan_id: str) -> JSON:
+        self._record("fetch_plan", plan_id=plan_id)
+        entity = self.plans.get(plan_id) or self._default_plan(plan_id)
+        if entity is None:
+            raise RazorpayError(
+                "The id provided does not exist", status_code=400, code="BAD_REQUEST_ERROR"
+            )
+        return {**entity, "item": dict(entity["item"])}
+
+    @staticmethod
+    def _default_plan(plan_id: str) -> JSON | None:
+        prefix, _, interval = plan_id.rpartition("_")
+        slug = prefix.removeprefix("plan_test_")
+        monthly = FAKE_MONTHLY_PRICES_PAISE.get(slug)
+        if not prefix.startswith("plan_test_") or monthly is None:
+            return None
+        if interval == "monthly":
+            return fake_plan_entity(
+                plan_id, amount=_fake_gst_inclusive(monthly), name=f"{slug.title()} monthly"
+            )
+        if interval == "annual":
+            return fake_plan_entity(
+                plan_id,
+                amount=_fake_gst_inclusive(monthly * FAKE_ANNUAL_MONTHS),
+                period="yearly",
+                name=f"{slug.title()} annual",
+            )
+        return None
 
     def create_subscription(
         self, *, plan_id: str, total_count: int, notes: Mapping[str, str]
@@ -257,8 +346,13 @@ _override: RazorpayClient | None = None
 
 
 def get_razorpay_client() -> RazorpayClient:
+    """The overridden client, else ``settings.BILLING_RAZORPAY_CLIENT`` (a dotted class path; test
+    settings name :class:`FakeRazorpayClient` so no test reaches Razorpay), else HTTP."""
     if _override is not None:
         return _override
+    client_path = getattr(settings, "BILLING_RAZORPAY_CLIENT", "")
+    if client_path:
+        return import_string(client_path)()
     return HttpRazorpayClient(
         key_id=settings.RAZORPAY_KEY_ID, key_secret=settings.RAZORPAY_KEY_SECRET
     )
@@ -287,9 +381,30 @@ def plan_id_for(plan_slug: str, interval: str) -> str:
 
 
 def plan_for_razorpay_plan_id(razorpay_plan_id: object) -> tuple[str, str] | None:
-    """``(plan slug, interval)`` for a Razorpay plan id, or None when it isn't configured."""
+    """``(plan slug, interval)`` for a Razorpay plan id, or None when it is unknown.
+
+    Looks at the ``Plan`` fields first, then the ``RazorpayPlan`` copies (so subscriptions on an
+    older Razorpay plan still map to their plan), then ``RAZORPAY_PLAN_IDS``.
+    """
+    from .models import Plan, RazorpayPlan
+
     if not isinstance(razorpay_plan_id, str) or not razorpay_plan_id:
         return None
+    for interval, field in (
+        ("monthly", "razorpay_plan_id_monthly"),
+        ("annual", "razorpay_plan_id_annual"),
+    ):
+        slug = Plan.objects.filter(**{field: razorpay_plan_id}).values_list("slug", flat=True)
+        slug = slug.first()
+        if slug is not None:
+            return slug, interval
+    snapshot = (
+        RazorpayPlan.objects.filter(pk=razorpay_plan_id, plan__isnull=False)
+        .values_list("plan_id", "interval")
+        .first()
+    )
+    if snapshot is not None:
+        return snapshot[0], snapshot[1]
     for slug, intervals in (settings.RAZORPAY_PLAN_IDS or {}).items():
         for interval, plan_id in (intervals or {}).items():
             if plan_id == razorpay_plan_id:

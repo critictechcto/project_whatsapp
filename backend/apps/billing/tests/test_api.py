@@ -309,12 +309,19 @@ def test_checkout_reports_razorpay_outages(auth_client, workspace, profile, fake
     assert (subscription.status, subscription.razorpay_subscription_id) == ("trialing", None)
 
 
-def test_checkout_without_razorpay_plan_ids_is_unavailable(auth_client, profile, settings):
+def test_checkout_without_razorpay_plan_ids_is_unavailable(
+    auth_client, profile, settings, fake_razorpay
+):
     settings.RAZORPAY_PLAN_IDS = {}
 
     response = auth_client().post(CHECKOUT, {"plan_id": "pro", "interval": "monthly"})
 
-    assert error(response, 503)["code"] == "upstream_unavailable"
+    body = error(response, 409)
+    assert (body["code"], body["message"]) == (
+        "plan_unavailable",
+        "This plan can't be bought right now.",
+    )
+    assert fake_razorpay.calls == []
 
 
 def test_verify_accepts_a_valid_signature(auth_client, profile):

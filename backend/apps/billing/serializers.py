@@ -36,10 +36,35 @@ class PlanSerializer(serializers.Serializer):
         source="slug", read_only=True, help_text="Plan slug: starter, growth or pro."
     )
     name = serializers.CharField(read_only=True)
-    monthly_price_paise = serializers.IntegerField(read_only=True, help_text="Before GST.")
-    annual_price_paise = serializers.IntegerField(read_only=True, help_text="Before GST.")
+    monthly_price_paise = serializers.SerializerMethodField(
+        help_text=(
+            "Per month, before GST, from the Razorpay plan; null when monthly can't be bought "
+            "right now."
+        )
+    )
+    annual_price_paise = serializers.SerializerMethodField(
+        help_text=(
+            "Per year, before GST, from the Razorpay plan; null when annual can't be bought "
+            "right now."
+        )
+    )
     limits = PlanLimitsSerializer(read_only=True, help_text="null means unlimited.")
     features = serializers.ListField(child=serializers.CharField(), read_only=True)
+
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_monthly_price_paise(self, obj) -> int | None:
+        return obj.price_paise("monthly")
+
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
+    def get_annual_price_paise(self, obj) -> int | None:
+        return obj.price_paise("annual")
+
+
+class PublicPlansSerializer(serializers.Serializer):
+    gst_rate_percent = serializers.IntegerField(
+        read_only=True, help_text="GST added to plan prices at checkout; 0 while not charged."
+    )
+    plans = PlanSerializer(many=True, read_only=True, help_text="Active plans in display order.")
 
 
 class SubscriptionSerializer(serializers.Serializer):

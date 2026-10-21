@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from apps.billing import razorpay
+from apps.billing.models import Plan, RazorpayPlan
 
 KEY_ID = "rzp_test_key"
 KEY_SECRET = "client-test-secret"
@@ -147,12 +148,36 @@ def test_get_razorpay_client_returns_the_override(fake_razorpay):
     assert razorpay.get_razorpay_client() is fake_razorpay
 
 
-def test_get_razorpay_client_builds_the_http_client_without_override():
+def test_get_razorpay_client_builds_the_http_client_without_override(settings):
+    settings.BILLING_RAZORPAY_CLIENT = ""
     with razorpay.override_razorpay_client(None):
         client = razorpay.get_razorpay_client()
 
     assert isinstance(client, razorpay.HttpRazorpayClient)
     client.close()
+
+
+def test_test_settings_default_to_the_fake_client():
+    with razorpay.override_razorpay_client(None):
+        client = razorpay.get_razorpay_client()
+
+    assert isinstance(client, razorpay.FakeRazorpayClient)
+
+
+def test_http_client_fetches_a_plan():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, request.url.path))
+        return httpx.Response(200, json={"id": "plan_A1", "period": "monthly", "interval": 1})
+
+    client = make_client(handler)
+
+    assert client.fetch_plan("plan_A1")["id"] == "plan_A1"
+    assert seen == [("GET", "/v1/plans/plan_A1")]
+    with pytest.raises(razorpay.RazorpayError):
+        client.fetch_plan("../orders")
+    assert len(seen) == 1
 
 
 def test_checkout_signature():
@@ -282,6 +307,7 @@ def test_webhook_signature():
     assert not razorpay.webhook_signature_is_valid(body, signature, "")
 
 
+@pytest.mark.django_db
 def test_plan_id_lookups(settings):
     assert razorpay.plan_id_for("pro", "annual") == "plan_test_pro_annual"
     assert razorpay.plan_for_razorpay_plan_id("plan_test_starter_monthly") == (
@@ -294,6 +320,23 @@ def test_plan_id_lookups(settings):
     settings.RAZORPAY_PLAN_IDS = {}
     with pytest.raises(razorpay.RazorpayNotConfigured):
         razorpay.plan_id_for("pro", "monthly")
+
+
+@pytest.mark.django_db
+def test_plan_for_razorpay_plan_id_prefers_plan_fields_then_saved_copies(settings):
+    settings.RAZORPAY_PLAN_IDS = {"growth": {"monthly": "plan_settings_growth"}}
+    Plan.objects.filter(slug="pro").update(razorpay_plan_id_annual="plan_field_pro_year")
+    RazorpayPlan.objects.filter(pk="plan_test_starter_monthly").update(plan="growth")
+
+    assert razorpay.plan_for_razorpay_plan_id("plan_field_pro_year") == ("pro", "annual")
+    # An older Razorpay plan no longer named anywhere still maps through its saved copy.
+    assert razorpay.plan_for_razorpay_plan_id("plan_test_starter_monthly") == (
+        "growth",
+        "monthly",
+    )
+    assert razorpay.plan_for_razorpay_plan_id("plan_settings_growth") == ("growth", "monthly")
+    RazorpayPlan.objects.filter(pk="plan_test_pro_monthly").update(plan=None)
+    assert razorpay.plan_for_razorpay_plan_id("plan_test_pro_monthly") is None
 
 
 def test_fake_client_records_calls_and_fails_on_demand(fake_razorpay):

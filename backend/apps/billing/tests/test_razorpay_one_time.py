@@ -19,7 +19,9 @@ from apps.billing.models import (
     BillingProfile,
     Invoice,
     PaymentMode,
+    Plan,
     RazorpayEvent,
+    RazorpayPlan,
     Subscription,
 )
 from apps.billing.razorpay import RazorpayError
@@ -153,8 +155,86 @@ def test_one_time_checkout_creates_a_razorpay_order(auth_client, workspace, prof
 
 def test_one_time_amount_follows_the_gst_setting(auth_client, profile, settings):
     settings.BILLING_GST_ENABLED = False
+    RazorpayPlan.objects.all().delete()  # the fake prices plans for the current GST setting
 
     assert pay_once(auth_client)["amount_paise"] == 249900
+
+
+@pytest.mark.parametrize("gst_enabled", [True, False])
+def test_pay_once_charges_the_razorpay_plan_amount(
+    auth_client, profile, settings, fake_razorpay, gst_enabled
+):
+    settings.BILLING_GST_ENABLED = gst_enabled
+    RazorpayPlan.objects.all().delete()
+    fake_razorpay.add_plan("plan_test_growth_monthly", amount=GROWTH_MONTHLY_TOTAL)
+
+    session = pay_once(auth_client)
+
+    # With GST on, 2,499.00 + 18% = 2,948.82 is a base that adds up exactly.
+    assert session["amount_paise"] == GROWTH_MONTHLY_TOTAL
+    assert fake_razorpay.calls_to("create_order")[0]["amount"] == GROWTH_MONTHLY_TOTAL
+
+
+@pytest.mark.parametrize("payment_mode", ["one_time", "autopay"])
+def test_checkout_of_an_unconfigured_interval_is_plan_unavailable(
+    auth_client, profile, settings, fake_razorpay, payment_mode
+):
+    settings.RAZORPAY_PLAN_IDS = {"growth": {"monthly": "plan_test_growth_monthly"}}
+
+    response = auth_client().post(
+        CHECKOUT,
+        {"plan_id": "growth", "interval": "annual", "payment_mode": payment_mode},
+        format="json",
+    )
+
+    assert error(response, 409)["code"] == "plan_unavailable"
+    assert fake_razorpay.calls == []
+    assert not BillingOrder.objects.exists()
+
+
+@pytest.mark.parametrize("payment_mode", ["one_time", "autopay"])
+def test_checkout_of_a_missing_razorpay_plan_is_plan_unavailable(
+    auth_client, profile, fake_razorpay, payment_mode
+):
+    Plan.objects.filter(slug="growth").update(razorpay_plan_id_monthly="plan_gone")
+
+    response = auth_client().post(
+        CHECKOUT,
+        {"plan_id": "growth", "interval": "monthly", "payment_mode": payment_mode},
+        format="json",
+    )
+
+    assert error(response, 409)["code"] == "plan_unavailable"
+    assert [name for name, _ in fake_razorpay.calls] == ["fetch_plan"]
+
+
+@pytest.mark.parametrize("payment_mode", ["one_time", "autopay"])
+def test_checkout_while_razorpay_cant_price_the_plan_is_upstream_unavailable(
+    auth_client, profile, fake_razorpay, payment_mode
+):
+    RazorpayPlan.objects.all().delete()
+    fake_razorpay.fail_with = RazorpayError("Razorpay returned HTTP 502.", status_code=502)
+
+    response = auth_client().post(
+        CHECKOUT,
+        {"plan_id": "growth", "interval": "monthly", "payment_mode": payment_mode},
+        format="json",
+    )
+
+    assert error(response, 503)["code"] == "upstream_unavailable"
+    assert not BillingOrder.objects.exists()
+
+
+def test_autopay_checkout_uses_the_plan_field(auth_client, profile, fake_razorpay):
+    fake_razorpay.add_plan("plan_NewGrowth01", amount=GROWTH_MONTHLY_TOTAL)
+    Plan.objects.filter(slug="growth").update(razorpay_plan_id_monthly="plan_NewGrowth01")
+
+    response = auth_client().post(
+        CHECKOUT, {"plan_id": "growth", "interval": "monthly"}, format="json"
+    )
+
+    assert response.status_code == 200, response.content
+    assert fake_razorpay.calls_to("create_subscription")[0]["plan_id"] == "plan_NewGrowth01"
 
 
 def test_razorpay_defaults_to_autopay(auth_client, profile, fake_razorpay):

@@ -11,7 +11,13 @@ from django.utils import timezone
 
 from apps.billing import services
 from apps.billing.cashfree import CashfreeError, override_cashfree_client
-from apps.billing.models import BillingOrder, BillingProfile, Invoice, Subscription
+from apps.billing.models import (
+    BillingOrder,
+    BillingProfile,
+    Invoice,
+    RazorpayPlan,
+    Subscription,
+)
 from apps.billing.tests.helpers import (
     KARNATAKA_PROFILE,
     MAHARASHTRA_PROFILE,
@@ -135,6 +141,8 @@ def test_without_gst_the_plan_price_is_charged_and_invoiced(
     auth_client, workspace, profile, fake_cashfree, settings
 ):
     settings.BILLING_GST_ENABLED = False
+    # Razorpay plans are created with what is charged; without GST that is the price itself.
+    RazorpayPlan.objects.all().delete()
     assert auth_client().get(SUBSCRIPTION).json()["gst_rate_percent"] == 0
 
     session = checkout(auth_client)

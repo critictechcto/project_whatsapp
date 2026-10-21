@@ -79,11 +79,12 @@ def test_expire_trials_runs_hourly():
     assert entry["schedule"] == crontab(minute=7)
 
 
-def test_seeded_plans_match_the_pricing_page():
+def test_seeded_plans_are_priced_by_their_razorpay_plans():
     plans = {plan.slug: plan for plan in Plan.objects.all()}
 
+    assert not hasattr(plans["pro"], "monthly_price_paise")
     assert [
-        (slug, plans[slug].monthly_price_paise, plans[slug].annual_price_paise)
+        (slug, plans[slug].price_paise("monthly"), plans[slug].price_paise("annual"))
         for slug in ("starter", "growth", "pro")
     ] == [("starter", 99900, 999000), ("growth", 249900, 2499000), ("pro", 599900, 5999000)]
     assert plans["pro"].limits == {"whatsapp_numbers": 5, "members": 15, "contacts": 100000}
@@ -99,7 +100,9 @@ def test_the_data_migrations_seed_the_default_catalogue():
         features = commerce.with_commerce(fields["features"])
         if slug in analytics.PLAN_SLUGS:
             features = analytics.with_analytics(features)
-        migrated[slug] = {**fields, "features": features}
+        # Migration 0007 dropped the prices: Razorpay plans price them now.
+        unpriced = {key: value for key, value in fields.items() if "price" not in key}
+        migrated[slug] = {**unpriced, "features": features}
     assert {spec["slug"]: plan_fields(spec) for spec in DEFAULT_PLANS} == migrated
 
 

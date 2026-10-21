@@ -9,7 +9,9 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils import timezone
 
-from apps.billing import services
+from apps.billing import prices, services
+from apps.billing.models import Plan, RazorpayPlan
+from apps.billing.razorpay import FakeRazorpayClient, RazorpayError
 
 # Seller in test settings is in Karnataka (29): Maharashtra buyers pay IGST, Karnataka CGST+SGST.
 MAHARASHTRA_PROFILE = {
@@ -32,6 +34,24 @@ KARNATAKA_PROFILE = {
     "state_code": "29",
     "postal_code": "560001",
 }
+
+
+def seed_razorpay_plans() -> None:
+    """Save the ``RazorpayPlan`` copies of the test plan ids (``plan_test_<slug>_<interval>``) as
+    if they had been fetched, so tests not about pricing make no ``fetch_plan`` call."""
+    fake = FakeRazorpayClient()
+    for plan in Plan.objects.all():
+        for interval in ("monthly", "annual"):
+            plan_id = plan.razorpay_plan_id(interval)
+            if not plan_id or RazorpayPlan.objects.filter(pk=plan_id).exists():
+                continue
+            try:
+                entity = fake.fetch_plan(plan_id)
+            except RazorpayError:
+                continue
+            prices.store_snapshot(
+                plan_id, prices.parse_plan_entity(plan_id, entity), plan=plan, interval=interval
+            )
 
 
 def ts(moment: datetime) -> int:

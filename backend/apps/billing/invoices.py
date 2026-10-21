@@ -62,6 +62,67 @@ def compute_gst(
     return GstBreakdown(subtotal_paise, 0, 0, igst, rate_percent, intra_state=False)
 
 
+def subtotal_for_total(
+    total_paise: int, *, buyer_state_code: str, seller_state_code: str, rate_percent: int
+) -> int:
+    """The subtotal whose :func:`compute_gst` total is ``total_paise`` (the price before GST of a
+    GST-inclusive amount). With rounding, some totals have no exact subtotal; then the nearest
+    estimate is returned. With a 0% rate it is the total itself."""
+    if total_paise < 0:
+        raise ValueError("total_paise must not be negative.")
+    if not rate_percent:
+        return total_paise
+    estimate = int(
+        (Decimal(total_paise) * 100 / (100 + Decimal(rate_percent))).quantize(
+            Decimal(1), rounding=ROUND_HALF_UP
+        )
+    )
+    for offset in (0, -1, 1, -2, 2, -3, 3):
+        candidate = estimate + offset
+        if candidate < 0:
+            continue
+        breakdown = compute_gst(
+            candidate,
+            buyer_state_code=buyer_state_code,
+            seller_state_code=seller_state_code,
+            rate_percent=rate_percent,
+        )
+        if breakdown.total_paise == total_paise:
+            return candidate
+    return estimate
+
+
+def breakdown_for_total(
+    total_paise: int, *, buyer_state_code: str, seller_state_code: str, rate_percent: int
+) -> GstBreakdown:
+    """A breakdown of a GST-inclusive amount that adds up to exactly ``total_paise``.
+
+    Normally it is :func:`compute_gst` of :func:`subtotal_for_total`. When rounding leaves no
+    exact subtotal, the tax absorbs the difference of a paisa or two (split as evenly as possible
+    between CGST and SGST), so the invoice always matches what was charged.
+    """
+    subtotal = subtotal_for_total(
+        total_paise,
+        buyer_state_code=buyer_state_code,
+        seller_state_code=seller_state_code,
+        rate_percent=rate_percent,
+    )
+    breakdown = compute_gst(
+        subtotal,
+        buyer_state_code=buyer_state_code,
+        seller_state_code=seller_state_code,
+        rate_percent=rate_percent,
+    )
+    if breakdown.total_paise == total_paise:
+        return breakdown
+    subtotal = min(subtotal, total_paise)
+    tax = total_paise - subtotal
+    if breakdown.intra_state:
+        cgst = tax // 2
+        return GstBreakdown(subtotal, cgst, tax - cgst, 0, rate_percent, intra_state=True)
+    return GstBreakdown(subtotal, 0, 0, tax, rate_percent, intra_state=False)
+
+
 def financial_year(at: datetime) -> str:
     """Indian financial year (April-March, Asia/Kolkata) containing ``at``, e.g. ``2026-27``."""
     if at.tzinfo is None:

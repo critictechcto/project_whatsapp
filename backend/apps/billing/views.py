@@ -11,12 +11,15 @@ from django.views.decorators.http import require_POST
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
 from common.roles import Role
 from common.tenancy import WorkspaceScopedGenericViewSet
 
-from . import cashfree, entitlements, invoice_pdf, razorpay, services, webhooks
+from . import cashfree, entitlements, invoice_pdf, prices, razorpay, services, webhooks
 from .models import Invoice, Plan
 from .serializers import (
     BillingProfileSerializer,
@@ -26,6 +29,7 @@ from .serializers import (
     CheckoutVerifySerializer,
     InvoiceSerializer,
     PlanSerializer,
+    PublicPlansSerializer,
     SubscriptionSerializer,
     UsageSerializer,
 )
@@ -37,6 +41,7 @@ EVENT_ID_HEADER = "X-Razorpay-Event-Id"
 EVENT_ID_MAX_LENGTH = 100
 CASHFREE_SIGNATURE_HEADER = "x-webhook-signature"
 CASHFREE_TIMESTAMP_HEADER = "x-webhook-timestamp"
+PUBLIC_CACHE_CONTROL = "public, max-age=300"
 
 
 class BillingViewSet(WorkspaceScopedGenericViewSet):
@@ -60,8 +65,40 @@ class PlanViewSet(BillingViewSet):
 
     @extend_schema(operation_id="billing_plans_list", responses=PlanSerializer(many=True))
     def list(self, request):
-        plans = Plan.objects.filter(is_active=True)
-        return Response(PlanSerializer(plans, many=True).data)
+        return Response(PlanSerializer(active_plans(), many=True).data)
+
+
+def active_plans() -> list[Plan]:
+    """Active plans in display order, with their Razorpay plan copies loaded in one query."""
+    return prices.prefetch(Plan.objects.filter(is_active=True).order_by("sort_order", "slug"))
+
+
+class PublicPlansView(APIView):
+    """Plans and prices for the marketing site: no authentication, no workspace."""
+
+    authentication_classes: list = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "public_plans"
+
+    @extend_schema(
+        operation_id="billing_public_plans_list",
+        responses=PublicPlansSerializer,
+        auth=[],
+        description=(
+            "Active plans with prices before GST (null when an interval can't be bought right "
+            "now) and the GST rate added at checkout. Public: no authentication or workspace "
+            "header; throttled per IP. Cacheable for 5 minutes."
+        ),
+    )
+    def get(self, request):
+        data = PublicPlansSerializer(
+            {"gst_rate_percent": services.gst_rate_percent(), "plans": active_plans()}
+        ).data
+        response = Response(data)
+        response["Cache-Control"] = PUBLIC_CACHE_CONTROL
+        response["Access-Control-Allow-Origin"] = "*"
+        return response
 
 
 class SubscriptionViewSet(BillingViewSet):

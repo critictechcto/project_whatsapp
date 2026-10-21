@@ -39,6 +39,7 @@ WHATSAPP_GRAPH_CLIENT = "apps.whatsapp.client.fake.FakeGraphClient"
 RAZORPAY_KEY_ID = "rzp_test_key"
 RAZORPAY_KEY_SECRET = "rzp-test-secret"
 RAZORPAY_WEBHOOK_SECRET = "rzp-test-webhook-secret"
+BILLING_RAZORPAY_CLIENT = "apps.billing.razorpay.FakeRazorpayClient"
 RAZORPAY_PLAN_IDS = {
     slug: {"monthly": f"plan_test_{slug}_monthly", "annual": f"plan_test_{slug}_annual"}
     for slug in ("starter", "growth", "pro")

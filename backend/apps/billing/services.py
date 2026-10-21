@@ -28,7 +28,7 @@ from common.cashfree import cashfree_phone
 from common.exceptions import Conflict, UpstreamUnavailable
 from common.roles import Role
 
-from . import cashfree, entitlements, invoices, razorpay
+from . import cashfree, entitlements, invoices, prices, razorpay
 from .invoices import INDIA_TZ
 from .models import (
     BillingOrder,
@@ -98,6 +98,13 @@ class PaymentVerificationFailed(exceptions.APIException):
 
 class BillingUnavailable(UpstreamUnavailable):
     default_detail = "The payment provider is unavailable. Try again shortly."
+
+
+class PlanUnavailable(Conflict):
+    """The interval has no usable Razorpay plan, so it has no price and can't be bought."""
+
+    default_code = "plan_unavailable"
+    default_detail = "This plan can't be bought right now."
 
 
 # --- Subscription ---------------------------------------------------------------------------
@@ -213,15 +220,32 @@ def abandon_checkout(subscription: Subscription, *, keep_trial: bool, now: datet
 
 def gst_rate_percent() -> int:
     """The GST rate charged on plans: 0 while ``BILLING_GST_ENABLED`` is off (not registered)."""
-    return settings.BILLING_GST_RATE_PERCENT if settings.BILLING_GST_ENABLED else 0
+    return prices.gst_rate_percent()
 
 
 def _checkout_description(plan: Plan, interval: str) -> str:
     period = "year" if interval == Interval.ANNUAL else "month"
-    price = invoices.format_inr(plan.price_paise(interval))
+    price_paise = plan.price_paise(interval)
+    if price_paise is None:
+        return f"{plan.name} plan, billed every {period}"
+    price = invoices.format_inr(price_paise)
     rate = gst_rate_percent()
     gst = f" + {rate}% GST" if rate else ""
     return f"{plan.name} plan: {price}{gst} per {period}"
+
+
+def require_razorpay_plan(plan: Plan, interval: str):
+    """The plan's ``RazorpayPlan`` for ``interval`` (its price), for a checkout: 409
+    ``plan_unavailable`` when none is configured, 503 ``upstream_unavailable`` when Razorpay
+    can't be reached."""
+    try:
+        return prices.razorpay_plan(plan, interval)
+    except prices.PlanPriceNotConfigured as exc:
+        logger.warning("Checkout of %s (%s) refused: %s", plan.slug, interval, exc)
+        raise PlanUnavailable() from exc
+    except razorpay.RazorpayError as exc:
+        logger.error("Could not price %s (%s) from Razorpay: %s", plan.slug, interval, exc)
+        raise BillingUnavailable() from exc
 
 
 def _cancel_quietly(razorpay_subscription_id: str) -> None:
@@ -280,6 +304,7 @@ def start_checkout(
     plan = Plan.objects.filter(slug=plan_slug, is_active=True).first()
     if plan is None:
         raise exceptions.ValidationError({"plan_id": ["This plan is not available."]})
+    require_razorpay_plan(plan, interval)
     if cashfree_checkout:
         return start_cashfree_checkout(workspace=workspace, plan=plan, interval=interval)
     if payment_mode == PaymentMode.ONE_TIME:
@@ -306,9 +331,9 @@ def start_razorpay_checkout(*, workspace, plan: Plan, interval: str) -> dict:
         raise BillingProfileRequired()
     subscription = get_subscription(workspace)
     _refuse_autopay_while_active(subscription)
+    razorpay_plan_id = require_razorpay_plan(plan, interval).pk
 
     try:
-        razorpay_plan_id = razorpay.plan_id_for(plan.slug, interval)
         client = razorpay.get_razorpay_client()
         subscription_id = _reusable_checkout(client, subscription, plan, interval)
         if subscription_id is None:
@@ -404,9 +429,15 @@ def start_razorpay_order_checkout(*, workspace, plan: Plan, interval: str) -> di
 
 
 def checkout_total_paise(plan: Plan, interval: str, buyer_state_code: str) -> int:
-    """The amount charged (GST-inclusive when GST is on): exactly the invoice total."""
+    """The amount charged (GST-inclusive when GST is on): exactly the invoice total. It equals
+    the Razorpay plan's amount when GST is off, or on with a base that adds up to it.
+
+    Raises ``PlanUnavailable`` when the interval has no price."""
+    price = plan.price_paise(interval)
+    if price is None:
+        raise PlanUnavailable()
     return invoices.compute_gst(
-        plan.price_paise(interval),
+        price,
         buyer_state_code=buyer_state_code,
         seller_state_code=settings.BILLING_SELLER_STATE_CODE,
         rate_percent=gst_rate_percent(),
@@ -977,7 +1008,12 @@ def create_paid_invoice(
     razorpay_invoice_id: str = "",
     amount_paid_paise: int | None = None,
 ) -> tuple[Invoice, bool]:
-    """Issue a paid GST invoice for a gateway payment. Idempotent per ``payment_id``."""
+    """Issue a paid GST invoice for a gateway payment. Idempotent per ``payment_id``.
+
+    The amounts come from ``amount_paid_paise`` (what was actually charged, GST-inclusive when
+    GST is on) when it is known, so a subscriber on an older Razorpay plan is invoiced for what
+    they paid; otherwise from the plan's current price. Raises ``BillingUnavailable`` when
+    neither is known (a webhook then fails and Razorpay retries)."""
     existing = Invoice.objects.filter(payment_id=payment_id).first()
     if existing is not None:
         return existing, False
@@ -985,21 +1021,25 @@ def create_paid_invoice(
     plan, interval = subscription.plan, subscription.interval
     profile = BillingProfile.objects.filter(workspace_id=subscription.workspace_id).first()
     buyer = profile.snapshot() if profile is not None else {}
-    gst = invoices.compute_gst(
-        plan.price_paise(interval),
-        buyer_state_code=buyer.get("state_code", ""),
-        seller_state_code=settings.BILLING_SELLER_STATE_CODE,
-        rate_percent=gst_rate_percent(),
-    )
-    if amount_paid_paise is not None and amount_paid_paise != gst.total_paise:
-        logger.warning(
-            "%s payment %s was %s paise but the invoice total is %s paise; check that the "
-            "charged amount includes GST",
-            payment_provider,
-            payment_id,
-            amount_paid_paise,
-            gst.total_paise,
-        )
+    gst_args = {
+        "buyer_state_code": buyer.get("state_code", ""),
+        "seller_state_code": settings.BILLING_SELLER_STATE_CODE,
+        "rate_percent": gst_rate_percent(),
+    }
+    if amount_paid_paise is not None and amount_paid_paise >= 0:
+        gst = invoices.breakdown_for_total(amount_paid_paise, **gst_args)
+    else:
+        price = plan.price_paise(interval)
+        if price is None:
+            logger.error(
+                "Can't invoice %s payment %s: no amount and no price for %s (%s)",
+                payment_provider,
+                payment_id,
+                plan.slug,
+                interval,
+            )
+            raise BillingUnavailable()
+        gst = invoices.compute_gst(price, **gst_args)
     with transaction.atomic():
         number, fiscal_year = allocate_invoice_number(issued_at)
         invoice = Invoice.objects.create(

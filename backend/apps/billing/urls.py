@@ -5,6 +5,7 @@ from .views import (
     BillingProfileViewSet,
     InvoiceViewSet,
     PlanViewSet,
+    PublicPlansView,
     SubscriptionViewSet,
     UsageViewSet,
 )
@@ -16,6 +17,7 @@ router.register("plans", PlanViewSet, basename="plan")
 router.register("invoices", InvoiceViewSet, basename="invoice")
 
 urlpatterns = [
+    path("public-plans/", PublicPlansView.as_view(), name="public-plans"),
     path("subscription/", SubscriptionViewSet.as_view({"get": "retrieve"}), name="subscription"),
     path(
         "subscription/checkout/",
