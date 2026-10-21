@@ -13,14 +13,17 @@ import { useMe } from '../auth/session'
 import { actionErrorMessage } from '../settings/ui/hooks'
 import { Notice } from '../settings/ui/Notice'
 import { SectionCard } from '../settings/ui/SectionCard'
-import { billingProfileSchema, GST_STATES, normalizeGstin, stateFromGstin, type BillingProfileValues } from './gst'
-import { billingKeys, profileKey, useBillingProfile } from './queries'
+import { billingProfileSchemaFor, GST_STATES, normalizeGstin, stateFromGstin, type BillingProfileValues } from './gst'
+import { billingKeys, profileKey, useBillingProfile, useSubscription } from './queries'
+import { isPaymentMode } from './useCheckout'
 
 const stateOptions = GST_STATES.map((state) => ({ value: state.code, label: `${state.name} (${state.code})` }))
 
 export function BillingProfilePage() {
   const { workspaceId } = useWorkspace()
   const profile = useBillingProfile()
+  // Cashfree checkout needs a phone number; Razorpay doesn't. Unknown (subscription failed to load) → optional.
+  const subscription = useSubscription()
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -33,7 +36,7 @@ export function BillingProfilePage() {
         title="Billing details"
         description="These appear on your tax invoices."
       />
-      {profile.isPending ? (
+      {profile.isPending || subscription.isPending ? (
         <PageSpinner label="Loading billing details" />
       ) : profile.isError ? (
         <Notice
@@ -49,13 +52,13 @@ export function BillingProfilePage() {
           {actionErrorMessage(profile.error)}
         </Notice>
       ) : (
-        <BillingProfileForm profile={profile.data} />
+        <BillingProfileForm profile={profile.data} phoneRequired={subscription.data?.checkout_provider === 'cashfree'} />
       )}
     </div>
   )
 }
 
-function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] }) {
+function BillingProfileForm({ profile, phoneRequired }: { profile: Schemas['BillingProfile']; phoneRequired: boolean }) {
   const { workspaceId, can } = useWorkspace()
   const canEdit = can('owner')
   const me = useMe()
@@ -74,7 +77,7 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
     reset,
     formState: { errors, isSubmitting, isSubmitted, isDirty },
   } = useForm<BillingProfileValues>({
-    resolver: zodResolver(billingProfileSchema),
+    resolver: zodResolver(billingProfileSchemaFor({ phoneRequired })),
     defaultValues: {
       legal_name: profile.legal_name,
       gstin: profile.gstin,
@@ -98,6 +101,8 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
       toast({ title: 'Billing details saved', tone: 'success' })
       if (resumeCheckout) {
         const next = new URLSearchParams({ plan: params.get('plan') ?? '', interval: params.get('interval') ?? 'monthly', resume: '1' })
+        const paymentMode = params.get('payment_mode')
+        if (isPaymentMode(paymentMode)) next.set('payment_mode', paymentMode)
         navigate(`/app/w/${workspaceId}/billing/plans?${next}`)
       } else {
         reset({ ...saved, phone: saved.phone ?? '' })
@@ -150,7 +155,12 @@ function BillingProfileForm({ profile }: { profile: Schemas['BillingProfile'] })
             <Field label="Invoice email" hint="Invoices and payment receipts go here." error={errors.email?.message} required>
               <Input type="email" autoComplete="email" {...register('email')} />
             </Field>
-            <Field label="Phone" hint="Cashfree needs a phone number for payment receipts." error={errors.phone?.message} required>
+            <Field
+              label="Phone"
+              hint={phoneRequired ? 'Cashfree needs a phone number for payment receipts.' : 'For payment receipts.'}
+              error={errors.phone?.message}
+              required={phoneRequired}
+            >
               <Input type="tel" inputMode="tel" autoComplete="tel" placeholder="98765 43210" {...register('phone')} />
             </Field>
           </fieldset>

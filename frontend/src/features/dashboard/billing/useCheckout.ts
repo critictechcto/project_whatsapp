@@ -15,8 +15,14 @@ import { billingKeys, subscriptionKey } from './queries'
 
 export type CheckoutStage = 'idle' | 'creating' | 'paying' | 'verifying'
 export type BillingProvider = Schemas['PaymentProviderEnum']
+/** Razorpay plans are paid by auto-pay (a recurring subscription) or once (a prepaid order). */
+export type PaymentMode = NonNullable<Subscription['payment_mode']>
 
 export const providerNames: Record<BillingProvider, string> = { razorpay: 'Razorpay', cashfree: 'Cashfree' }
+
+export function isPaymentMode(value: string | null): value is PaymentMode {
+  return value === 'autopay' || value === 'one_time'
+}
 
 export function checkoutStageText(stage: Exclude<CheckoutStage, 'idle'>, provider: BillingProvider = 'razorpay'): string {
   switch (stage) {
@@ -46,7 +52,7 @@ function useVerifyFeedback() {
     if (subscription.status !== 'active') {
       const provider = providerNames[subscription.provider ?? 'razorpay']
       toast({ title: 'Payment received', description: `We're confirming it with ${provider}. Your plan updates here shortly.`, tone: 'info' })
-    } else if (renewed && subscription.provider === 'cashfree') {
+    } else if (renewed && subscription.payment_mode === 'one_time') {
       toast({
         title: 'Payment received',
         description: `Your ${subscription.plan.name} plan is paid until ${formatDate(subscription.current_period_end, timeZone)}.`,
@@ -71,8 +77,10 @@ function useVerifyFeedback() {
 
 /**
  * checkout → Razorpay or Cashfree Checkout → verify. A missing billing profile sends the owner to the
- * billing details form, which returns to the plans page to resume. For Cashfree, verify always runs
- * after the window closes: the server asks Cashfree whether the order was paid.
+ * billing details form, which returns to the plans page to resume. Razorpay sessions are an auto-pay
+ * subscription or a one-time order (`payment_mode`); Checkout returns the matching ids, which go to
+ * verify as they are. For Cashfree, verify always runs after the window closes: the server asks
+ * Cashfree whether the order was paid.
  */
 export function useCheckout() {
   const { workspaceId } = useWorkspace()
@@ -84,14 +92,18 @@ export function useCheckout() {
   const [planId, setPlanId] = useState<string | null>(null)
   const [provider, setProvider] = useState<BillingProvider>('razorpay')
 
-  async function checkout(plan: Plan, interval: BillingInterval) {
+  async function checkout(plan: Plan, interval: BillingInterval, paymentMode?: PaymentMode) {
     setStage('creating')
     setPlanId(plan.id)
     const previous = queryClient.getQueryData<Subscription>(subscriptionKey(workspaceId))
     let sessionProvider: BillingProvider = previous?.checkout_provider ?? 'razorpay'
     setProvider(sessionProvider)
     try {
-      const session = await unwrap(api.POST('/api/v1/billing/subscription/checkout/', { body: { plan_id: plan.id, interval } }))
+      const session = await unwrap(
+        api.POST('/api/v1/billing/subscription/checkout/', {
+          body: { plan_id: plan.id, interval, ...(paymentMode && { payment_mode: paymentMode }) },
+        }),
+      )
       sessionProvider = session.provider === 'cashfree' ? 'cashfree' : 'razorpay'
       setProvider(sessionProvider)
       setStage('paying')
@@ -112,10 +124,13 @@ export function useCheckout() {
       if (isApiError(error, 'billing_profile_required')) {
         toast({
           title: 'Add your billing details first',
-          description: 'Invoices need your legal name, address and GSTIN if you have one. Cashfree also needs a phone number.',
+          description: `Invoices need your legal name, address and GSTIN if you have one.${
+            sessionProvider === 'cashfree' ? ' Cashfree also needs a phone number.' : ''
+          }`,
           tone: 'info',
         })
         const params = new URLSearchParams({ next: 'plans', plan: plan.id, interval })
+        if (paymentMode) params.set('payment_mode', paymentMode)
         navigate(`/app/w/${workspaceId}/billing/profile?${params}`)
       } else if (error instanceof CheckoutDismissed) {
         toast({ title: 'Payment not completed', description: 'The Razorpay window was closed before paying.', tone: 'info' })

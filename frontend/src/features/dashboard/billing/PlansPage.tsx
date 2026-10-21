@@ -11,7 +11,7 @@ import { SegmentedControl } from '../settings/ui/SegmentedControl'
 import { formatPlanPrice, gstRateOf } from './money'
 import { freeMonthsLabel, intervalLabels, limitLabel, planCopy, planPricePaise, type BillingInterval, type Plan } from './plans'
 import { usePlans, useSubscription } from './queries'
-import { checkoutStageText, useCheckout } from './useCheckout'
+import { checkoutStageText, isPaymentMode, useCheckout, type PaymentMode } from './useCheckout'
 
 export function PlansPage() {
   const { workspaceId, can } = useWorkspace()
@@ -23,13 +23,24 @@ export function PlansPage() {
   const { checkout, stage, planId, provider } = useCheckout()
   const resumePlan = params.get('resume') === '1' ? plans.data?.find((plan) => plan.id === params.get('plan')) : undefined
 
+  const requestedMode = params.get('payment_mode')
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>(isPaymentMode(requestedMode) ? requestedMode : 'autopay')
+
   const isCurrent = (plan: Plan) =>
     subscription.data?.plan.id === plan.id &&
     subscription.data.interval === interval &&
     (subscription.data.status === 'active' || subscription.data.status === 'pending')
-  // A prepaid (Cashfree) plan is renewed or changed by paying again, so its current plan stays choosable.
-  const prepaidActive = subscription.data?.status === 'active' && subscription.data.provider === 'cashfree'
   const checkoutProvider = subscription.data?.checkout_provider
+  // Razorpay offers auto-pay or paying once; Cashfree checkouts are always paid once.
+  const razorpay = checkoutProvider === 'razorpay'
+  const active = subscription.data?.status === 'active'
+  // A one-time (prepaid) plan is renewed or changed by paying once again, so its current plan stays choosable.
+  const prepaidActive = active && subscription.data?.payment_mode === 'one_time'
+  const autopayActive = active && subscription.data?.payment_mode === 'autopay'
+  // The server refuses switching between auto-pay and paying once while a paid period runs.
+  const switchBlocked = razorpay && ((paymentMode === 'autopay' && prepaidActive) || (paymentMode === 'one_time' && autopayActive))
+  const renewable = prepaidActive && (!razorpay || paymentMode === 'one_time')
+  const checkoutMode = razorpay ? paymentMode : undefined
   const gstRate = gstRateOf(subscription.data)
   const monthlyNote = (price: number) => `works out to ${formatPlanPrice(Math.round(price / 12))} a month`
 
@@ -53,7 +64,7 @@ export function PlansPage() {
         <Notice
           tone="success"
           title="Billing details saved"
-          action={<Button onClick={() => void checkout(resumePlan, interval)}>Continue to payment</Button>}
+          action={<Button onClick={() => void checkout(resumePlan, interval, checkoutMode)}>Continue to payment</Button>}
         >
           Continue to pay for the {resumePlan.name} plan, billed {intervalLabels[interval].toLowerCase()}.
         </Notice>
@@ -66,22 +77,43 @@ export function PlansPage() {
         </div>
       )}
 
-      {isOwner && prepaidActive && (
+      {isOwner && renewable && (
         <Notice tone="warning" title="Your current plan is still active">
           Your new plan starts now. Unused days on the current plan aren't refunded. Renewing the same plan and billing cycle
           adds the new period after the current one ends.
         </Notice>
       )}
 
-      <SegmentedControl
-        label="Billing cycle"
-        value={interval}
-        onValueChange={setBillingInterval}
-        options={[
-          { value: 'monthly', label: 'Monthly' },
-          { value: 'annual', label: 'Annual', hint: freeMonthsLabel },
-        ]}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl
+          label="Billing cycle"
+          value={interval}
+          onValueChange={setBillingInterval}
+          options={[
+            { value: 'monthly', label: 'Monthly' },
+            { value: 'annual', label: 'Annual', hint: freeMonthsLabel },
+          ]}
+        />
+        {razorpay && (
+          <SegmentedControl
+            label="How to pay"
+            value={paymentMode}
+            onValueChange={setPaymentMode}
+            options={[
+              { value: 'autopay', label: 'Auto-pay' },
+              { value: 'one_time', label: 'Pay once' },
+            ]}
+          />
+        )}
+      </div>
+
+      {isOwner && switchBlocked && (
+        <Notice title={paymentMode === 'autopay' ? 'Your plan is paid for this period' : 'Your plan renews by auto-pay'}>
+          {paymentMode === 'autopay'
+            ? 'You can switch to auto-pay when your paid period ends.'
+            : 'To pay once instead, cancel auto-pay. You can pay once after the current period ends.'}
+        </Notice>
+      )}
 
       {plans.isPending ? (
         <div className="grid gap-4 md:grid-cols-3" aria-busy="true" aria-label="Loading plans">
@@ -146,11 +178,11 @@ export function PlansPage() {
                   <Button
                     className="mt-5 w-full"
                     variant={copy?.recommended ? 'primary' : 'secondary'}
-                    disabled={(current && !prepaidActive) || stage !== 'idle'}
+                    disabled={switchBlocked || (current && !renewable) || stage !== 'idle'}
                     loading={planId === plan.id}
-                    onClick={() => void checkout(plan, interval)}
+                    onClick={() => void checkout(plan, interval, checkoutMode)}
                   >
-                    {current ? (prepaidActive ? `Renew ${plan.name}` : 'Current plan') : `Choose ${plan.name}`}
+                    {current ? (renewable ? `Renew ${plan.name}` : 'Current plan') : `Choose ${plan.name}`}
                   </Button>
                 )}
               </li>
@@ -162,7 +194,9 @@ export function PlansPage() {
       <p className="text-[13px] text-muted">
         {checkoutProvider === 'cashfree'
           ? "Payments are processed by Cashfree. You pay for a month or a year at a time; nothing is charged automatically. We'll email you before your plan ends."
-          : 'Payments are processed by Razorpay as a recurring subscription. Available payment methods depend on what Razorpay supports for recurring payments.'}{' '}
+          : paymentMode === 'one_time'
+            ? "Payments are processed by Razorpay. Pay for a month or a year at a time; nothing is charged automatically. We'll email you before your plan ends."
+            : 'Payments are processed by Razorpay. Charged automatically each month or year by UPI AutoPay or card. Cancel anytime.'}{' '}
         Meta's WhatsApp message charges, where they apply, are billed separately by Meta.
       </p>
     </div>

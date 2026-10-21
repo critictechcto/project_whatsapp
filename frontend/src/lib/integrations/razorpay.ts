@@ -3,12 +3,22 @@ import { loadScript } from './loadScript'
 
 export type CheckoutSession = Schemas['CheckoutSession']
 
-/** Post this to `POST /api/v1/billing/subscription/verify/`. */
-export type CheckoutResult = {
+/** Razorpay's response for an auto-pay subscription. */
+export type SubscriptionCheckoutResult = {
   razorpay_payment_id: string
   razorpay_subscription_id: string
   razorpay_signature: string
 }
+
+/** Razorpay's response for a one-time order. */
+export type OrderCheckoutResult = {
+  razorpay_payment_id: string
+  razorpay_order_id: string
+  razorpay_signature: string
+}
+
+/** Post this to `POST /api/v1/billing/subscription/verify/`. */
+export type CheckoutResult = SubscriptionCheckoutResult | OrderCheckoutResult
 
 export class CheckoutDismissed extends Error {
   constructor() {
@@ -28,6 +38,13 @@ declare global {
 
 export type RazorpayCheckout = (session: CheckoutSession) => Promise<CheckoutResult>
 
+/** A session with `order_id` is a one-time payment; otherwise it's an auto-pay subscription. */
+function paymentOptions(session: CheckoutSession): Record<string, unknown> {
+  return session.order_id
+    ? { order_id: session.order_id, amount: session.amount_paise, currency: 'INR' }
+    : { subscription_id: session.subscription_id }
+}
+
 const realCheckout: RazorpayCheckout = async (session) => {
   await loadScript('https://checkout.razorpay.com/v1/checkout.js')
   const Razorpay = window.Razorpay
@@ -36,7 +53,7 @@ const realCheckout: RazorpayCheckout = async (session) => {
   return new Promise<CheckoutResult>((resolve, reject) => {
     const checkout = new Razorpay({
       key: session.key_id,
-      subscription_id: session.subscription_id,
+      ...paymentOptions(session),
       name: session.name,
       description: session.description,
       prefill: session.prefill,
@@ -53,18 +70,20 @@ const realCheckout: RazorpayCheckout = async (session) => {
 
 export const mockCheckout: RazorpayCheckout = (session) =>
   new Promise((resolve) =>
-    setTimeout(
-      () =>
-        resolve({
-          razorpay_payment_id: `pay_mock${Date.now()}`,
-          razorpay_subscription_id: session.subscription_id ?? '',
-          razorpay_signature: 'mock_signature',
-        }),
-      900,
-    ),
+    setTimeout(() => {
+      const common = { razorpay_payment_id: `pay_mock${Date.now()}`, razorpay_signature: 'mock_signature' }
+      resolve(
+        session.order_id
+          ? { ...common, razorpay_order_id: session.order_id }
+          : { ...common, razorpay_subscription_id: session.subscription_id ?? '' },
+      )
+    }, 900),
   )
 
-/** Opens Razorpay Checkout for a subscription. Mock mode resolves without loading Razorpay. */
+/**
+ * Opens Razorpay Checkout for an auto-pay subscription or a one-time order. Mock mode resolves
+ * without loading Razorpay.
+ */
 export function openRazorpayCheckout(session: CheckoutSession): Promise<CheckoutResult> {
   return import.meta.env.VITE_API_MODE === 'mock' ? mockCheckout(session) : realCheckout(session)
 }

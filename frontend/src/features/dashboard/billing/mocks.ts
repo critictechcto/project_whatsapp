@@ -8,12 +8,16 @@ import { phoneNumbersFor } from '../whatsapp/mockState'
 import { GST_STATES, GSTIN_PATTERN, normalizePhone, PHONE_PATTERN } from './gst'
 
 /**
- * Billing handlers. New checkouts use `checkoutProvider` (Cashfree by default, like the backend's
+ * Billing handlers. New checkouts use `checkoutProvider` (Razorpay by default, like the backend's
  * `BILLING_PROVIDER`):
- * - Cashfree: checkout returns an order session; verify with `order_id` pays it at once (the mock
- *   Cashfree checkout always "pays"), starting or extending a prepaid period and adding a GST invoice.
- * - Razorpay: checkout returns a subscription session; verify marks the subscription `pending` and it
- *   turns `active` a few seconds later (like the Razorpay webhook), adding a GST invoice.
+ * - Razorpay `payment_mode: 'autopay'` (the default): checkout returns a subscription session; verify
+ *   marks the subscription `pending` and it turns `active` a few seconds later (like the Razorpay
+ *   webhook), adding a GST invoice.
+ * - Razorpay `payment_mode: 'one_time'`, and every Cashfree checkout: checkout returns an order
+ *   session; verify (`razorpay_order_id`, or `order_id` for Cashfree) pays it at once, starting or
+ *   extending a prepaid period and adding a GST invoice.
+ * Switching: an active auto-pay plan can't buy anything (409 `subscription_active`); an active
+ * one-time plan can pay once again (renew or change plan) but can't switch to auto-pay until it ends.
  */
 
 type Plan = Schemas['Plan']
@@ -22,13 +26,14 @@ type Profile = Schemas['BillingProfile']
 type Invoice = Schemas['Invoice']
 type Interval = Schemas['BillingIntervalEnum']
 type Provider = Schemas['PaymentProviderEnum']
+type PaymentMode = NonNullable<Subscription['payment_mode']>
 
 /** Mock supplier state (Karnataka): same-state customers get CGST + SGST, others IGST. */
 const SUPPLIER_STATE = '29'
 const ACTIVATION_DELAY_MS = 6000
 const DAY_MS = 86_400_000
 
-let checkoutProvider: Provider = 'cashfree'
+let checkoutProvider: Provider = 'razorpay'
 
 /** Test hook: which gateway new checkouts use (the backend's `BILLING_PROVIDER`). */
 export function setMockCheckoutProvider(provider: Provider) {
@@ -53,14 +58,15 @@ const apiPlans: Plan[] = sitePlans.map((plan) => ({
 const planById = (id: string) => apiPlans.find((plan) => plan.id === id)
 
 type RazorpayCheckout = { provider: 'razorpay'; subscriptionId: string; plan: Plan; interval: Interval }
-type CashfreeOrder = { provider: 'cashfree'; orderId: string; plan: Plan; interval: Interval; paid: boolean }
+/** A one-time payment: a Razorpay order (`order_…`) or a Cashfree order (`upc_…`). */
+type PrepaidOrder = { provider: Provider; orderId: string; plan: Plan; interval: Interval; paid: boolean }
 
 type BillingRecord = {
   subscription: Subscription
   profile: Profile
   invoices: Invoice[]
   checkout: RazorpayCheckout | null
-  orders: Map<string, CashfreeOrder>
+  orders: Map<string, PrepaidOrder>
   activateAt: number | null
 }
 
@@ -86,6 +92,7 @@ function trial(endsAt: string): Subscription {
     current_period_end: null,
     cancel_at_period_end: false,
     provider: null,
+    payment_mode: null,
     auto_renews: false,
     gst_rate_percent: site.gstRate,
     checkout_provider: checkoutProvider,
@@ -154,6 +161,7 @@ function build(): Map<string, BillingRecord> {
       current_period_end: daysAgo(-325),
       cancel_at_period_end: false,
       provider: 'cashfree',
+      payment_mode: 'one_time',
       auto_renews: false,
       gst_rate_percent: site.gstRate,
       checkout_provider: checkoutProvider,
@@ -209,7 +217,7 @@ function recordFor(workspaceId: string): BillingRecord {
 function present(subscription: Subscription): Subscription {
   return {
     ...subscription,
-    auto_renews: subscription.provider === 'razorpay' && subscription.status === 'active' && !subscription.cancel_at_period_end,
+    auto_renews: subscription.payment_mode === 'autopay' && subscription.status === 'active' && !subscription.cancel_at_period_end,
     gst_rate_percent: site.gstRate,
     checkout_provider: checkoutProvider,
   }
@@ -231,6 +239,7 @@ function settle(record: BillingRecord) {
     current_period_end: end.toISOString(),
     cancel_at_period_end: false,
     provider: 'razorpay',
+    payment_mode: 'autopay',
   }
   invoiceSequence += 1
   record.invoices.unshift(
@@ -240,13 +249,13 @@ function settle(record: BillingRecord) {
   record.activateAt = null
 }
 
-/** Fulfils a paid Cashfree order: same plan while active extends from the current end, anything else starts now. */
-function fulfil(record: BillingRecord, order: CashfreeOrder) {
+/** Fulfils a paid one-time order: same plan while active extends from the current end, anything else starts now. */
+function fulfil(record: BillingRecord, order: PrepaidOrder) {
   const now = new Date()
   const current = record.subscription
   const extend =
     current.status === 'active' &&
-    current.provider === 'cashfree' &&
+    current.payment_mode === 'one_time' &&
     current.plan.id === order.plan.id &&
     current.interval === order.interval &&
     current.current_period_end !== null &&
@@ -262,7 +271,8 @@ function fulfil(record: BillingRecord, order: CashfreeOrder) {
     current_period_start: extend ? current.current_period_start : now.toISOString(),
     current_period_end: periodEnd.toISOString(),
     cancel_at_period_end: false,
-    provider: 'cashfree',
+    provider: order.provider,
+    payment_mode: 'one_time',
   }
   invoiceSequence += 1
   record.invoices.unshift(
@@ -334,8 +344,12 @@ export const handlers: AreaMockHandlers = [
     const errors: Record<string, string[]> = {}
     if (!plan) errors.plan_id = ['Unknown plan.']
     if (body.interval !== 'monthly' && body.interval !== 'annual') errors.interval = [`"${String(body.interval)}" is not a valid choice.`]
+    if (body.payment_mode !== undefined && body.payment_mode !== 'autopay' && body.payment_mode !== 'one_time') {
+      errors.payment_mode = [`"${String(body.payment_mode)}" is not a valid choice.`]
+    }
     if (Object.keys(errors).length || !plan || !body.interval) return response.untyped(validationError(errors))
     const cashfree = checkoutProvider === 'cashfree'
+    const paymentMode: PaymentMode = cashfree ? 'one_time' : (body.payment_mode ?? 'autopay')
     if (!isComplete(record.profile) || (cashfree && !record.profile.phone)) {
       return response.untyped(
         errorResponse(
@@ -348,32 +362,61 @@ export const handlers: AreaMockHandlers = [
       )
     }
     const { subscription } = record
-    if (subscription.status === 'active' && subscription.provider !== 'cashfree') {
-      return response.untyped(errorResponse(409, 'subscription_active', 'You already have an active subscription.'))
+    if (subscription.status === 'active' && subscription.payment_mode !== 'one_time') {
+      return response.untyped(
+        errorResponse(
+          409,
+          'subscription_active',
+          paymentMode === 'one_time'
+            ? 'Your plan renews by auto-pay. Cancel auto-pay first; you can pay once after the current period ends.'
+            : 'You already have an active subscription.',
+        ),
+      )
+    }
+    if (subscription.status === 'active' && paymentMode === 'autopay') {
+      return response.untyped(errorResponse(409, 'subscription_active', 'You can switch to auto-pay when your paid period ends.'))
     }
     const common = {
       name: site.name,
       description: `${plan.name} plan, billed ${body.interval}`,
       prefill: { name: ctx.user.full_name ?? '', email: record.profile.email || ctx.user.email },
     }
+    const amountPaise = taxes(subtotalFor(plan, body.interval), record.profile.state_code).total_paise
     if (cashfree) {
       const orderId = `upc_${uuid().replace(/-/g, '')}`
       record.orders.set(orderId, { provider: 'cashfree', orderId, plan, interval: body.interval, paid: false })
       return response(200).json({
         provider: 'cashfree',
+        payment_mode: 'one_time',
         ...common,
         key_id: null,
         subscription_id: null,
         order_id: orderId,
         payment_session_id: `session_mock${uuid().replace(/-/g, '')}`,
         mode: 'sandbox',
-        amount_paise: taxes(subtotalFor(plan, body.interval), record.profile.state_code).total_paise,
+        amount_paise: amountPaise,
+      })
+    }
+    if (paymentMode === 'one_time') {
+      const orderId = `order_mock${uuid().replace(/-/g, '').slice(0, 14)}`
+      record.orders.set(orderId, { provider: 'razorpay', orderId, plan, interval: body.interval, paid: false })
+      return response(200).json({
+        provider: 'razorpay',
+        payment_mode: 'one_time',
+        ...common,
+        key_id: 'rzp_test_mock',
+        subscription_id: null,
+        order_id: orderId,
+        payment_session_id: null,
+        mode: null,
+        amount_paise: amountPaise,
       })
     }
     const subscriptionId = `sub_mock${uuid().replace(/-/g, '').slice(0, 14)}`
     record.checkout = { provider: 'razorpay', subscriptionId, plan, interval: body.interval }
     return response(200).json({
       provider: 'razorpay',
+      payment_mode: 'autopay',
       ...common,
       key_id: 'rzp_test_mock',
       subscription_id: subscriptionId,
@@ -392,7 +435,16 @@ export const handlers: AreaMockHandlers = [
     const body = (await request.json()) as Partial<Schemas['CheckoutVerifyRequest']>
     if (body.order_id !== undefined) {
       const order = record.orders.get(body.order_id)
-      if (!order) return response.untyped(verificationFailed())
+      if (!order || order.provider !== 'cashfree') return response.untyped(verificationFailed())
+      // Verify is idempotent: an order that was already paid returns the subscription unchanged.
+      if (!order.paid) fulfil(record, order)
+      return response(200).json(present(record.subscription))
+    }
+    if (body.razorpay_order_id !== undefined) {
+      const order = record.orders.get(body.razorpay_order_id)
+      if (!order || order.provider !== 'razorpay' || !body.razorpay_payment_id || !body.razorpay_signature) {
+        return response.untyped(verificationFailed())
+      }
       // Verify is idempotent: an order that was already paid returns the subscription unchanged.
       if (!order.paid) fulfil(record, order)
       return response(200).json(present(record.subscription))

@@ -169,6 +169,7 @@ function useHomeMocks({
         current_period_end: null,
         cancel_at_period_end: false,
         provider: null,
+        payment_mode: null,
         auto_renews: false,
         gst_rate_percent: 0,
         checkout_provider: 'cashfree',

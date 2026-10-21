@@ -88,27 +88,32 @@ export function normalizePhone(value: string): string {
   return value.replace(/[\s\-().]/g, '')
 }
 
-export const billingProfileSchema = z
-  .object({
-    legal_name: z.string().trim().min(1, 'Enter the legal name for invoices.').max(200, 'Use 200 characters or fewer.'),
-    gstin: z.string(),
-    email: z.email('Enter a valid email address.'),
-    phone: z
-      .string()
-      .transform(normalizePhone)
-      .refine((value) => value.length > 0, 'Enter a phone number.')
-      .refine((value) => !value || PHONE_PATTERN.test(value), 'Enter a 10-digit mobile number, or an international number starting with +.'),
-    address_line1: z.string().trim().min(1, 'Enter the address.').max(200, 'Use 200 characters or fewer.'),
-    address_line2: z.string().trim().max(200, 'Use 200 characters or fewer.'),
-    city: z.string().trim().min(1, 'Enter the city.').max(100, 'Use 100 characters or fewer.'),
-    state_code: z.string(),
-    postal_code: z.string().trim().regex(/^\d{6}$/, 'Enter a 6-digit PIN code.'),
-  })
-  .superRefine((values, ctx) => {
-    const gstin = gstinError(values.gstin)
-    if (gstin) ctx.addIssue({ code: 'custom', path: ['gstin'], message: gstin })
-    const state = stateCodeError(values.gstin, values.state_code)
-    if (state) ctx.addIssue({ code: 'custom', path: ['state_code'], message: state })
-  })
+/** Billing details form. Cashfree checkout needs a phone number; Razorpay doesn't. */
+export function billingProfileSchemaFor({ phoneRequired }: { phoneRequired: boolean }) {
+  return z
+    .object({
+      legal_name: z.string().trim().min(1, 'Enter the legal name for invoices.').max(200, 'Use 200 characters or fewer.'),
+      gstin: z.string(),
+      email: z.email('Enter a valid email address.'),
+      phone: z
+        .string()
+        .transform(normalizePhone)
+        .refine((value) => !phoneRequired || value.length > 0, 'Enter a phone number.')
+        .refine((value) => !value || PHONE_PATTERN.test(value), 'Enter a 10-digit mobile number, or an international number starting with +.'),
+      address_line1: z.string().trim().min(1, 'Enter the address.').max(200, 'Use 200 characters or fewer.'),
+      address_line2: z.string().trim().max(200, 'Use 200 characters or fewer.'),
+      city: z.string().trim().min(1, 'Enter the city.').max(100, 'Use 100 characters or fewer.'),
+      state_code: z.string(),
+      postal_code: z.string().trim().regex(/^\d{6}$/, 'Enter a 6-digit PIN code.'),
+    })
+    .superRefine((values, ctx) => {
+      const gstin = gstinError(values.gstin)
+      if (gstin) ctx.addIssue({ code: 'custom', path: ['gstin'], message: gstin })
+      const state = stateCodeError(values.gstin, values.state_code)
+      if (state) ctx.addIssue({ code: 'custom', path: ['state_code'], message: state })
+    })
+}
+
+export const billingProfileSchema = billingProfileSchemaFor({ phoneRequired: false })
 
 export type BillingProfileValues = z.infer<typeof billingProfileSchema>

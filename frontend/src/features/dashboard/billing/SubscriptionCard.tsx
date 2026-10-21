@@ -59,8 +59,10 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
   const periodEnd = formatDate(subscription.current_period_end, timeZone)
   const canCancel = isOwner && (status === 'active' || status === 'halted') && !subscription.cancel_at_period_end
   const isPaid = status === 'active' || status === 'halted' || (status === 'cancelled' && isFutureDate(subscription.current_period_end))
-  const prepaid = subscription.provider === 'cashfree'
+  // A one-time (prepaid) plan is renewed by paying again; nothing is charged automatically.
+  const prepaid = subscription.payment_mode === 'one_time'
   const providerName = providerNames[subscription.provider ?? subscription.checkout_provider ?? 'razorpay']
+  const paymentsLabel = prepaid ? `${providerName}, paid once` : subscription.payment_mode === 'autopay' ? `${providerName}, auto-pay` : providerName
   const { checkout, stage, provider: checkoutProvider } = useCheckout()
   const canRenew = isOwner && prepaid && status === 'active'
   const daysLeft = prepaid && status === 'active' && !subscription.cancel_at_period_end ? daysUntil(subscription.current_period_end) : null
@@ -83,11 +85,11 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
                 {prepaid ? 'Cancel plan' : 'Cancel subscription'}
               </Button>
             )}
-            <Link to={`/app/w/${workspaceId}/billing/plans?interval=${interval}`} className={buttonClasses(status === 'active' ? 'secondary' : 'primary', 'md')}>
+            <Link to={`/app/w/${workspaceId}/billing/plans?interval=${interval}${prepaid ? '&payment_mode=one_time' : ''}`}className={buttonClasses(status === 'active' ? 'secondary' : 'primary', 'md')}>
               {status === 'active' ? 'Change plan' : 'Choose a plan'}
             </Link>
             {canRenew && (
-              <Button loading={stage !== 'idle'} onClick={() => void checkout(plan, interval)}>
+              <Button loading={stage !== 'idle'} onClick={() => void checkout(plan, interval, 'one_time')}>
                 Renew
               </Button>
             )}
@@ -186,7 +188,7 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
             </div>
             <div>
               <dt className="text-[12.5px] text-muted">Payments</dt>
-              <dd className="text-ink">{prepaid ? 'Cashfree, prepaid' : providerName}</dd>
+              <dd className="text-ink">{paymentsLabel}</dd>
             </div>
           </dl>
         )}

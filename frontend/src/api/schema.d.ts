@@ -2578,6 +2578,12 @@ export interface components {
          * @enum {string}
          */
         BillingIntervalEnum: "monthly" | "annual";
+        /**
+         * @description * `autopay` - autopay
+         *     * `one_time` - one_time
+         * @enum {string}
+         */
+        BillingPaymentModeEnum: "autopay" | "one_time";
         BillingProfile: {
             legal_name: string;
             /** @description 15-character GSTIN, or "" if unregistered. */
@@ -2789,6 +2795,13 @@ export interface components {
             /** @description Plan slug: starter, growth or pro. */
             plan_id: string;
             interval: components["schemas"]["BillingIntervalEnum"];
+            /**
+             * @description Razorpay: autopay (a recurring subscription) or one_time (a prepaid order). Defaults to autopay; Cashfree is always one_time.
+             *
+             *     * `autopay` - autopay
+             *     * `one_time` - one_time
+             */
+            payment_mode?: components["schemas"]["BillingPaymentModeEnum"];
         };
         /**
          * @description Options for Cashfree Checkout (a prepaid order) or Razorpay Checkout (subscription
@@ -2796,14 +2809,15 @@ export interface components {
          */
         CheckoutSession: {
             readonly provider: components["schemas"]["PaymentProviderEnum"];
+            readonly payment_mode: components["schemas"]["BillingPaymentModeEnum"];
             readonly name: string;
             readonly description: string;
             readonly prefill: components["schemas"]["CheckoutPrefill"];
             /** @description Razorpay only. */
             readonly key_id: string | null;
-            /** @description Razorpay only. */
+            /** @description Razorpay auto-pay only. */
             readonly subscription_id: string | null;
-            /** @description Cashfree only. */
+            /** @description Cashfree order id, or the Razorpay order (`order_…`) of a one-time payment. */
             readonly order_id: string | null;
             /** @description Cashfree only. */
             readonly payment_session_id: string | null;
@@ -2814,15 +2828,16 @@ export interface components {
              *     * `production` - production
              */
             readonly mode: (components["schemas"]["CashfreeModeEnum"] | components["schemas"]["NullEnum"]) | null;
-            /** @description GST-inclusive amount charged; Cashfree only. */
+            /** @description GST-inclusive amount charged; one-time payments only. */
             readonly amount_paise: number | null;
         };
-        /** @description Either ``order_id`` (Cashfree) or the three ``razorpay_*`` fields. */
+        /** @description Either ``order_id`` (Cashfree), or ``razorpay_payment_id`` and ``razorpay_signature`` with ``razorpay_subscription_id`` (auto-pay) or ``razorpay_order_id`` (one-time). */
         CheckoutVerifyRequest: {
             /** @description Cashfree. */
             order_id?: string;
             razorpay_payment_id?: string;
             razorpay_subscription_id?: string;
+            razorpay_order_id?: string;
             razorpay_signature?: string;
         };
         Collection: {
@@ -4978,7 +4993,14 @@ export interface components {
              *     * `cashfree` - cashfree
              */
             readonly provider: (components["schemas"]["PaymentProviderEnum"] | components["schemas"]["NullEnum"]) | null;
-            /** @description True for an active Razorpay subscription; Cashfree plans are prepaid. */
+            /**
+             * @description How the paid plan is paid for; null on a trial.
+             *
+             *     * `autopay` - autopay
+             *     * `one_time` - one_time
+             */
+            readonly payment_mode: (components["schemas"]["BillingPaymentModeEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** @description True for an active auto-pay subscription; one-time plans are prepaid. */
             readonly auto_renews: boolean;
             /** @description GST added to plan prices at checkout; 0 while UpChatz doesn't charge GST. */
             readonly gst_rate_percent: number;

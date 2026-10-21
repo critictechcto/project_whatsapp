@@ -5,13 +5,14 @@ import { actionErrorMessage } from '../settings/ui/hooks'
 import { Notice } from '../settings/ui/Notice'
 import { SectionCard } from '../settings/ui/SectionCard'
 import { stateName } from './gst'
-import { isProfileComplete, useBillingProfile } from './queries'
+import { isProfileComplete, useBillingProfile, useSubscription } from './queries'
 
 export function BillingProfileSummary() {
   const { workspaceId, can } = useWorkspace()
   const isOwner = can('owner')
   const profile = useBillingProfile()
   const complete = isProfileComplete(profile.data)
+  const cashfree = useSubscription().data?.checkout_provider === 'cashfree'
   const to = `/app/w/${workspaceId}/billing/profile`
 
   return (
@@ -71,7 +72,11 @@ export function BillingProfileSummary() {
           </div>
           <div>
             <dt className="text-[12.5px] text-muted">Phone</dt>
-            <dd className="text-ink">{profile.data.phone || <span className="text-muted">Not added. Cashfree checkout needs one.</span>}</dd>
+            <dd className="text-ink">
+              {profile.data.phone || (
+                <span className="text-muted">{cashfree ? 'Not added. Cashfree checkout needs one.' : 'Not added'}</span>
+              )}
+            </dd>
           </div>
         </dl>
       ) : (
