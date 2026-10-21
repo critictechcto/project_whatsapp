@@ -71,17 +71,11 @@ With `DEBUG` on, `uv run python manage.py seed_demo` creates (or refreshes) the 
 
 ## Razorpay setup (owner)
 
-Billing uses Razorpay Subscriptions. Plan prices are GST-exclusive in the app; the Razorpay plans charge the GST-inclusive amount (18%).
+Billing uses Razorpay, and Razorpay plans are the only source of plan prices. UpChatz reads each plan's amount from Razorpay (`apps/billing/prices.py`); it stores no prices of its own. The amount of a Razorpay plan is what the customer pays, including GST when `BILLING_GST_ENABLED` is on.
 
-1. In the Razorpay dashboard, create six plans (period monthly, or yearly for annual):
-
-   | Plan | Monthly | Annual |
-   |---|---|---|
-   | Starter | ₹1,178.82 | ₹11,788.20 |
-   | Growth | ₹2,948.82 | ₹29,488.20 |
-   | Pro | ₹7,078.82 | ₹70,788.20 |
-
-2. Set the plan ids in `.env` as JSON:
+1. In the Razorpay dashboard (Subscriptions → Plans), create one plan per UpChatz plan and interval: period monthly for monthly, and yearly (or monthly × 12) for annual, in INR. A Razorpay plan can't be edited, so a price change means a new plan.
+2. In Django admin (`/admin/` → Billing → Plans), paste each plan's two ids and save. UpChatz fetches each plan and refuses an id that doesn't exist (for example a test id with live keys), has the wrong period or isn't in INR. The dashboard, Pay once, Auto-pay and the public website then use these prices.
+   `RAZORPAY_PLAN_IDS` in `.env` still works as a fallback for plans without ids in admin:
    ```
    RAZORPAY_PLAN_IDS={"starter": {"monthly": "plan_…", "annual": "plan_…"}, "growth": {"monthly": "plan_…", "annual": "plan_…"}, "pro": {"monthly": "plan_…", "annual": "plan_…"}}
    ```

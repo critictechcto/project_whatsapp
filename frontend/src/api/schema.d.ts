@@ -463,7 +463,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Active plans and their prices before GST, for the public pricing page. No authentication. */
+        /** @description Active plans with prices before GST (null when an interval can't be bought right now) and the GST rate added at checkout. Public: no authentication or workspace header; throttled per IP. Cacheable for 5 minutes. */
         get: operations["billing_public_plans_list"];
         put?: never;
         post?: never;
@@ -4812,9 +4812,9 @@ export interface components {
             /** @description Plan slug: starter, growth or pro. */
             readonly id: string;
             readonly name: string;
-            /** @description Before GST; null when this interval can't be bought right now. */
+            /** @description Per month, before GST, from the Razorpay plan; null when monthly can't be bought right now. */
             readonly monthly_price_paise: number | null;
-            /** @description Before GST; null when this interval can't be bought right now. */
+            /** @description Per year, before GST, from the Razorpay plan; null when annual can't be bought right now. */
             readonly annual_price_paise: number | null;
             /** @description null means unlimited. */
             readonly limits: components["schemas"]["PlanLimits"];
@@ -4978,8 +4978,9 @@ export interface components {
             is_active?: boolean;
         };
         PublicPlans: {
-            /** @description GST rate added to plan prices; 0 while GST is off. */
+            /** @description GST added to plan prices at checkout; 0 while not charged. */
             readonly gst_rate_percent: number;
+            /** @description Active plans in display order. */
             readonly plans: components["schemas"]["Plan"][];
         };
         /**

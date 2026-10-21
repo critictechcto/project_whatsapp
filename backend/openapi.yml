@@ -1015,6 +1015,21 @@ paths:
                 items:
                   $ref: '#/components/schemas/Plan'
           description: ''
+  /api/v1/billing/public-plans/:
+    get:
+      operationId: billing_public_plans_list
+      description: 'Active plans with prices before GST (null when an interval can''t
+        be bought right now) and the GST rate added at checkout. Public: no authentication
+        or workspace header; throttled per IP. Cacheable for 5 minutes.'
+      tags:
+      - billing
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPlans'
+          description: ''
   /api/v1/billing/subscription/:
     get:
       operationId: billing_subscription_retrieve
@@ -11869,12 +11884,16 @@ components:
           readOnly: true
         monthly_price_paise:
           type: integer
+          nullable: true
           readOnly: true
-          description: Before GST.
+          description: Per month, before GST, from the Razorpay plan; null when monthly
+            can't be bought right now.
         annual_price_paise:
           type: integer
+          nullable: true
           readOnly: true
-          description: Before GST.
+          description: Per year, before GST, from the Razorpay plan; null when annual
+            can't be bought right now.
         limits:
           allOf:
           - $ref: '#/components/schemas/PlanLimits'
@@ -12282,6 +12301,22 @@ components:
       - name
       - price_paise
       - sku
+    PublicPlans:
+      type: object
+      properties:
+        gst_rate_percent:
+          type: integer
+          readOnly: true
+          description: GST added to plan prices at checkout; 0 while not charged.
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plan'
+          readOnly: true
+          description: Active plans in display order.
+      required:
+      - gst_rate_percent
+      - plans
     RecipientStatusEnum:
       enum:
       - pending

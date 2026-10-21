@@ -315,6 +315,7 @@ envs:
     value: CHANGE_ME
     type: SECRET
     scope: RUN_AND_BUILD_TIME
+  # Optional fallback: plan ids are normally set in Django admin (Billing → Plans).
   # JSON: {"starter": {"monthly": "plan_...", "annual": "plan_..."}, "growth": {...}, "pro": {...}}
   - key: RAZORPAY_PLAN_IDS
     value: "{}"
