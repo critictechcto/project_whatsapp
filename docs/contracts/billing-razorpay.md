@@ -37,3 +37,56 @@ Razorpay's payment capture setting must be **automatic** so a paid order reaches
 - **Subscription card and cancel dialog:** they follow `payment_mode`. A pay-once plan shows "Paid until {date}" and Renew (pay once, same plan and interval).
 - **Billing profile:** the phone is required only for Cashfree.
 - **Mock mode:** `checkout_provider` is `razorpay` and both modes work.
+
+## Prices come from Razorpay plans
+
+Razorpay is the only source of plan prices. UpChatz stores no price of its own: each `Plan` names a Razorpay plan per interval, and the amount is read from Razorpay. A Razorpay plan can't change after it is created, so a fetched copy (keyed by the Razorpay plan id) can never go stale.
+
+### Data model (`apps.billing`)
+
+- `Plan` drops `monthly_price_paise` and `annual_price_paise` and gains `razorpay_plan_id_monthly` and `razorpay_plan_id_annual` (blank allowed). `Plan.razorpay_plan_id(interval)` is the field, else `RAZORPAY_PLAN_IDS[slug][interval]` (kept as a fallback), else `""`. `DEFAULT_PLANS`/`ensure_default_plans` carry no prices.
+- New `RazorpayPlan` (a read-only snapshot): `id` (the Razorpay `plan_…` id, primary key), `plan` (FK `Plan`, null, `SET_NULL`), `interval` (`monthly`|`annual`), `period` and `period_interval` (Razorpay's), `amount_paise` (what Razorpay charges per cycle, GST-inclusive when GST is on), `currency`, `item_name`, `fetched_at`.
+- `apps/billing/prices.py`:
+  - `razorpay_plan(plan, interval)`: the snapshot for the plan's current id. On a miss it fetches `GET /v1/plans/{id}` and saves it.
+    - It checks that the currency is INR and the period matches: monthly needs `monthly`×1; annual needs `yearly`×1 or `monthly`×12.
+    - It raises `PlanPriceNotConfigured` when there is no id or the plan doesn't match, and `RazorpayError` when Razorpay can't be reached.
+    - A failed fetch is remembered in the Django cache for 60 s, so anonymous traffic can't hammer Razorpay.
+  - `price_paise(plan, interval) -> int | None`: the price before GST, worked back from `amount_paise` at the current GST rate. It returns the base whose `invoices.compute_gst(...)` total equals the amount; with GST off it is the amount itself. It returns None when the plan is unavailable and never raises.
+  - `Plan.price_paise(interval)` delegates to it and returns `int | None`.
+- `plan_for_razorpay_plan_id(id)`, used by the webhooks, looks in this order: a `Plan` field, then a `RazorpayPlan` snapshot (`plan`, `interval`), then `RAZORPAY_PLAN_IDS`. This way, subscriptions on an older Razorpay plan still map to the right plan.
+- **Invoices** are worked out from the amount actually charged when it is known: the Razorpay subscription payment's amount, or the `BillingOrder` amount. Only otherwise do they use the plan's current price. Subscribers on an older Razorpay plan get invoices for what they paid.
+
+### Admin
+
+- **Plan form:** name, both Razorpay plan ids, limits, features, active and sort order. There are no price fields.
+- **On save**, each non-empty id is fetched and validated. A form error is shown when:
+  - the plan isn't found, for example a test id with live keys;
+  - the period is wrong;
+  - the currency isn't INR;
+  - Razorpay can't be reached ("try again").
+- **Read-only columns** show the fetched monthly and annual amounts and the Razorpay plan names, plus a hint when an id comes from `RAZORPAY_PLAN_IDS`.
+- `RazorpayPlan` is listed read-only.
+
+### API
+
+- **`Plan.monthly_price_paise` and `annual_price_paise`** become nullable: the price before GST, or null when that interval can't be bought, either because no Razorpay plan is set or because Razorpay couldn't be reached and nothing is cached.
+- **Checkout** of an interval without a price:
+  - 409 `plan_unavailable` ("This plan can't be bought right now.") when it is not configured;
+  - 503 `upstream_unavailable` when Razorpay is unreachable.
+
+  This applies to both payment modes. Pay once charges `compute_gst(price)`, the same amount as the Razorpay plan.
+- **New public endpoint `GET /api/v1/billing/public-plans/`** (operation id `billing_public_plans_list`):
+  - No authentication and no workspace header. `AllowAny`, throttled per IP with scope `public_plans` (60/min).
+  - Returns `{"gst_rate_percent": int, "plans": Plan[]}` for active plans in `sort_order`.
+  - Headers: `Access-Control-Allow-Origin: *` (never with credentials) and `Cache-Control: public, max-age=300`.
+
+### Website and dashboard
+
+- **`config/site.ts`** keeps the marketing copy per plan (blurb, limits text, feature list, recommended) but no prices. `ANNUAL_MONTHS_CHARGED` is removed.
+- **Landing pricing:** after hydration, the section fetches `public-plans` from `VITE_PRICING_API_URL`. When that is unset in live mode it uses `VITE_API_URL`; in mock mode without it there is no fetch and the placeholder shows.
+  - Until prices arrive, or if the fetch fails, each card shows a placeholder instead of a number, with a note that prices are shown after sign-up.
+  - The annual toggle's "N months free" is computed from the fetched prices and left out when they're unknown.
+  - The server and the first client render are identical (no fetch during render).
+- **CSP:** `scripts/csp.mjs` adds the pricing origin to `connect-src`. The Pages workflow sets `VITE_PRICING_API_URL=https://app.upchatz.com`.
+- **Terms page:** no longer lists prices. It points to the pricing page and the dashboard.
+- **Dashboard Plans page:** an interval without a price shows "Not available" and can't be checked out. "N months free" is computed per plan from its two prices.

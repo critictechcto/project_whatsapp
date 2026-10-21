@@ -269,6 +269,8 @@ REST_FRAMEWORK = {
         # user or per submitted email address.
         "email_send": "5/hour",
         "webhooks": "600/min",
+        # Anonymous reads of plan prices for the public website, per IP.
+        "public_plans": "60/min",
     },
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
