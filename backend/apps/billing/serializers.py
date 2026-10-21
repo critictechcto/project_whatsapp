@@ -13,6 +13,7 @@ from .schema_enums import (
     BILLING_PROVIDERS,
     CASHFREE_MODES,
     INVOICE_STATUSES,
+    PAYMENT_MODES,
     SUBSCRIPTION_STATUSES,
 )
 
@@ -56,9 +57,18 @@ class SubscriptionSerializer(serializers.Serializer):
         allow_null=True,
         help_text="Gateway of the paid plan; null on a trial.",
     )
+    payment_mode = serializers.ChoiceField(
+        choices=PAYMENT_MODES,
+        read_only=True,
+        allow_null=True,
+        help_text=(
+            "autopay (a Razorpay subscription that charges again by itself) or one_time (a "
+            "prepaid period, renewed by paying again); null before a paid plan, e.g. on a trial."
+        ),
+    )
     auto_renews = serializers.BooleanField(
         read_only=True,
-        help_text="True for an active Razorpay subscription; Cashfree plans are prepaid.",
+        help_text="True for an active auto-pay subscription; prepaid plans never renew.",
     )
     gst_rate_percent = serializers.SerializerMethodField(
         help_text="GST added to plan prices at checkout; 0 while UpChatz doesn't charge GST."
@@ -78,6 +88,14 @@ class SubscriptionSerializer(serializers.Serializer):
 class CheckoutSerializer(serializers.Serializer):
     plan_id = serializers.CharField(max_length=32, help_text="Plan slug: starter, growth or pro.")
     interval = serializers.ChoiceField(choices=BILLING_INTERVALS)
+    payment_mode = serializers.ChoiceField(
+        choices=PAYMENT_MODES,
+        required=False,
+        help_text=(
+            "autopay (a Razorpay subscription) or one_time (one prepaid period). Defaults to "
+            "autopay on Razorpay and one_time on Cashfree, which has no auto-pay."
+        ),
+    )
 
     def validate_plan_id(self, value: str) -> str:
         if value not in PLAN_SLUGS:
@@ -91,18 +109,27 @@ class CheckoutPrefillSerializer(serializers.Serializer):
 
 
 class CheckoutSessionSerializer(serializers.Serializer):
-    """Options for Cashfree Checkout (a prepaid order) or Razorpay Checkout (subscription
-    mode); the other provider's fields are null."""
+    """Options for Razorpay Checkout (an auto-pay subscription or a one-time order) or Cashfree
+    Checkout (a one-time order); fields another flow doesn't use are null."""
 
     provider = serializers.ChoiceField(choices=BILLING_PROVIDERS, read_only=True)
+    payment_mode = serializers.ChoiceField(
+        choices=PAYMENT_MODES,
+        read_only=True,
+        help_text="autopay (Razorpay subscription) or one_time (prepaid order).",
+    )
     name = serializers.CharField(read_only=True)
     description = serializers.CharField(read_only=True)
     prefill = CheckoutPrefillSerializer(read_only=True)
     key_id = serializers.CharField(read_only=True, allow_null=True, help_text="Razorpay only.")
     subscription_id = serializers.CharField(
-        read_only=True, allow_null=True, help_text="Razorpay only."
+        read_only=True, allow_null=True, help_text="Razorpay auto-pay only."
     )
-    order_id = serializers.CharField(read_only=True, allow_null=True, help_text="Cashfree only.")
+    order_id = serializers.CharField(
+        read_only=True,
+        allow_null=True,
+        help_text="One-time payments: the Razorpay order_… id or the Cashfree order id.",
+    )
     payment_session_id = serializers.CharField(
         read_only=True, allow_null=True, help_text="Cashfree only."
     )
@@ -110,29 +137,40 @@ class CheckoutSessionSerializer(serializers.Serializer):
         choices=CASHFREE_MODES, read_only=True, allow_null=True, help_text="Cashfree only."
     )
     amount_paise = serializers.IntegerField(
-        read_only=True, allow_null=True, help_text="GST-inclusive amount charged; Cashfree only."
+        read_only=True,
+        allow_null=True,
+        help_text="One-time payments: the amount charged (GST-inclusive when GST is on).",
     )
 
 
 class CheckoutVerifySerializer(serializers.Serializer):
-    """Either ``order_id`` (Cashfree) or the three ``razorpay_*`` fields."""
+    """One of: ``order_id`` (Cashfree); ``razorpay_payment_id`` + ``razorpay_order_id`` +
+    ``razorpay_signature`` (Razorpay one-time); ``razorpay_payment_id`` +
+    ``razorpay_subscription_id`` + ``razorpay_signature`` (Razorpay auto-pay)."""
 
-    RAZORPAY_FIELDS = ("razorpay_payment_id", "razorpay_subscription_id", "razorpay_signature")
+    FORMS = (
+        ("order_id",),
+        ("razorpay_payment_id", "razorpay_order_id", "razorpay_signature"),
+        ("razorpay_payment_id", "razorpay_subscription_id", "razorpay_signature"),
+    )
 
     order_id = serializers.CharField(max_length=64, required=False, help_text="Cashfree.")
     razorpay_payment_id = serializers.CharField(max_length=64, required=False)
-    razorpay_subscription_id = serializers.CharField(max_length=64, required=False)
+    razorpay_order_id = serializers.CharField(
+        max_length=64, required=False, help_text="Razorpay one-time payments."
+    )
+    razorpay_subscription_id = serializers.CharField(
+        max_length=64, required=False, help_text="Razorpay auto-pay."
+    )
     razorpay_signature = serializers.CharField(max_length=256, required=False)
 
     def validate(self, attrs: dict) -> dict:
-        razorpay = [field for field in self.RAZORPAY_FIELDS if attrs.get(field)]
-        if attrs.get("order_id") and not razorpay:
-            return attrs
-        if not attrs.get("order_id") and len(razorpay) == len(self.RAZORPAY_FIELDS):
+        sent = {field for field, value in attrs.items() if value}
+        if any(sent == set(form) for form in self.FORMS):
             return attrs
         raise serializers.ValidationError(
-            "Send either order_id, or razorpay_payment_id, razorpay_subscription_id and "
-            "razorpay_signature."
+            "Send order_id; or razorpay_payment_id, razorpay_order_id and razorpay_signature; "
+            "or razorpay_payment_id, razorpay_subscription_id and razorpay_signature."
         )
 
 

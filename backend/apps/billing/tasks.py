@@ -17,7 +17,7 @@ def expire_trials() -> int:
 
 @shared_task(name="billing.expire_prepaid")
 def expire_prepaid() -> int:
-    """Hourly: Cashfree plans past their paid period become expired (or cancelled)."""
+    """Hourly: prepaid plans past their paid period become expired (or cancelled)."""
     return services.expire_prepaid()
 
 

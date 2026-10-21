@@ -178,6 +178,100 @@ def test_checkout_signature():
     assert not valid(secret="")
 
 
+def test_order_signature():
+    secret = "key-secret"
+    signature = hmac.new(secret.encode(), b"order_1|pay_1", hashlib.sha256).hexdigest()
+
+    def valid(**changes):
+        arguments = {
+            "payment_id": "pay_1",
+            "order_id": "order_1",
+            "signature": signature,
+            "secret": secret,
+            **changes,
+        }
+        return razorpay.order_signature_is_valid(**arguments)
+
+    assert valid()
+    assert valid(signature=signature.upper())
+    assert not valid(order_id="order_2")
+    assert not valid(payment_id="pay_2")
+    # The subscription form signs payment|subscription; the order form is order|payment.
+    assert not valid(payment_id="order_1", order_id="pay_1")
+    assert not valid(signature="")
+    assert not valid(order_id="")
+    assert not valid(secret="")
+
+
+def test_create_order_posts_amount_in_paise():
+    seen: list[httpx.Request] = []
+    client = make_client(
+        recording_handler(seen, httpx.Response(200, json={"id": "order_1", "status": "created"}))
+    )
+
+    entity = client.create_order(
+        amount=294882, currency="INR", receipt="upc_1", notes={"workspace_id": "w1"}
+    )
+
+    [request] = seen
+    assert entity == {"id": "order_1", "status": "created"}
+    assert request.method == "POST"
+    assert str(request.url) == "https://api.razorpay.com/v1/orders"
+    assert json.loads(request.content) == {
+        "amount": 294882,
+        "currency": "INR",
+        "receipt": "upc_1",
+        "notes": {"workspace_id": "w1"},
+    }
+
+
+def test_fetch_order_and_its_payments():
+    seen: list[httpx.Request] = []
+    payments = {"entity": "collection", "count": 1, "items": [{"id": "pay_1"}, "junk"]}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path.endswith("/payments"):
+            return httpx.Response(200, json=payments)
+        return httpx.Response(200, json={"id": "order_1", "status": "paid"})
+
+    client = make_client(handler)
+
+    assert client.fetch_order("order_1") == {"id": "order_1", "status": "paid"}
+    assert client.fetch_order_payments("order_1") == [{"id": "pay_1"}]
+    assert [(r.method, r.url.path) for r in seen] == [
+        ("GET", "/v1/orders/order_1"),
+        ("GET", "/v1/orders/order_1/payments"),
+    ]
+
+
+@pytest.mark.parametrize("order_id", ["../payments", "order 1", ""])
+def test_unsafe_order_ids_never_reach_razorpay(order_id):
+    seen: list[httpx.Request] = []
+    client = make_client(recording_handler(seen, httpx.Response(200, json={})))
+
+    with pytest.raises(razorpay.RazorpayError):
+        client.fetch_order(order_id)
+    with pytest.raises(razorpay.RazorpayError):
+        client.fetch_order_payments(order_id)
+
+    assert seen == []
+
+
+def test_fake_client_orders(fake_razorpay):
+    order = fake_razorpay.create_order(amount=100, currency="INR", receipt="r", notes={})
+    assert fake_razorpay.fetch_order(order["id"])["status"] == "created"
+    assert fake_razorpay.fetch_order_payments(order["id"]) == []
+
+    fake_razorpay.pay_order(order["id"], payment_id="pay_9")
+
+    assert fake_razorpay.fetch_order(order["id"])["status"] == "paid"
+    [payment] = fake_razorpay.fetch_order_payments(order["id"])
+    assert (payment["id"], payment["status"], payment["amount"]) == ("pay_9", "captured", 100)
+    with pytest.raises(razorpay.RazorpayError):
+        fake_razorpay.fetch_order("order_missing")
+
+
 def test_webhook_signature():
     body = b'{"event":"subscription.activated"}'
     signature = hmac.new(b"hook-secret", body, hashlib.sha256).hexdigest()

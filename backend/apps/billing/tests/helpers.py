@@ -43,6 +43,49 @@ def checkout_signature(payment_id: str, subscription_id: str, secret: str | None
     return hmac.new(key, f"{payment_id}|{subscription_id}".encode(), hashlib.sha256).hexdigest()
 
 
+def order_signature(payment_id: str, order_id: str, secret: str | None = None) -> str:
+    """Razorpay Checkout's signature for a one-time order: ``order_id|payment_id``."""
+    key = (secret or settings.RAZORPAY_KEY_SECRET).encode()
+    return hmac.new(key, f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
+
+
+def order_paid_event(
+    order_id: str, amount: int, *, payment_id: str = "pay_order0001", created_at: int | None = None
+) -> dict:
+    """A Razorpay ``order.paid`` webhook body."""
+    return {
+        "entity": "event",
+        "account_id": "acc_test",
+        "event": "order.paid",
+        "contains": ["payment", "order"],
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": payment_id,
+                    "entity": "payment",
+                    "amount": amount,
+                    "currency": "INR",
+                    "status": "captured",
+                    "order_id": order_id,
+                    "created_at": created_at,
+                }
+            },
+            "order": {
+                "entity": {
+                    "id": order_id,
+                    "entity": "order",
+                    "amount": amount,
+                    "amount_paid": amount,
+                    "amount_due": 0,
+                    "currency": "INR",
+                    "status": "paid",
+                }
+            },
+        },
+        "created_at": ts(timezone.now()),
+    }
+
+
 def webhook_signature(body: bytes, secret: str | None = None) -> str:
     key = (secret or settings.RAZORPAY_WEBHOOK_SECRET).encode()
     return hmac.new(key, body, hashlib.sha256).hexdigest()
@@ -153,11 +196,24 @@ def make_cashfree_active(
     now = timezone.now()
     subscription.status = "active"
     subscription.provider = "cashfree"
+    subscription.prepaid = True
     subscription.plan_id = plan
     subscription.interval = interval
     subscription.activated_at = now - timedelta(days=5)
     subscription.current_period_start = now - timedelta(days=5)
     subscription.current_period_end = now + timedelta(days=days_left)
+    subscription.save()
+    return subscription
+
+
+def make_razorpay_prepaid_active(
+    workspace, *, plan: str = "growth", interval: str = "monthly", days_left: float = 25
+):
+    """An active prepaid (one-time) Razorpay plan with ``days_left`` days of its period left."""
+    subscription = make_cashfree_active(
+        workspace, plan=plan, interval=interval, days_left=days_left
+    )
+    subscription.provider = "razorpay"
     subscription.save()
     return subscription
 

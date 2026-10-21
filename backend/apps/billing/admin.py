@@ -67,7 +67,7 @@ class BillingOrderAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "provider", "plan", "interval")
-    search_fields = ("order_id", "cf_payment_id")
+    search_fields = ("order_id", "payment_id")
     raw_id_fields = ("workspace",)
     exclude = ("payment_session_id",)
 

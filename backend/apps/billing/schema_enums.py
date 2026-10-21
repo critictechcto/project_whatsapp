@@ -7,8 +7,10 @@ INVOICE_STATUSES = ("issued", "paid", "void")
 CASHFREE_MODES = ("sandbox", "production")
 # Same values as payments' PaymentProviderEnum, so the schema reuses that component.
 BILLING_PROVIDERS = ("razorpay", "cashfree")
+PAYMENT_MODES = ("autopay", "one_time")
 
 ENUM_NAME_OVERRIDES = {
+    "BillingPaymentModeEnum": PAYMENT_MODES,
     "SubscriptionStatusEnum": SUBSCRIPTION_STATUSES,
     "BillingIntervalEnum": BILLING_INTERVALS,
     "InvoiceStatusEnum": INVOICE_STATUSES,

@@ -2,7 +2,8 @@
 
 Razorpay: the view verifies the signature; :func:`handle_delivery` deduplicates on the event id
 and applies the event in one transaction. If processing raises, the event row rolls back too, the
-view returns 500 and Razorpay retries.
+view returns 500 and Razorpay retries. ``subscription.*`` events drive auto-pay subscriptions;
+``order.paid`` fulfils a one-time (prepaid) order, idempotently, like verify does.
 
 Cashfree: :func:`handle_cashfree_event` fulfils a paid billing order; ``services.fulfil_order``
 locks the order, so a retry or a race with verify issues one invoice.
@@ -18,7 +19,7 @@ from django.utils import timezone
 
 from . import entitlements, services
 from .invoices import INDIA_TZ
-from .models import BillingOrder, RazorpayEvent, Subscription
+from .models import BillingOrder, BillingProvider, RazorpayEvent, Subscription
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ Handler = Callable[[Subscription, dict, Mapping[str, Any]], None]
 
 def handle_delivery(event_id: str, payload: Mapping[str, Any]) -> str:
     """Process one delivery once. Returns ``duplicate``, ``processed``, ``ignored``, ``logged``
-    or ``unknown_subscription``."""
+    or ``unknown_subscription`` (``duplicate`` too for an order another event already paid)."""
     event_type = payload.get("event")
     event_type = event_type[:64] if isinstance(event_type, str) else ""
     with transaction.atomic():
@@ -54,7 +55,21 @@ def process_event(event_type: str, payload: Mapping[str, Any]) -> str:
             payment.get("subscription_id"),
             payment.get("error_code"),
         )
+        order_id = payment.get("order_id")
+        if isinstance(order_id, str) and order_id:
+            order = BillingOrder.objects.filter(
+                provider=BillingProvider.RAZORPAY, order_id=order_id
+            ).first()
+            if order is not None:
+                logger.warning(
+                    "Payment for billing order %s (workspace %s) failed; the order stays open",
+                    order.order_id,
+                    order.workspace_id,
+                )
         return "logged"
+
+    if event_type == "order.paid":
+        return _order_paid(payload)
 
     handler = SUBSCRIPTION_HANDLERS.get(event_type)
     if handler is None:
@@ -84,6 +99,37 @@ def _entity(payload: Mapping[str, Any], name: str) -> dict:
     item = container.get(name) if isinstance(container, dict) else None
     entity = item.get("entity") if isinstance(item, dict) else None
     return entity if isinstance(entity, dict) else {}
+
+
+def _order_paid(payload: Mapping[str, Any]) -> str:
+    """``order.paid`` for a one-time (prepaid) billing order: fulfil it once."""
+    entity = _entity(payload, "order")
+    order_id = entity.get("id")
+    order = (
+        BillingOrder.objects.filter(provider=BillingProvider.RAZORPAY, order_id=order_id).first()
+        if isinstance(order_id, str) and order_id
+        else None
+    )
+    if order is None:
+        logger.info("Razorpay order.paid for an unknown order %r ignored", order_id)
+        return "ignored"
+    amount = entity.get("amount")
+    if isinstance(amount, bool) or amount != order.amount_paise:
+        logger.warning(
+            "Razorpay order %s was paid %r paise, expected %s; ignored",
+            order.order_id,
+            amount,
+            order.amount_paise,
+        )
+        return "ignored"
+    payment = _entity(payload, "payment")
+    payment_id = str(payment.get("id") or "")[:64] or order.order_id
+    fulfilled = services.fulfil_order(
+        order.order_id,
+        payment_id=payment_id,
+        paid_at=services.timestamp_to_datetime(payment.get("created_at")),
+    )
+    return "processed" if fulfilled else "duplicate"
 
 
 def _activated(subscription: Subscription, entity: dict, payload: Mapping[str, Any]) -> None:

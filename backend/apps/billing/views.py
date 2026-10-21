@@ -76,14 +76,21 @@ class SubscriptionViewSet(BillingViewSet):
         request=CheckoutSerializer,
         responses=CheckoutSessionSerializer,
         description=(
-            "Start a checkout on the configured gateway: a prepaid Cashfree order (options for "
-            "Cashfree Checkout) or a Razorpay subscription (options for Razorpay Checkout)."
+            "Start a checkout on the configured gateway. payment_mode autopay (the Razorpay "
+            "default) creates a Razorpay subscription; one_time (the only mode on Cashfree) "
+            "creates an order for one prepaid period, on Razorpay or Cashfree. 409 "
+            "subscription_active while an auto-pay subscription is active, or for auto-pay "
+            "while a prepaid period runs; an active prepaid plan may pay once again to renew or "
+            "change plan."
         ),
     )
     def checkout(self, request):
         data = self.validated(CheckoutSerializer)
         session = services.start_checkout(
-            workspace=self.workspace, plan_slug=data["plan_id"], interval=data["interval"]
+            workspace=self.workspace,
+            plan_slug=data["plan_id"],
+            interval=data["interval"],
+            payment_mode=data.get("payment_mode"),
         )
         return Response(CheckoutSessionSerializer(session).data)
 
@@ -92,9 +99,11 @@ class SubscriptionViewSet(BillingViewSet):
         request=CheckoutVerifySerializer,
         responses=SubscriptionSerializer,
         description=(
-            "Cashfree (order_id): ask Cashfree for the order and activate the plan once it is "
-            "paid; 409 payment_not_completed otherwise. Razorpay: verify the Checkout signature; "
-            "the status may stay pending until the webhook."
+            "One-time payments (Cashfree order_id, or Razorpay razorpay_order_id with the payment "
+            "id and signature): ask the gateway for the order and activate the prepaid plan once "
+            "it is paid; 409 payment_not_completed otherwise. Razorpay auto-pay "
+            "(razorpay_subscription_id): verify the Checkout signature; the status may stay "
+            "pending until the webhook."
         ),
     )
     def verify(self, request):

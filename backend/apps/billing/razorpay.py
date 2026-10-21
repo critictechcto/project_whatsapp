@@ -1,4 +1,4 @@
-"""Razorpay API access (subscriptions) and signature checks.
+"""Razorpay API access (auto-pay subscriptions and one-time orders) and signature checks.
 
 Always go through :func:`get_razorpay_client`; tests install :class:`FakeRazorpayClient` with
 :func:`override_razorpay_client` and never reach the network. Never log key secrets, webhook
@@ -41,6 +41,7 @@ __all__ = (
     "RazorpayNotConfigured",
     "checkout_signature_is_valid",
     "get_razorpay_client",
+    "order_signature_is_valid",
     "override_razorpay_client",
     "plan_for_razorpay_plan_id",
     "plan_id_for",
@@ -60,13 +61,26 @@ class RazorpayClient(Protocol):
 
     def cancel_subscription(self, subscription_id: str, *, at_cycle_end: bool) -> JSON: ...
 
+    def create_order(
+        self, *, amount: int, currency: str, receipt: str, notes: Mapping[str, str]
+    ) -> JSON: ...
+
+    def fetch_order(self, order_id: str) -> JSON: ...
+
+    def fetch_order_payments(self, order_id: str) -> list[JSON]: ...
+
 
 def _checked_id(subscription_id: str) -> str:
     return checked_id(subscription_id, label="Razorpay subscription id")
 
 
+def _checked_order_id(order_id: str) -> str:
+    return checked_id(order_id, label="Razorpay order id")
+
+
 class HttpRazorpayClient(RazorpayTransport):
-    """Subscriptions over the shared Razorpay transport (basic auth with the platform keys)."""
+    """Subscriptions and orders over the shared Razorpay transport (basic auth with the platform
+    keys)."""
 
     def create_subscription(
         self, *, plan_id: str, total_count: int, notes: Mapping[str, str]
@@ -90,6 +104,22 @@ class HttpRazorpayClient(RazorpayTransport):
             json={"cancel_at_cycle_end": 1 if at_cycle_end else 0},
         )
 
+    def create_order(
+        self, *, amount: int, currency: str, receipt: str, notes: Mapping[str, str]
+    ) -> JSON:
+        """``POST /v1/orders``: one payment of ``amount`` paise (a prepaid plan period)."""
+        body = {"amount": amount, "currency": currency, "receipt": receipt, "notes": dict(notes)}
+        return self.request("POST", "/orders", json=body)
+
+    def fetch_order(self, order_id: str) -> JSON:
+        return self.request("GET", f"/orders/{_checked_order_id(order_id)}")
+
+    def fetch_order_payments(self, order_id: str) -> list[JSON]:
+        """The order's payment attempts (``items`` of the collection), oldest first."""
+        data = self.request("GET", f"/orders/{_checked_order_id(order_id)}/payments")
+        items = data.get("items")
+        return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
     def _request(self, method: str, path: str, *, json: JSON | None = None) -> JSON:
         """Kept for callers of the wave-2 private name."""
         return self.request(method, path, json=json)
@@ -100,6 +130,8 @@ class FakeRazorpayClient:
 
     def __init__(self) -> None:
         self.subscriptions: dict[str, JSON] = {}
+        self.orders: dict[str, JSON] = {}
+        self.payments: dict[str, list[JSON]] = {}
         self.calls: list[tuple[str, dict]] = []
         self.fail_with: RazorpayError | None = None
         self._ids = itertools.count(1)
@@ -135,8 +167,77 @@ class FakeRazorpayClient:
             entity["status"] = "cancelled"
         return dict(entity)
 
+    def create_order(
+        self, *, amount: int, currency: str, receipt: str, notes: Mapping[str, str]
+    ) -> JSON:
+        self._record("create_order", amount=amount, currency=currency, receipt=receipt, notes=notes)
+        order_id = f"order_fake{next(self._ids):06d}"
+        entity = {
+            "id": order_id,
+            "entity": "order",
+            "amount": amount,
+            "amount_paid": 0,
+            "amount_due": amount,
+            "currency": currency,
+            "receipt": receipt,
+            "status": "created",
+            "attempts": 0,
+            "notes": dict(notes),
+        }
+        self.orders[order_id] = entity
+        return dict(entity)
+
+    def fetch_order(self, order_id: str) -> JSON:
+        self._record("fetch_order", order_id=order_id)
+        return dict(self._get_order(order_id))
+
+    def fetch_order_payments(self, order_id: str) -> list[JSON]:
+        self._record("fetch_order_payments", order_id=order_id)
+        self._get_order(order_id)
+        return [dict(payment) for payment in self.payments.get(order_id, [])]
+
+    def pay_order(self, order_id: str, *, payment_id: str = "pay_fake000001") -> JSON:
+        """Mark an order paid with a captured payment, as Razorpay does after Checkout."""
+        order = self._get_order(order_id)
+        order.update(status="paid", amount_paid=order["amount"], amount_due=0)
+        order["attempts"] += 1
+        payment = {
+            "id": payment_id,
+            "entity": "payment",
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "status": "captured",
+            "order_id": order_id,
+            "captured": True,
+        }
+        self.payments.setdefault(order_id, []).append(payment)
+        return dict(payment)
+
+    def fail_order_payment(self, order_id: str, *, payment_id: str = "pay_failed01") -> JSON:
+        """Record a failed attempt; the order stays ``attempted``."""
+        order = self._get_order(order_id)
+        order["status"] = "attempted"
+        order["attempts"] += 1
+        payment = {
+            "id": payment_id,
+            "entity": "payment",
+            "amount": order["amount"],
+            "status": "failed",
+            "order_id": order_id,
+        }
+        self.payments.setdefault(order_id, []).append(payment)
+        return dict(payment)
+
     def calls_to(self, name: str) -> list[dict]:
         return [kwargs for call, kwargs in self.calls if call == name]
+
+    def _get_order(self, order_id: str) -> JSON:
+        entity = self.orders.get(order_id)
+        if entity is None:
+            raise RazorpayError(
+                "The id provided does not exist", status_code=400, code="BAD_REQUEST_ERROR"
+            )
+        return entity
 
     def _get(self, subscription_id: str) -> JSON:
         entity = self.subscriptions.get(subscription_id)
@@ -206,4 +307,14 @@ def checkout_signature_is_valid(
     if not (secret and payment_id and subscription_id):
         return False
     expected = hmac_sha256_hex(secret, f"{payment_id}|{subscription_id}".encode())
+    return signature_matches(expected, signature)
+
+
+def order_signature_is_valid(
+    *, payment_id: str, order_id: str, signature: str, secret: str
+) -> bool:
+    """Checkout (order mode) signs ``razorpay_order_id|razorpay_payment_id``."""
+    if not (secret and payment_id and order_id):
+        return False
+    expected = hmac_sha256_hex(secret, f"{order_id}|{payment_id}".encode())
     return signature_matches(expected, signature)

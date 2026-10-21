@@ -72,6 +72,7 @@ def test_checkout_creates_a_gst_inclusive_cashfree_order(
     assert re.fullmatch(r"upc_[0-9a-f]{32}", order_id)
     assert session == {
         "provider": "cashfree",
+        "payment_mode": "one_time",
         "name": "UpChatz",
         "description": "Growth plan: ₹2,499 + 18% GST per month",
         "prefill": {"name": MAHARASHTRA_PROFILE["legal_name"], "email": profile.email},
@@ -275,7 +276,7 @@ def test_verify_paid_order_activates_the_plan_and_issues_the_invoice(
         subscription.current_period_end,
     )
     order = BillingOrder.objects.get(order_id=order_id)
-    assert (order.status, order.cf_payment_id, order.payment_session_id) == (
+    assert (order.status, order.payment_id, order.payment_session_id) == (
         "paid",
         "885000123",
         "",

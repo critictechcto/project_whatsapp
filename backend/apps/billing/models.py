@@ -35,6 +35,13 @@ class BillingProvider(models.TextChoices):
     CASHFREE = "cashfree", "Cashfree"
 
 
+class PaymentMode(models.TextChoices):
+    """How a paid plan is paid: a Razorpay auto-pay subscription or one prepaid period."""
+
+    AUTOPAY = "autopay", "Auto-pay"
+    ONE_TIME = "one_time", "Pay once"
+
+
 class Plan(models.Model):
     """A subscription plan. ``limits`` maps metric keys to a cap; ``null`` means unlimited."""
 
@@ -97,8 +104,11 @@ class Subscription(UUIDTimeStampedModel):
         Plan, on_delete=models.PROTECT, null=True, blank=True, related_name="+"
     )
     checkout_interval = models.CharField(max_length=16, choices=Interval.choices, blank=True)
-    # Gateway of the current paid plan; blank until one starts. Cashfree plans are prepaid.
+    # Gateway of the current paid plan; blank until one starts.
     provider = models.CharField(max_length=16, choices=BillingProvider.choices, blank=True)
+    # The paid plan is prepaid (one period paid once through a ``BillingOrder``, never charged
+    # again by itself) rather than a Razorpay auto-pay subscription. Cashfree plans always are.
+    prepaid = models.BooleanField(default=False)
     # "<period end iso>:<days>" of the last renewal reminder, so each is sent once per period.
     renewal_reminder_key = models.CharField(max_length=64, blank=True)
 
@@ -117,7 +127,8 @@ class Subscription(UUIDTimeStampedModel):
 
     @property
     def is_razorpay(self) -> bool:
-        """Paid through a Razorpay subscription (rows from before ``provider`` included)."""
+        """Paid through Razorpay (rows from before ``provider`` included). A Razorpay plan may
+        be prepaid too: :attr:`is_autopay` means "a Razorpay subscription"."""
         if self.provider:
             return self.provider == BillingProvider.RAZORPAY
         return bool(self.razorpay_subscription_id)
@@ -127,14 +138,31 @@ class Subscription(UUIDTimeStampedModel):
         return self.provider == BillingProvider.CASHFREE
 
     @property
+    def is_prepaid(self) -> bool:
+        """One prepaid period (a fulfilled ``BillingOrder``) that never renews by itself."""
+        return self.prepaid or self.is_cashfree
+
+    @property
+    def is_autopay(self) -> bool:
+        """Paid through a Razorpay subscription that charges again by itself."""
+        return self.is_razorpay and not self.is_prepaid
+
+    @property
+    def payment_mode(self) -> str | None:
+        """``one_time`` or ``autopay`` for the current (or last) paid plan; None before one."""
+        if not self.provider:
+            return None
+        return PaymentMode.ONE_TIME if self.is_prepaid else PaymentMode.AUTOPAY
+
+    @property
     def provider_or_none(self) -> str | None:
         return self.provider or None
 
     @property
     def auto_renews(self) -> bool:
-        """Razorpay charges again by itself; Cashfree plans are prepaid and never renew."""
+        """A Razorpay subscription charges again by itself; prepaid plans never renew."""
         active = self.status == self.Status.ACTIVE
-        return active and self.is_razorpay and not self.cancel_at_period_end
+        return active and self.is_autopay and not self.cancel_at_period_end
 
 
 class BillingProfile(UUIDTimeStampedModel):
@@ -243,7 +271,8 @@ class Invoice(TenantScopedModel):
 
 
 class BillingOrder(TenantScopedModel):
-    """A prepaid plan purchase: one Cashfree order, fulfilled once (``services.fulfil_order``)."""
+    """A prepaid plan purchase: one Razorpay or Cashfree order, fulfilled once
+    (``services.fulfil_order``)."""
 
     class Status(models.TextChoices):
         CREATED = "created", "Created"
@@ -251,17 +280,17 @@ class BillingOrder(TenantScopedModel):
         FAILED = "failed", "Failed"
         EXPIRED = "expired", "Expired"
 
-    provider = models.CharField(
-        max_length=16, choices=BillingProvider.choices, default=BillingProvider.CASHFREE
-    )
+    provider = models.CharField(max_length=16, choices=BillingProvider.choices)
+    # Razorpay's ``order_...`` id, or UpChatz's own Cashfree order id (``upc_...``).
     order_id = models.CharField(max_length=64, unique=True)
     plan = models.ForeignKey(Plan, on_delete=models.PROTECT, related_name="billing_orders")
     interval = models.CharField(max_length=16, choices=Subscription.Interval.choices)
     amount_paise = models.PositiveIntegerField(help_text="GST-inclusive, as charged.")
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.CREATED)
-    # Cleared once paid: it only opens Cashfree Checkout.
+    # Cashfree only, cleared once paid: it only opens Cashfree Checkout.
     payment_session_id = models.CharField(max_length=512, blank=True)
-    cf_payment_id = models.CharField(max_length=64, blank=True)
+    # The gateway's payment id: Razorpay ``pay_...`` or Cashfree ``cf_payment_id``.
+    payment_id = models.CharField(max_length=64, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
     period_start = models.DateTimeField(null=True, blank=True)
     period_end = models.DateTimeField(null=True, blank=True)

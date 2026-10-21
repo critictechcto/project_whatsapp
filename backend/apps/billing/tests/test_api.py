@@ -238,6 +238,7 @@ def test_checkout_creates_a_razorpay_subscription(auth_client, workspace, profil
     assert response.status_code == 200, response.content
     assert response.json() == {
         "provider": "razorpay",
+        "payment_mode": "autopay",
         "key_id": "rzp_test_key",
         "subscription_id": "sub_fake000001",
         "name": "UpChatz",

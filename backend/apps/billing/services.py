@@ -1,9 +1,12 @@
-"""Billing workflows: the trial, checkout through Cashfree (prepaid orders) or Razorpay
-(subscriptions), cancellation, prepaid expiry and renewal reminders, billing profiles, GST
-invoices and usage counts. Views and the webhooks call these; other apps use ``entitlements``.
+"""Billing workflows: the trial, checkout (Razorpay auto-pay subscriptions, or prepaid one-time
+orders on Razorpay or Cashfree), cancellation, prepaid expiry and renewal reminders, billing
+profiles, GST invoices and usage counts. Views and the webhooks call these; other apps use
+``entitlements``.
 
-``settings.BILLING_PROVIDER`` picks the gateway for new checkouts only; existing Razorpay
-subscriptions keep their own flow (docs/contracts/billing-cashfree.md)."""
+``settings.BILLING_PROVIDER`` picks the gateway for new checkouts only; existing subscriptions
+keep their own flow (docs/contracts/billing-cashfree.md). A paid plan is either auto-pay (a
+Razorpay subscription that charges again by itself) or prepaid (``Subscription.prepaid``: one
+period bought through a ``BillingOrder``, renewed by paying again)."""
 
 import hmac
 import logging
@@ -33,6 +36,7 @@ from .models import (
     BillingProvider,
     Invoice,
     InvoiceSequence,
+    PaymentMode,
     Plan,
     Subscription,
 )
@@ -57,6 +61,8 @@ CASHFREE_ENDED_STATUSES = {
 }
 # Days before a prepaid plan ends when its renewal reminder goes out (largest first).
 RENEWAL_REMINDER_DAYS = (7, 1)
+# Prepaid plans (``Subscription.is_prepaid``): Cashfree plans are prepaid whatever the flag says.
+PREPAID = Q(prepaid=True) | Q(provider=BillingProvider.CASHFREE)
 
 
 class BillingProfileRequired(Conflict):
@@ -81,6 +87,7 @@ class SubscriptionAlreadyActive(Conflict):
     default_detail = (
         "This workspace already has an active subscription. Cancel it before choosing a plan."
     )
+    prepaid_detail = "You can switch to auto-pay when your paid period ends."
 
 
 class PaymentVerificationFailed(exceptions.APIException):
@@ -172,6 +179,7 @@ def activate(subscription: Subscription, entity: dict) -> bool:
     subscription.interval = interval
     subscription.status = Status.ACTIVE
     subscription.provider = BillingProvider.RAZORPAY
+    subscription.prepaid = False
     subscription.activated_at = subscription.activated_at or timezone.now()
     subscription.checkout_plan = None
     subscription.checkout_interval = ""
@@ -229,10 +237,13 @@ def _cancel_quietly(razorpay_subscription_id: str) -> None:
         )
 
 
-def _checkout_session(provider: str, *, plan: Plan, interval: str, profile) -> dict:
+def _checkout_session(
+    provider: str, *, payment_mode: str, plan: Plan, interval: str, profile
+) -> dict:
     """The ``CheckoutSession`` fields every provider shares; the others start as null."""
     return {
         "provider": provider,
+        "payment_mode": payment_mode,
         "name": CHECKOUT_NAME,
         "description": _checkout_description(plan, interval),
         "prefill": {"name": profile.legal_name, "email": profile.email},
@@ -245,28 +256,56 @@ def _checkout_session(provider: str, *, plan: Plan, interval: str, profile) -> d
     }
 
 
-def start_checkout(*, workspace, plan_slug: str, interval: str) -> dict:
-    """Start a checkout on ``settings.BILLING_PROVIDER`` and return the ``CheckoutSession``."""
+def default_payment_mode() -> str:
+    """Auto-pay on Razorpay; Cashfree only sells prepaid periods."""
+    if settings.BILLING_PROVIDER == BillingProvider.CASHFREE:
+        return PaymentMode.ONE_TIME
+    return PaymentMode.AUTOPAY
+
+
+def start_checkout(
+    *, workspace, plan_slug: str, interval: str, payment_mode: str | None = None
+) -> dict:
+    """Start a checkout on ``settings.BILLING_PROVIDER`` and return the ``CheckoutSession``.
+
+    ``payment_mode`` is ``autopay`` (a Razorpay subscription) or ``one_time`` (a prepaid order);
+    it defaults to auto-pay on Razorpay and one-time on Cashfree, which has no auto-pay.
+    """
+    payment_mode = payment_mode or default_payment_mode()
+    cashfree_checkout = settings.BILLING_PROVIDER == BillingProvider.CASHFREE
+    if cashfree_checkout and payment_mode != PaymentMode.ONE_TIME:
+        raise exceptions.ValidationError(
+            {"payment_mode": ["Auto-pay isn't available; choose one_time."]}
+        )
     plan = Plan.objects.filter(slug=plan_slug, is_active=True).first()
     if plan is None:
         raise exceptions.ValidationError({"plan_id": ["This plan is not available."]})
-    if settings.BILLING_PROVIDER == BillingProvider.CASHFREE:
+    if cashfree_checkout:
         return start_cashfree_checkout(workspace=workspace, plan=plan, interval=interval)
+    if payment_mode == PaymentMode.ONE_TIME:
+        return start_razorpay_order_checkout(workspace=workspace, plan=plan, interval=interval)
     return start_razorpay_checkout(workspace=workspace, plan=plan, interval=interval)
 
 
+def _refuse_autopay_while_active(subscription: Subscription) -> None:
+    if subscription.status == Status.ACTIVE:
+        if subscription.is_prepaid:
+            raise SubscriptionAlreadyActive(SubscriptionAlreadyActive.prepaid_detail)
+        raise SubscriptionAlreadyActive()
+
+
 def start_razorpay_checkout(*, workspace, plan: Plan, interval: str) -> dict:
-    """Create (or reuse) a Razorpay subscription and return Razorpay Checkout options.
+    """Create (or reuse) a Razorpay auto-pay subscription and return Razorpay Checkout options.
 
     The Subscription keeps its current plan (and trial) until Razorpay activates it; a trialing
-    workspace shows ``pending`` meanwhile.
+    workspace shows ``pending`` meanwhile. An active plan blocks it: an auto-pay one must be
+    cancelled first, a prepaid one must run out first.
     """
     profile = get_billing_profile(workspace)
     if not profile.is_complete:
         raise BillingProfileRequired()
     subscription = get_subscription(workspace)
-    if subscription.status == Status.ACTIVE:
-        raise SubscriptionAlreadyActive()
+    _refuse_autopay_while_active(subscription)
 
     try:
         razorpay_plan_id = razorpay.plan_id_for(plan.slug, interval)
@@ -288,8 +327,7 @@ def start_razorpay_checkout(*, workspace, plan: Plan, interval: str) -> dict:
     superseded = None
     with transaction.atomic():
         subscription = get_subscription(workspace, for_update=True)
-        if subscription.status == Status.ACTIVE:
-            raise SubscriptionAlreadyActive()
+        _refuse_autopay_while_active(subscription)
         if subscription.razorpay_subscription_id != subscription_id:
             superseded = subscription.razorpay_subscription_id
             subscription.razorpay_subscription_id = subscription_id
@@ -303,9 +341,65 @@ def start_razorpay_checkout(*, workspace, plan: Plan, interval: str) -> dict:
         _cancel_quietly(superseded)
     entitlements.clear_cache(workspace)
     session = _checkout_session(
-        BillingProvider.RAZORPAY, plan=plan, interval=interval, profile=profile
+        BillingProvider.RAZORPAY,
+        payment_mode=PaymentMode.AUTOPAY,
+        plan=plan,
+        interval=interval,
+        profile=profile,
     )
     session.update(key_id=settings.RAZORPAY_KEY_ID, subscription_id=subscription_id)
+    return session
+
+
+def _refuse_prepaid_while_autopay_active(subscription: Subscription) -> None:
+    """A prepaid plan may be renewed or changed while active; an auto-pay one must be
+    cancelled first."""
+    if subscription.status == Status.ACTIVE and not subscription.is_prepaid:
+        raise SubscriptionAlreadyActive()
+
+
+def start_razorpay_order_checkout(*, workspace, plan: Plan, interval: str) -> dict:
+    """Create a Razorpay order for one prepaid period and return Razorpay Checkout options.
+
+    The subscription doesn't change until the order is paid (:func:`fulfil_order`).
+    """
+    profile = get_billing_profile(workspace)
+    if not profile.is_complete:
+        raise BillingProfileRequired()
+    subscription = get_subscription(workspace)
+    _refuse_prepaid_while_autopay_active(subscription)
+
+    amount_paise = checkout_total_paise(plan, interval, profile.state_code)
+    try:
+        entity = razorpay.get_razorpay_client().create_order(
+            amount=amount_paise,
+            currency="INR",
+            receipt=f"upc_{uuid.uuid4().hex}",
+            notes={"workspace_id": str(workspace.pk), "plan": plan.slug, "interval": interval},
+        )
+        order_id = entity.get("id")
+        if not isinstance(order_id, str) or not order_id or len(order_id) > 64:
+            raise razorpay.RazorpayError("Razorpay did not return an order id.")
+    except razorpay.RazorpayError as exc:
+        logger.error("Razorpay order checkout failed for workspace %s: %s", workspace.pk, exc)
+        raise BillingUnavailable() from exc
+
+    BillingOrder.objects.create(
+        workspace=workspace,
+        provider=BillingProvider.RAZORPAY,
+        order_id=order_id,
+        plan=plan,
+        interval=interval,
+        amount_paise=amount_paise,
+    )
+    session = _checkout_session(
+        BillingProvider.RAZORPAY,
+        payment_mode=PaymentMode.ONE_TIME,
+        plan=plan,
+        interval=interval,
+        profile=profile,
+    )
+    session.update(key_id=settings.RAZORPAY_KEY_ID, order_id=order_id, amount_paise=amount_paise)
     return session
 
 
@@ -366,15 +460,14 @@ def start_cashfree_checkout(*, workspace, plan: Plan, interval: str) -> dict:
     """Create a Cashfree order for one prepaid period and return Cashfree Checkout options.
 
     The subscription doesn't change until the order is paid (:func:`fulfil_order`). An active
-    Cashfree plan may check out again to renew or change plan; an active Razorpay subscription
+    prepaid plan may check out again to renew or change plan; an active auto-pay subscription
     must be cancelled first.
     """
     profile = get_billing_profile(workspace)
     if not (profile.is_complete and profile.phone):
         raise BillingProfileRequired(BillingProfileRequired.phone_detail)
     subscription = get_subscription(workspace)
-    if subscription.status == Status.ACTIVE and subscription.is_razorpay:
-        raise SubscriptionAlreadyActive()
+    _refuse_prepaid_while_autopay_active(subscription)
 
     amount_paise = checkout_total_paise(plan, interval, profile.state_code)
     order_id = f"upc_{uuid.uuid4().hex}"
@@ -406,7 +499,11 @@ def start_cashfree_checkout(*, workspace, plan: Plan, interval: str) -> dict:
         payment_session_id=session_id,
     )
     session = _checkout_session(
-        BillingProvider.CASHFREE, plan=plan, interval=interval, profile=profile
+        BillingProvider.CASHFREE,
+        payment_mode=PaymentMode.ONE_TIME,
+        plan=plan,
+        interval=interval,
+        profile=profile,
     )
     session.update(
         order_id=order_id,
@@ -472,11 +569,62 @@ def _successful_payment_id(client, order_id: str) -> str:
     return ""
 
 
-def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = None) -> bool:
-    """Apply a paid Cashfree order: extend or start the plan and issue the GST invoice.
+def verify_razorpay_order_checkout(
+    *, workspace, payment_id: str, order_id: str, signature: str
+) -> Subscription:
+    """Check the Checkout signature, then ask Razorpay whether the order is paid; fulfil it
+    when it is.
 
-    Idempotent: the order row is locked and an order that is already paid is left alone.
-    Returns True when this call fulfilled it.
+    Raises ``PaymentVerificationFailed`` for a bad signature or an unknown order (or another
+    workspace's), ``PaymentNotCompleted`` while it is unpaid and ``BillingUnavailable`` when
+    Razorpay is down.
+    """
+    order = BillingOrder.objects.filter(
+        workspace=workspace, provider=BillingProvider.RAZORPAY, order_id=order_id
+    ).first()
+    valid = order is not None and razorpay.order_signature_is_valid(
+        payment_id=payment_id,
+        order_id=order_id,
+        signature=signature,
+        secret=settings.RAZORPAY_KEY_SECRET,
+    )
+    if not valid:
+        logger.warning("Razorpay order verification failed for workspace %s", workspace.pk)
+        raise PaymentVerificationFailed()
+    if order.status == OrderStatus.PAID:
+        return get_subscription(workspace)
+
+    try:
+        client = razorpay.get_razorpay_client()
+        status = client.fetch_order(order_id).get("status")
+        captured = (
+            [
+                str(payment["id"])[:64]
+                for payment in client.fetch_order_payments(order_id)
+                if payment.get("status") == "captured" and payment.get("id")
+            ]
+            if status == "paid"
+            else []
+        )
+    except razorpay.RazorpayError as exc:
+        logger.warning("Could not fetch Razorpay order %s: %s", order_id, exc)
+        raise BillingUnavailable() from exc
+    if status != "paid":
+        raise PaymentNotCompleted()
+    if payment_id not in captured and captured:
+        payment_id = captured[0]
+    fulfil_order(order_id, payment_id=payment_id[:64])
+    return get_subscription(workspace)
+
+
+def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = None) -> bool:
+    """Apply a paid prepaid order (Razorpay or Cashfree): extend or start the plan and issue the
+    GST invoice.
+
+    Paying for the plan and interval of an active prepaid plan extends it from its period end,
+    whichever gateway took either payment; anything else starts a new period now. Idempotent:
+    the order row is locked and an order that is already paid is left alone. Returns True when
+    this call fulfilled it.
     """
     now = timezone.now()
     with transaction.atomic():
@@ -491,7 +639,7 @@ def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = N
         subscription = get_subscription(order.workspace, for_update=True)
         renewal = (
             subscription.status == Status.ACTIVE
-            and subscription.is_cashfree
+            and subscription.is_prepaid
             and subscription.plan_id == order.plan_id
             and subscription.interval == order.interval
             and subscription.current_period_end is not None
@@ -515,7 +663,8 @@ def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = N
         subscription.plan = order.plan
         subscription.interval = order.interval
         subscription.status = Status.ACTIVE
-        subscription.provider = BillingProvider.CASHFREE
+        subscription.provider = order.provider
+        subscription.prepaid = True
         subscription.current_period_end = period_end
         subscription.cancel_at_period_end = False
         subscription.activated_at = subscription.activated_at or now
@@ -527,7 +676,7 @@ def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = N
         create_paid_invoice(
             subscription=subscription,
             payment_id=payment_id,
-            payment_provider=BillingProvider.CASHFREE,
+            payment_provider=order.provider,
             issued_at=paid_at or now,
             period_start=period_start,
             period_end=period_end,
@@ -535,7 +684,7 @@ def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = N
         )
         order.status = OrderStatus.PAID
         order.paid_at = paid_at or now
-        order.cf_payment_id = payment_id
+        order.payment_id = payment_id
         order.period_start = period_start
         order.period_end = period_end
         order.payment_session_id = ""
@@ -543,15 +692,25 @@ def fulfil_order(order_id: str, *, payment_id: str, paid_at: datetime | None = N
         if superseded:
             transaction.on_commit(partial(_cancel_quietly, superseded))
     entitlements.clear_cache(order.workspace)
-    logger.info("Fulfilled Cashfree order %s for workspace %s", order_id, order.workspace_id)
+    logger.info(
+        "Fulfilled %s order %s for workspace %s", order.provider, order_id, order.workspace_id
+    )
     return True
 
 
 def verify_checkout(**data) -> Subscription:
-    """``CheckoutVerifyRequest``: a Cashfree ``order_id`` or the three Razorpay fields."""
+    """``CheckoutVerifyRequest``: a Cashfree ``order_id``, or the Razorpay payment id and
+    signature with ``razorpay_order_id`` (one-time) or ``razorpay_subscription_id`` (auto-pay)."""
     workspace = data.pop("workspace")
     if data.get("order_id"):
         return verify_cashfree_checkout(workspace=workspace, order_id=data["order_id"])
+    if data.get("razorpay_order_id"):
+        return verify_razorpay_order_checkout(
+            workspace=workspace,
+            payment_id=data["razorpay_payment_id"],
+            order_id=data["razorpay_order_id"],
+            signature=data["razorpay_signature"],
+        )
     return verify_razorpay_checkout(
         workspace=workspace,
         payment_id=data["razorpay_payment_id"],
@@ -600,14 +759,19 @@ def verify_razorpay_checkout(
 def cancel_subscription(*, workspace, at_period_end: bool) -> Subscription:
     """Cancel at the end of the paid period (or trial) or immediately. Idempotent once ended.
 
-    A prepaid Cashfree plan has nothing to cancel at the gateway (and no Razorpay id).
+    A prepaid plan (any gateway) has nothing to cancel at the gateway; only an open auto-pay
+    checkout started after it ended is cancelled at Razorpay.
     """
     subscription = get_subscription(workspace)
     in_checkout = subscription.checkout_in_progress
     if subscription.status in (Status.CANCELLED, Status.EXPIRED) and not in_checkout:
         return subscription
 
-    razorpay_id = None if subscription.is_cashfree else subscription.razorpay_subscription_id
+    razorpay_id = (
+        subscription.razorpay_subscription_id
+        if in_checkout or not subscription.is_prepaid
+        else None
+    )
     at_cycle_end = at_period_end and subscription.status == Status.ACTIVE and not in_checkout
     if razorpay_id and in_checkout:
         _cancel_quietly(razorpay_id)  # nothing was charged; don't block the local change
@@ -656,12 +820,10 @@ def expire_trials(*, now: datetime | None = None) -> int:
 
 
 def expire_prepaid(*, now: datetime | None = None) -> int:
-    """End Cashfree plans whose paid period is over: ``cancelled`` when the owner cancelled at
+    """End prepaid plans whose paid period is over: ``cancelled`` when the owner cancelled at
     period end, otherwise ``expired``. Returns how many changed."""
     now = now or timezone.now()
-    ended = Subscription.objects.filter(
-        provider=BillingProvider.CASHFREE, status=Status.ACTIVE, current_period_end__lte=now
-    )
+    ended = Subscription.objects.filter(PREPAID, status=Status.ACTIVE, current_period_end__lte=now)
     cancelled = ended.filter(cancel_at_period_end=True).update(
         status=Status.CANCELLED, cancel_at_period_end=False, updated_at=now
     )
@@ -715,7 +877,7 @@ def send_renewal_reminders(*, now: datetime | None = None) -> int:
     now = now or timezone.now()
     horizon = now + timedelta(days=max(RENEWAL_REMINDER_DAYS) + 1)
     candidates = Subscription.objects.filter(
-        provider=BillingProvider.CASHFREE,
+        PREPAID,
         status=Status.ACTIVE,
         cancel_at_period_end=False,
         current_period_end__gt=now,
