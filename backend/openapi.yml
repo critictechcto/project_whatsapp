@@ -960,6 +960,36 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedInvoiceList'
           description: ''
+  /api/v1/billing/invoices/{id}/pdf/:
+    get:
+      operationId: billing_invoices_pdf_retrieve
+      description: Rendered on demand from the invoice as it was issued.
+      summary: Download an invoice as PDF
+      parameters:
+      - in: header
+        name: X-Workspace-ID
+        schema:
+          type: string
+          format: uuid
+        description: Workspace to act in. The caller must be a member.
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - billing
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/v1/billing/plans/:
     get:
       operationId: billing_plans_list
@@ -8398,7 +8428,7 @@ components:
         download_url:
           type: string
           readOnly: true
-          nullable: true
+          description: API path of the PDF; send the usual auth and workspace headers.
       required:
       - cgst_paise
       - download_url

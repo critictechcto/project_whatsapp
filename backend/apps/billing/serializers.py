@@ -257,7 +257,9 @@ class InvoiceSerializer(serializers.Serializer):
     sgst_paise = serializers.IntegerField(read_only=True)
     igst_paise = serializers.IntegerField(read_only=True)
     total_paise = serializers.IntegerField(read_only=True)
-    download_url = serializers.CharField(read_only=True, allow_null=True)
+    download_url = serializers.CharField(
+        read_only=True, help_text="API path of the PDF; send the usual auth and workspace headers."
+    )
 
 
 class UsageMetricSerializer(serializers.Serializer):

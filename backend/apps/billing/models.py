@@ -266,8 +266,9 @@ class Invoice(TenantScopedModel):
         return self.number
 
     @property
-    def download_url(self) -> str | None:
-        return None
+    def download_url(self) -> str:
+        """API path of the PDF (``apps.billing.invoice_pdf``); fetch it with the Bearer token."""
+        return f"/api/v1/billing/invoices/{self.pk}/pdf/"
 
 
 class BillingOrder(TenantScopedModel):

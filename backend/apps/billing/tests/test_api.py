@@ -463,7 +463,7 @@ def test_invoices_are_listed_newest_first(auth_client, workspace, profile):
     assert item["status"] == "paid"
     assert (item["subtotal_paise"], item["cgst_paise"], item["sgst_paise"]) == (249900, 0, 0)
     assert (item["igst_paise"], item["total_paise"]) == (44982, 294882)
-    assert item["download_url"] is None
+    assert item["download_url"] == f"{INVOICES}{newer.pk}/pdf/"
 
 
 def test_invoices_are_paginated(auth_client, workspace, profile):
@@ -480,6 +480,37 @@ def test_invoices_are_tenant_isolated(auth_client, other_workspace):
     invoice = make_invoice(other_workspace, "pay_other", timezone.now())
 
     assert_tenant_isolated(auth_client(Role.ADMIN), object_id=invoice.pk, list_url=INVOICES)
+
+
+def test_invoice_pdf_downloads_for_admins(auth_client, workspace, profile):
+    invoice = make_invoice(workspace, "pay_pdf", timezone.now())
+
+    response = auth_client(Role.ADMIN).get(
+        f"{INVOICES}{invoice.pk}/pdf/", HTTP_ACCEPT="application/pdf"
+    )
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "application/pdf"
+    filename = invoice.number.replace("/", "-") + ".pdf"
+    assert response["Content-Disposition"] == f'attachment; filename="{filename}"'
+    assert response.content.startswith(b"%PDF")
+
+
+def test_invoice_pdf_needs_admin(auth_client, workspace, profile):
+    invoice = make_invoice(workspace, "pay_pdf_agent", timezone.now())
+
+    response = auth_client(Role.AGENT).get(f"{INVOICES}{invoice.pk}/pdf/")
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"]
+
+
+def test_invoice_pdf_of_another_workspace_is_not_found(auth_client, other_workspace):
+    invoice = make_invoice(other_workspace, "pay_pdf_other", timezone.now())
+
+    response = auth_client(Role.ADMIN).get(f"{INVOICES}{invoice.pk}/pdf/")
+
+    assert response.status_code == 404
 
 
 # --- Usage ----------------------------------------------------------------------------------

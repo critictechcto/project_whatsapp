@@ -5,16 +5,18 @@ import json
 import logging
 
 from django.conf import settings
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from common.roles import Role
 from common.tenancy import WorkspaceScopedGenericViewSet
 
-from . import cashfree, entitlements, razorpay, services, webhooks
+from . import cashfree, entitlements, invoice_pdf, razorpay, services, webhooks
 from .models import Invoice, Plan
 from .serializers import (
     BillingProfileSerializer,
@@ -161,6 +163,25 @@ class InvoiceViewSet(BillingViewSet):
     def list(self, request):
         page = self.paginate_queryset(self.get_queryset())
         return self.get_paginated_response(self.get_serializer(page, many=True).data)
+
+    def perform_content_negotiation(self, request, force=False):
+        # The PDF is a plain HttpResponse; an ``Accept: application/pdf`` client must not get 406,
+        # and errors still render as JSON.
+        return super().perform_content_negotiation(request, force=True)
+
+    @extend_schema(
+        operation_id="billing_invoices_pdf_retrieve",
+        summary="Download an invoice as PDF",
+        description="Rendered on demand from the invoice as it was issued.",
+        responses={(200, "application/pdf"): OpenApiTypes.BINARY},
+    )
+    @action(detail=True, methods=["get"], url_path="pdf")
+    def pdf(self, request, pk=None):
+        invoice = self.get_object()
+        response = HttpResponse(invoice_pdf.render(invoice), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{invoice_pdf.filename(invoice)}"'
+        response["Cache-Control"] = "private, no-store"
+        return response
 
 
 class UsageViewSet(BillingViewSet):

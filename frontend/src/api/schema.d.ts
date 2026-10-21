@@ -419,6 +419,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/invoices/{id}/pdf/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download an invoice as PDF
+         * @description Rendered on demand from the invoice as it was issued.
+         */
+        get: operations["billing_invoices_pdf_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/plans/": {
         parameters: {
             query?: never;
@@ -3201,7 +3221,8 @@ export interface components {
             readonly sgst_paise: number;
             readonly igst_paise: number;
             readonly total_paise: number;
-            readonly download_url: string | null;
+            /** @description API path of the PDF; send the usual auth and workspace headers. */
+            readonly download_url: string;
         };
         /**
          * @description * `issued` - issued
@@ -6230,6 +6251,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedInvoiceList"];
+                };
+            };
+        };
+    };
+    billing_invoices_pdf_retrieve: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Workspace to act in. The caller must be a member. */
+                "X-Workspace-ID": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
         };

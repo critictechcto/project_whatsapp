@@ -2,7 +2,7 @@ import type { Schemas } from '../../../api/types'
 import { ANNUAL_MONTHS_CHARGED, plans as sitePlans, site } from '../../../config/site'
 import { db } from '../../../mocks/db'
 import { daysAgo, ids } from '../../../mocks/seed'
-import { authorize, errorResponse, http, mockDelay, nowIso, paginate, uuid, validationError } from '../../../mocks/utils'
+import { authorize, errorResponse, http, mockDelay, notFound, nowIso, paginate, uuid, validationError } from '../../../mocks/utils'
 import type { AreaMockHandlers } from '../registry/types'
 import { phoneNumbersFor } from '../whatsapp/mockState'
 import { GST_STATES, GSTIN_PATTERN, normalizePhone, PHONE_PATTERN } from './gst'
@@ -126,8 +126,9 @@ const subtotalFor = (plan: Plan, interval: Interval) => (interval === 'annual' ?
 let invoiceSequence = 142
 
 function makeInvoice(number: number, subtotal: number, stateCode: string, issuedAt: string, periodStart: string, periodEnd: string): Invoice {
+  const id = uuid()
   return {
-    id: uuid(),
+    id,
     number: `UPC/2026-27/${String(number).padStart(6, '0')}`,
     status: 'paid',
     issued_at: issuedAt,
@@ -135,7 +136,7 @@ function makeInvoice(number: number, subtotal: number, stateCode: string, issued
     period_end: periodEnd,
     subtotal_paise: subtotal,
     ...taxes(subtotal, stateCode),
-    download_url: null,
+    download_url: `/api/v1/billing/invoices/${id}/pdf/`,
   }
 }
 
@@ -510,6 +511,22 @@ export const handlers: AreaMockHandlers = [
     const record = recordFor(ctx.workspace.id)
     settle(record)
     return response(200).json(paginate(request, record.invoices))
+  }),
+
+  http.get('/api/v1/billing/invoices/{id}/pdf/', ({ request, params, response }) => {
+    const ctx = authorize(request, 'admin')
+    if (ctx instanceof Response) return response.untyped(ctx)
+    const invoice = recordFor(ctx.workspace.id).invoices.find((item) => item.id === params.id)
+    if (!invoice) return response.untyped(notFound())
+    const filename = `${invoice.number.replaceAll('/', '-')}.pdf`
+    return response.untyped(
+      new Response(`%PDF-1.4
+% Mock invoice ${invoice.number}
+%%EOF
+`, {
+        headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` },
+      }),
+    )
   }),
 
   http.get('/api/v1/billing/usage/', ({ request, response }) => {

@@ -298,6 +298,36 @@ describe('billing', () => {
     expect(screen.queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument()
   })
 
+  it('downloads an invoice PDF through the authenticated client', async () => {
+    const requested: string[] = []
+    server.use(
+      http.untyped.get(apiUrl('/api/v1/billing/invoices/:id/pdf/'), ({ request, params }) => {
+        requested.push(`${params.id} ${request.headers.get('Authorization')?.split(' ')[0]}`)
+        return new Response('%PDF-1.4', {
+          headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="UPC-2026-27-000150.pdf"' },
+        })
+      }),
+    )
+    const createObjectURL = vi.fn(() => 'blob:invoice')
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() })
+    const saved: string[] = []
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push(this.download)
+    })
+
+    signIn()
+    const { user } = renderDashboard(`/app/w/${ids.kaveriClinic}/billing`)
+    const [button] = await screen.findAllByRole('button', { name: /^Download invoice .* as PDF$/ })
+    await user.click(button)
+
+    await waitFor(() => expect(saved).toEqual(['UPC-2026-27-000150.pdf']))
+    expect(requested).toHaveLength(1)
+    expect(requested[0]).toMatch(/ Bearer$/)
+    expect(screen.queryByText('PDF not ready')).not.toBeInTheDocument()
+    Reflect.deleteProperty(URL, 'createObjectURL')
+    Reflect.deleteProperty(URL, 'revokeObjectURL')
+  })
+
   it('shows the GST breakdown on invoices that charged GST', async () => {
     server.use(
       http.untyped.get(apiUrl('/api/v1/billing/invoices/'), () =>
@@ -317,7 +347,7 @@ describe('billing', () => {
               sgst_paise: 89910,
               igst_paise: 0,
               total_paise: 1178820,
-              download_url: null,
+              download_url: '/api/v1/billing/invoices/7b3c0d64-5f1e-4c55-9a0b-2b7f1c9e0a11/pdf/',
             },
           ] satisfies Schemas['Invoice'][],
         }),
