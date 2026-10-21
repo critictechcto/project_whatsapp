@@ -12,6 +12,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from common.cashfree import credentials_for as cashfree_credentials_for
 from common.enum_overrides import AppEnumNameOverrides
+from common.razorpay import credentials_for as razorpay_credentials_for
 from common.redis_tls import redis_ssl_options
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
@@ -400,8 +401,13 @@ WS_ALLOWED_ORIGINS = env.list("WS_ALLOWED_ORIGINS", default=CORS_ALLOWED_ORIGINS
 
 # --- Billing (Razorpay) ---------------------------------------------------------------------
 
-RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
-RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
+# UpChatz's own Razorpay account. RAZORPAY_ENV picks the key pair: "test" (default) reads
+# RAZORPAY_TEST_API_KEY_ID/SECRET, "live" reads RAZORPAY_API_KEY_ID/SECRET. Plan ids and the
+# webhook secret differ per mode in Razorpay too, so change them along with RAZORPAY_ENV.
+RAZORPAY_ENV = env("RAZORPAY_ENV", default="test").strip().lower()
+RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET = razorpay_credentials_for(
+    RAZORPAY_ENV, lambda name: env(name, default="")
+)
 RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
 # Razorpay plan ids by plan slug and interval, as JSON:
 #   {"starter": {"monthly": "plan_...", "annual": "plan_..."}, "growth": {...}, "pro": {...}}

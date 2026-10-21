@@ -96,3 +96,26 @@ def test_webhook_signature():
     assert not razorpay.webhook_signature_is_valid(body, signature, "other")
     assert not razorpay.webhook_signature_is_valid(body, None, "whsec")
     assert not razorpay.webhook_signature_is_valid(body, signature, "")
+
+
+ENV = {
+    "RAZORPAY_TEST_API_KEY_ID": " rzp_test_abc ",
+    "RAZORPAY_TEST_API_KEY_SECRET": "test-secret",
+    "RAZORPAY_API_KEY_ID": "rzp_live_xyz",
+    "RAZORPAY_API_KEY_SECRET": "live-secret",
+}
+
+
+def test_credentials_follow_razorpay_env():
+    assert razorpay.credentials_for("test", ENV.get) == ("rzp_test_abc", "test-secret")
+    assert razorpay.credentials_for("live", ENV.get) == ("rzp_live_xyz", "live-secret")
+    assert razorpay.credentials_for("live", {}.get) == ("", "")
+
+
+def test_credentials_reject_an_unknown_env_or_a_key_from_the_other_mode():
+    from django.core.exceptions import ImproperlyConfigured
+
+    with pytest.raises(ImproperlyConfigured):
+        razorpay.credentials_for("production", ENV.get)
+    with pytest.raises(ImproperlyConfigured):
+        razorpay.credentials_for("test", {"RAZORPAY_TEST_API_KEY_ID": "rzp_live_xyz"}.get)

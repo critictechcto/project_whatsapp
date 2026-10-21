@@ -293,11 +293,22 @@ envs:
     scope: RUN_AND_BUILD_TIME
 
   # --- Billing (Razorpay: auto-pay subscriptions and pay-once orders) -----------------------
-  - key: RAZORPAY_KEY_ID
+  # test reads RAZORPAY_TEST_API_KEY_*, live reads RAZORPAY_API_KEY_*.
+  - key: RAZORPAY_ENV
+    value: test
+    scope: RUN_AND_BUILD_TIME
+  - key: RAZORPAY_TEST_API_KEY_ID
     value: CHANGE_ME
     scope: RUN_AND_BUILD_TIME
-  - key: RAZORPAY_KEY_SECRET
+  - key: RAZORPAY_TEST_API_KEY_SECRET
     value: CHANGE_ME
+    type: SECRET
+    scope: RUN_AND_BUILD_TIME
+  - key: RAZORPAY_API_KEY_ID
+    value: ""
+    scope: RUN_AND_BUILD_TIME
+  - key: RAZORPAY_API_KEY_SECRET
+    value: ""
     type: SECRET
     scope: RUN_AND_BUILD_TIME
   - key: RAZORPAY_WEBHOOK_SECRET

@@ -85,7 +85,7 @@ Billing uses Razorpay Subscriptions. Plan prices are GST-exclusive in the app; t
    ```
    RAZORPAY_PLAN_IDS={"starter": {"monthly": "plan_…", "annual": "plan_…"}, "growth": {"monthly": "plan_…", "annual": "plan_…"}, "pro": {"monthly": "plan_…", "annual": "plan_…"}}
    ```
-3. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` (API keys), and optionally `RAZORPAY_TIMEOUT` (seconds, default 20).
+3. Set the API keys: `RAZORPAY_TEST_API_KEY_ID`/`RAZORPAY_TEST_API_KEY_SECRET` (`rzp_test_…`) and `RAZORPAY_API_KEY_ID`/`RAZORPAY_API_KEY_SECRET` (`rzp_live_…`). `RAZORPAY_ENV` (`test` by default, or `live`) picks the pair; a key from the other mode stops settings from loading, and optionally `RAZORPAY_TIMEOUT` (seconds, default 20).
 4. Set the seller details printed on GST invoices:
    - `BILLING_SELLER_LEGAL_NAME`, `BILLING_SELLER_ADDRESS`
    - `BILLING_SELLER_GSTIN`, with `BILLING_SELLER_STATE_CODE` matching its first two digits

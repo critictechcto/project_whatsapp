@@ -84,7 +84,8 @@ The other variables:
 | `META_APP_ID`, `META_APP_SECRET` | Meta App Dashboard → App settings → Basic |
 | `META_EMBEDDED_SIGNUP_CONFIG_ID` | Facebook Login for Business → Configurations |
 | `PLATFORM_WA_*` | UpChatz's own alerts number (WABA ID, phone number ID, display number, system-user token). Leave these empty to turn seller alerts off. |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Razorpay Dashboard → Account & Settings → API Keys (`rzp_test_…` in test mode, `rzp_live_…` once live). Plan billing runs on Razorpay (`BILLING_PROVIDER=razorpay`, the spec's value) |
+| `RAZORPAY_ENV` | `test` (the spec's value) or `live`. It picks which key pair below is used; a key from the other mode stops the app from starting |
+| `RAZORPAY_TEST_API_KEY_ID`, `RAZORPAY_TEST_API_KEY_SECRET`, `RAZORPAY_API_KEY_ID`, `RAZORPAY_API_KEY_SECRET` | Razorpay Dashboard → Account & Settings → API Keys: the `rzp_test_…` pair in test mode and the `rzp_live_…` pair in live mode. To go live, set `RAZORPAY_ENV=live` and switch the webhook secret and plan ids to the live-mode ones. Plan billing runs on Razorpay (`BILLING_PROVIDER=razorpay`, the spec's value) |
 | `RAZORPAY_WEBHOOK_SECRET` | A long random string you choose; enter the same value on the Razorpay webhook (step 5) |
 | `RAZORPAY_PLAN_IDS` | The six Razorpay plan ids (step 5), as JSON. Needed for auto-pay only; pay once works without them |
 | `TEST_CASHFREE_API_APP_ID`, `TEST_CASHFREE_API_SECRET`, `CASHFREE_API_APP_ID`, `CASHFREE_API_SECRET` | Optional. Cashfree is dormant; these matter only if `BILLING_PROVIDER` is set back to `cashfree` |

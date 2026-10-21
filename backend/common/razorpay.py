@@ -8,14 +8,42 @@ secrets, webhook secrets or signatures.
 import hashlib
 import hmac
 import re
+from collections.abc import Callable
 from typing import Any
 
 import httpx
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 JSON = dict[str, Any]
 
 API_BASE_URL = "https://api.razorpay.com/v1"
+
+# UpChatz's own keys (plan billing) per RAZORPAY_ENV: (key id, key secret, key id prefix).
+ENVIRONMENTS = ("test", "live")
+CREDENTIAL_ENV_VARS = {
+    "test": ("RAZORPAY_TEST_API_KEY_ID", "RAZORPAY_TEST_API_KEY_SECRET", "rzp_test_"),
+    "live": ("RAZORPAY_API_KEY_ID", "RAZORPAY_API_KEY_SECRET", "rzp_live_"),
+}
+
+
+def credentials_for(razorpay_env: str, getenv: Callable[[str], str]) -> tuple[str, str]:
+    """``(key id, secret)`` for ``RAZORPAY_ENV``: the ``TEST_*`` keys in test, the live keys in
+    live. Missing keys are ``""``. An unknown environment, or a key id from the other mode, is
+    ``ImproperlyConfigured`` so test settings can never charge real money (or the reverse)."""
+    names = CREDENTIAL_ENV_VARS.get(razorpay_env)
+    if names is None:
+        raise ImproperlyConfigured(
+            f"RAZORPAY_ENV must be one of {', '.join(ENVIRONMENTS)}, not {razorpay_env!r}."
+        )
+    id_name, secret_name, prefix = names
+    key_id, secret = (str(getenv(name) or "").strip() for name in (id_name, secret_name))
+    if key_id and not key_id.startswith(prefix):
+        raise ImproperlyConfigured(
+            f"{id_name} must start with {prefix} because RAZORPAY_ENV is {razorpay_env!r}."
+        )
+    return key_id, secret
+
 
 _ID_RE = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 
