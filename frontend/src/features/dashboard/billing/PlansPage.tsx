@@ -2,7 +2,6 @@ import { ArrowLeft, Check } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Button, PageHeader, Skeleton, Spinner, StatusBadge } from '../../../components/app'
-import { ANNUAL_MONTHS_CHARGED } from '../../../config/site'
 import { cn } from '../../../lib/cn'
 import { useWorkspace } from '../../../lib/workspace'
 import { actionErrorMessage } from '../settings/ui/hooks'
@@ -43,6 +42,9 @@ export function PlansPage() {
   const checkoutMode = razorpay ? paymentMode : undefined
   const gstRate = gstRateOf(subscription.data)
   const monthlyNote = (price: number) => `works out to ${formatPlanPrice(Math.round(price / 12))} a month`
+  // The toggle's "N months free" follows the recommended plan's own two prices; left out when unknown.
+  const hintPlan = plans.data?.find((plan) => planCopy(plan.id)?.recommended) ?? plans.data?.[0]
+  const annualHint = hintPlan ? freeMonthsLabel(hintPlan) : null
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
@@ -53,7 +55,7 @@ export function PlansPage() {
           </Link>
         }
         title="Plans"
-        description={`${gstRate > 0 ? `Prices are in rupees and don't include ${gstRate}% GST.` : 'Prices are in rupees, with no GST added.'} Annual billing charges ${ANNUAL_MONTHS_CHARGED} months for a full year.`}
+        description={`${gstRate > 0 ? `Prices are in rupees and don't include ${gstRate}% GST.` : 'Prices are in rupees, with no GST added.'} Annual plans are paid for a year in advance.`}
       />
 
       {!isOwner && (
@@ -64,7 +66,14 @@ export function PlansPage() {
         <Notice
           tone="success"
           title="Billing details saved"
-          action={<Button onClick={() => void checkout(resumePlan, interval, checkoutMode)}>Continue to payment</Button>}
+          action={
+            <Button
+              disabled={planPricePaise(resumePlan, interval) === null}
+              onClick={() => void checkout(resumePlan, interval, checkoutMode)}
+            >
+              Continue to payment
+            </Button>
+          }
         >
           Continue to pay for the {resumePlan.name} plan, billed {intervalLabels[interval].toLowerCase()}.
         </Notice>
@@ -91,7 +100,7 @@ export function PlansPage() {
           onValueChange={setBillingInterval}
           options={[
             { value: 'monthly', label: 'Monthly' },
-            { value: 'annual', label: 'Annual', hint: freeMonthsLabel },
+            { value: 'annual', label: 'Annual', hint: annualHint ?? undefined },
           ]}
         />
         {razorpay && (
@@ -150,14 +159,31 @@ export function PlansPage() {
                   {current ? <StatusBadge tone="green">Current plan</StatusBadge> : copy?.recommended && <StatusBadge tone="blue">Recommended</StatusBadge>}
                 </div>
                 {copy?.blurb && <p className="mt-1 text-[13px] text-muted">{copy.blurb}</p>}
-                <p className="mt-4">
-                  <span className="font-display text-3xl font-semibold tracking-[-0.02em] text-ink">{formatPlanPrice(price)}</span>
-                  <span className="text-sm text-muted"> / {interval === 'annual' ? 'year' : 'month'}</span>
-                </p>
-                {(gstRate > 0 || interval === 'annual') && (
-                  <p className="text-[13px] text-muted">
-                    {[gstRate > 0 && `+ ${gstRate}% GST`, interval === 'annual' && monthlyNote(price)].filter(Boolean).join(' · ')}
-                  </p>
+                {price === null ? (
+                  <>
+                    <p className="mt-4 font-display text-3xl font-semibold tracking-[-0.02em] text-muted">Not available</p>
+                    <p className="text-[13px] text-muted">
+                      {interval === 'annual' ? 'Annual' : 'Monthly'} billing can't be bought right now.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-4">
+                      <span className="font-display text-3xl font-semibold tracking-[-0.02em] text-ink">{formatPlanPrice(price)}</span>
+                      <span className="text-sm text-muted"> / {interval === 'annual' ? 'year' : 'month'}</span>
+                    </p>
+                    {(gstRate > 0 || interval === 'annual') && (
+                      <p className="text-[13px] text-muted">
+                        {[
+                          gstRate > 0 && `+ ${gstRate}% GST`,
+                          interval === 'annual' && monthlyNote(price),
+                          interval === 'annual' && freeMonthsLabel(plan),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    )}
+                  </>
                 )}
                 <ul className="mt-4 flex flex-col gap-1.5 border-t border-line-2 pt-4 text-sm">
                   {(['whatsapp_numbers', 'members', 'contacts'] as const).map((key) => (
@@ -178,7 +204,7 @@ export function PlansPage() {
                   <Button
                     className="mt-5 w-full"
                     variant={copy?.recommended ? 'primary' : 'secondary'}
-                    disabled={switchBlocked || (current && !renewable) || stage !== 'idle'}
+                    disabled={price === null || switchBlocked || (current && !renewable) || stage !== 'idle'}
                     loading={planId === plan.id}
                     onClick={() => void checkout(plan, interval, checkoutMode)}
                   >

@@ -1,5 +1,5 @@
 import type { Schemas } from '../../../api/types'
-import { ANNUAL_MONTHS_CHARGED, plans as sitePlans, site } from '../../../config/site'
+import { plans as sitePlans, site } from '../../../config/site'
 import { db } from '../../../mocks/db'
 import { daysAgo, ids } from '../../../mocks/seed'
 import { authorize, errorResponse, http, mockDelay, notFound, nowIso, paginate, uuid, validationError } from '../../../mocks/utils'
@@ -46,14 +46,23 @@ const planLimits: Record<string, Plan['limits']> = {
   pro: { whatsapp_numbers: 5, members: 15, contacts: 100000 },
 }
 
-const apiPlans: Plan[] = sitePlans.map((plan) => ({
-  id: plan.id,
-  name: plan.name,
-  monthly_price_paise: plan.monthlyPrice * 100,
-  annual_price_paise: plan.monthlyPrice * 100 * ANNUAL_MONTHS_CHARGED,
-  limits: planLimits[plan.id] ?? { whatsapp_numbers: null, members: null, contacts: null },
-  features: plan.features,
-}))
+/**
+ * Mock monthly prices in rupees. The real prices live only in Razorpay plans (the API reads them);
+ * annual is ten months' worth, like the demo Razorpay plans.
+ */
+const mockMonthlyRupees: Record<string, number> = { starter: 999, growth: 2499, pro: 5999 }
+
+const apiPlans: Plan[] = sitePlans.map((plan) => {
+  const monthly = (mockMonthlyRupees[plan.id] ?? 0) * 100
+  return {
+    id: plan.id,
+    name: plan.name,
+    monthly_price_paise: monthly || null,
+    annual_price_paise: monthly ? monthly * 10 : null,
+    limits: planLimits[plan.id] ?? { whatsapp_numbers: null, members: null, contacts: null },
+    features: plan.features,
+  }
+})
 
 const planById = (id: string) => apiPlans.find((plan) => plan.id === id)
 
@@ -121,7 +130,10 @@ function taxes(subtotal: number, stateCode: string) {
   return { cgst_paise: 0, sgst_paise: 0, igst_paise: igst, total_paise: subtotal + igst }
 }
 
-const subtotalFor = (plan: Plan, interval: Interval) => (interval === 'annual' ? plan.annual_price_paise : plan.monthly_price_paise)
+/** Price before GST, or null when the interval can't be bought (checkout refuses it with 409 `plan_unavailable`). */
+const priceFor = (plan: Plan, interval: Interval) => (interval === 'annual' ? plan.annual_price_paise : plan.monthly_price_paise)
+/** Invoice subtotal for a plan that was checked out, so it has a price. */
+const subtotalFor = (plan: Plan, interval: Interval) => priceFor(plan, interval) ?? 0
 
 let invoiceSequence = 142
 
@@ -179,8 +191,8 @@ function build(): Map<string, BillingRecord> {
       postal_code: '560038',
     },
     invoices: [
-      makeInvoice(142, starter.annual_price_paise, '29', daysAgo(40), daysAgo(40), daysAgo(-325)),
-      makeInvoice(87, starter.monthly_price_paise, '29', daysAgo(71), daysAgo(71), daysAgo(41)),
+      makeInvoice(142, subtotalFor(starter, 'annual'), '29', daysAgo(40), daysAgo(40), daysAgo(-325)),
+      makeInvoice(87, subtotalFor(starter, 'monthly'), '29', daysAgo(71), daysAgo(71), daysAgo(41)),
     ],
     checkout: null,
     orders: new Map(),
@@ -327,6 +339,11 @@ export const handlers: AreaMockHandlers = [
     return response(200).json(apiPlans)
   }),
 
+  // Public: no auth and no workspace header (the landing pricing section reads it).
+  http.get('/api/v1/billing/public-plans/', ({ response }) =>
+    response(200).json({ gst_rate_percent: site.gstRate, plans: apiPlans }),
+  ),
+
   http.get('/api/v1/billing/subscription/', ({ request, response }) => {
     const ctx = authorize(request)
     if (ctx instanceof Response) return response.untyped(ctx)
@@ -349,6 +366,9 @@ export const handlers: AreaMockHandlers = [
       errors.payment_mode = [`"${String(body.payment_mode)}" is not a valid choice.`]
     }
     if (Object.keys(errors).length || !plan || !body.interval) return response.untyped(validationError(errors))
+    if (priceFor(plan, body.interval) === null) {
+      return response.untyped(errorResponse(409, 'plan_unavailable', "This plan can't be bought right now."))
+    }
     const cashfree = checkoutProvider === 'cashfree'
     const paymentMode: PaymentMode = cashfree ? 'one_time' : (body.payment_mode ?? 'autopay')
     if (!isComplete(record.profile) || (cashfree && !record.profile.phone)) {

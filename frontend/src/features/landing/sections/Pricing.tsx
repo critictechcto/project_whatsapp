@@ -8,10 +8,11 @@ import { SectionHeader } from '../../../components/ui/SectionHeader'
 import { SnapPager } from '../../../components/ui/SnapPager'
 import { useSnapRow } from '../../../components/ui/useSnapRow'
 import { TiltCard } from '../../../components/ui/TiltCard'
-import { ANNUAL_MONTHS_CHARGED, plans, site } from '../../../config/site'
+import { plans, site } from '../../../config/site'
 import { cn } from '../../../lib/cn'
 import { formatINR } from '../../../lib/format'
 import { prefersReducedMotion } from '../../../lib/motion'
+import { monthsFree, usePublicPrices } from '../lib/pricing'
 import { useOnScreen } from '../lib/useOnScreen'
 import './Pricing.css'
 
@@ -79,13 +80,36 @@ function PlanPrice({ amount }: { amount: number }) {
   )
 }
 
+/**
+ * Stands in for a price that hasn't arrived (or can't be shown): the rupee sign and a quiet bar at the
+ * price's own size and line height, so the card keeps its height when the number replaces it. The note
+ * under it says why; screen readers read that note.
+ */
+function PricePlaceholder() {
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="plan-price-placeholder"
+      className="pricing-amount font-display text-[2.7rem] font-semibold leading-none tracking-[-0.035em] text-muted/70"
+    >
+      ₹<span className="ml-1 inline-block h-[0.6em] w-[2.4em] rounded-sm bg-line-2" />
+    </span>
+  )
+}
+
 const recommendedIndex = Math.max(
   0,
   plans.findIndex((plan) => plan.recommended),
 )
+const recommendedId = plans[recommendedIndex]?.id
 
 export function Pricing() {
   const [billing, setBilling] = useState<Billing>('annual')
+  // Prices come from the API after hydration; the prerendered page shows placeholders.
+  const pricing = usePublicPrices()
+  const prices = pricing.status === 'ready' ? pricing.prices : null
+  const gstRate = prices ? prices.gstRatePercent : site.gstRate
+  const freeMonths = prices && recommendedId ? monthsFree(prices.byPlan[recommendedId]) : null
   // On phones the plans are a swipe row that opens centred on the recommended plan (styles in Pricing.css).
   const {
     ref: listRef,
@@ -102,7 +126,7 @@ export function Pricing() {
             index="09"
             eyebrow="Pricing"
             title="Simple plans. Meta’s fees at cost."
-            description={`Every plan includes a ${site.trialDays}-day free trial with no card required. Prices are in INR${site.gstRate > 0 ? ` and exclude ${site.gstRate}% GST` : ', with no GST added'}.`}
+            description={`Every plan includes a ${site.trialDays}-day free trial with no card required. Prices are in INR${gstRate > 0 ? ` and exclude ${gstRate}% GST` : ', with no GST added'}.`}
           />
           <div
             role="group"
@@ -127,7 +151,11 @@ export function Pricing() {
                   billing === option ? 'text-paper' : 'text-muted hover:text-ink',
                 )}
               >
-                {option === 'monthly' ? 'Monthly' : 'Annual · 2 months free'}
+                {option === 'monthly'
+                  ? 'Monthly'
+                  : freeMonths
+                    ? `Annual · ${freeMonths} ${freeMonths === 1 ? 'month' : 'months'} free`
+                    : 'Annual'}
               </button>
             ))}
           </div>
@@ -135,8 +163,22 @@ export function Pricing() {
 
         <ul ref={listRef} className="pricing-plans mt-6 grid gap-5 md:mt-14 lg:grid-cols-3">
           {plans.map((plan, i) => {
-            const annualTotal = plan.monthlyPrice * ANNUAL_MONTHS_CHARGED
-            const shownPrice = billing === 'monthly' ? plan.monthlyPrice : Math.round(annualTotal / 12)
+            const planPrices = prices?.byPlan[plan.id]
+            const annualTotal = planPrices?.annual ?? null
+            const shownPrice =
+              billing === 'monthly'
+                ? (planPrices?.monthly ?? null)
+                : annualTotal === null
+                  ? null
+                  : Math.round(annualTotal / 12)
+            const note =
+              shownPrice === null
+                ? prices
+                  ? `Not available with ${billing} billing`
+                  : 'Price shown after sign-up'
+                : billing === 'annual'
+                  ? `Billed ${formatINR(annualTotal!)} yearly`
+                  : 'Billed monthly, cancel anytime'
 
             return (
               <Reveal as="li" key={plan.id} delay={i * 100} className="flex">
@@ -162,11 +204,11 @@ export function Pricing() {
                     <p className="mt-1.5 text-[14.5px] text-muted">{plan.blurb}</p>
 
                     <p className="mt-7 flex items-baseline gap-1.5">
-                      <PlanPrice amount={shownPrice} />
+                      {shownPrice === null ? <PricePlaceholder /> : <PlanPrice amount={shownPrice} />}
                       <span className="text-[14px] text-muted">/ month</span>
                     </p>
-                    <p key={`${billing}-note`} className="fade-up mt-2 h-5 text-[13px] text-muted">
-                      {billing === 'annual' ? `Billed ${formatINR(annualTotal)} yearly` : 'Billed monthly, cancel anytime'}
+                    <p key={note} className="fade-up mt-2 h-5 text-[13px] text-muted">
+                      {note}
                     </p>
 
                     {plan.recommended ? (

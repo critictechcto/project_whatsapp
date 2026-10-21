@@ -14,6 +14,11 @@ declare global {
     readonly VITE_APP_ONLY?: string
     /** Origin of the real dashboard when this site is not it (upchatz.com sets https://app.upchatz.com). */
     readonly VITE_APP_URL?: string
+    /**
+     * Origin of the public plans endpoint the landing pricing section reads prices from (the Pages
+     * build sets https://app.upchatz.com). Unset in live mode it falls back to the API origin.
+     */
+    readonly VITE_PRICING_API_URL?: string
   }
 }
 
@@ -35,6 +40,15 @@ export const env = {
   /** API origin without trailing slash. Paths from the OpenAPI schema already start with `/api/v1/`. */
   get apiUrl(): string {
     return trimSlash(import.meta.env.VITE_API_URL || origin())
+  },
+  /**
+   * Origin for the public plan prices (`/api/v1/billing/public-plans/`): VITE_PRICING_API_URL, else
+   * the API origin in live mode. Null in mock mode without it: the landing page then shows no prices.
+   */
+  get pricingApiUrl(): string | null {
+    const configured = import.meta.env.VITE_PRICING_API_URL
+    if (configured) return trimSlash(configured)
+    return this.isMock ? null : this.apiUrl
   },
   get wsUrl(): string {
     const configured = import.meta.env.VITE_WS_URL

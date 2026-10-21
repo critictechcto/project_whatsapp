@@ -46,6 +46,19 @@ describe('build CSP', () => {
     expect(policy['object-src']).toEqual(["'none'"])
   })
 
+  it('allows the public pricing API in mock and live builds', () => {
+    const mock = buildDirectives({ VITE_API_MODE: 'mock', VITE_PRICING_API_URL: 'https://app.upchatz.com/' }, [])
+    expect(mock['connect-src']).toEqual(["'self'", 'https://app.upchatz.com'])
+    expect(mock['script-src']).toEqual(["'self'"])
+
+    const live = buildDirectives(
+      { VITE_API_MODE: 'live', VITE_API_URL: 'https://app.upchatz.com', VITE_PRICING_API_URL: 'https://app.upchatz.com' },
+      [],
+    )
+    expect(live['connect-src'].filter((source) => source === 'https://app.upchatz.com')).toHaveLength(1)
+    expect(() => buildDirectives({ VITE_PRICING_API_URL: 'not a url' }, [])).toThrow(/VITE_PRICING_API_URL/)
+  })
+
   it('allows the Cashfree SDK and its sandbox and production checkout frames in live builds', () => {
     const policy = buildDirectives({ VITE_API_MODE: 'live' }, [])
     expect(policy['script-src']).toContain('https://sdk.cashfree.com')

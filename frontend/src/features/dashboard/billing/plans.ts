@@ -1,4 +1,4 @@
-import { ANNUAL_MONTHS_CHARGED, plans as sitePlans } from '../../../config/site'
+import { plans as sitePlans } from '../../../config/site'
 import type { Schemas } from '../../../api/types'
 
 export type Plan = Schemas['Plan']
@@ -26,13 +26,24 @@ export const usageLabels: Record<string, string> = {
   contacts: 'Contacts',
 }
 
-export function planPricePaise(plan: Plan, interval: BillingInterval): number {
+/** Price before GST for an interval, or null when that interval can't be bought right now. */
+export function planPricePaise(plan: Plan, interval: BillingInterval): number | null {
   return interval === 'annual' ? plan.annual_price_paise : plan.monthly_price_paise
 }
 
 export const intervalLabels: Record<BillingInterval, string> = { monthly: 'Monthly', annual: 'Annual' }
 
-export const freeMonthsLabel = `${12 - ANNUAL_MONTHS_CHARGED} months free`
+/**
+ * "2 months free" from a plan's two prices (12 minus what a year costs in months, rounded), or null
+ * when either price is unknown or annual billing saves nothing.
+ */
+export function freeMonthsLabel(plan: Plan): string | null {
+  const { monthly_price_paise: monthly, annual_price_paise: annual } = plan
+  if (!monthly || !annual) return null
+  const free = Math.round(12 - annual / monthly)
+  if (free <= 0) return null
+  return `${free} ${free === 1 ? 'month' : 'months'} free`
+}
 
 /** Marketing blurb and "recommended" flag from `config/site.ts` (prices always come from the API). */
 export function planCopy(planId: string) {

@@ -97,6 +97,8 @@ const unique = (items) => [...new Set(items)]
 /**
  * Directive map for a build. `env` holds the VITE_* values; `scriptHashes` are 'sha256-…' sources.
  * - VITE_API_URL / VITE_WS_URL: API and WebSocket origins (empty = same origin, covered by 'self').
+ * - VITE_PRICING_API_URL: origin of the public plans endpoint (GET /api/v1/billing/public-plans/)
+ *   that the landing pricing section calls; allowed in mock builds too.
  * - VITE_MEDIA_ORIGINS: hosts of product images (PUBLIC_MEDIA_BASE_URL, Spaces), for img-src.
  * - VITE_CSP_EXTRA_CONNECT: any other origin the dashboard must call.
  */
@@ -106,6 +108,8 @@ export function buildDirectives(env, scriptHashes) {
   const pick = (key) => parties.flatMap((party) => party[key] ?? [])
   const api = originOf(env.VITE_API_URL, 'VITE_API_URL')
   const ws = originOf(env.VITE_WS_URL, 'VITE_WS_URL')
+  // The landing pricing section reads public plan prices from here, in mock and live builds alike.
+  const pricing = originOf(env.VITE_PRICING_API_URL, 'VITE_PRICING_API_URL')
   // Without VITE_WS_URL the socket goes to the API origin with ws(s):// (config/env.ts).
   const derivedWs = ws.length ? [] : api.map((origin) => origin.replace(/^http/, 'ws'))
   const media = parseOrigins(env.VITE_MEDIA_ORIGINS, 'VITE_MEDIA_ORIGINS')
@@ -118,7 +122,7 @@ export function buildDirectives(env, scriptHashes) {
     'img-src': unique(["'self'", 'data:', 'blob:', ...api, ...media, ...pick('img')]),
     'media-src': unique(["'self'", 'blob:', ...api, ...media]),
     'font-src': ["'self'"],
-    'connect-src': unique(["'self'", ...api, ...ws, ...derivedWs, ...extraConnect, ...pick('connect')]),
+    'connect-src': unique(["'self'", ...api, ...ws, ...derivedWs, ...pricing, ...extraConnect, ...pick('connect')]),
     // MSW's service worker in mock builds; nothing else registers workers.
     'worker-src': ["'self'"],
     'frame-src': pick('frame').length ? unique(pick('frame')) : ["'none'"],

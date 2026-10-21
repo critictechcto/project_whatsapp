@@ -456,6 +456,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/public-plans/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Active plans and their prices before GST, for the public pricing page. No authentication. */
+        get: operations["billing_public_plans_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/subscription/": {
         parameters: {
             query?: never;
@@ -4795,10 +4812,10 @@ export interface components {
             /** @description Plan slug: starter, growth or pro. */
             readonly id: string;
             readonly name: string;
-            /** @description Before GST. */
-            readonly monthly_price_paise: number;
-            /** @description Before GST. */
-            readonly annual_price_paise: number;
+            /** @description Before GST; null when this interval can't be bought right now. */
+            readonly monthly_price_paise: number | null;
+            /** @description Before GST; null when this interval can't be bought right now. */
+            readonly annual_price_paise: number | null;
             /** @description null means unlimited. */
             readonly limits: components["schemas"]["PlanLimits"];
             readonly features: string[];
@@ -4959,6 +4976,11 @@ export interface components {
             max_qty_per_order?: number;
             position?: number;
             is_active?: boolean;
+        };
+        PublicPlans: {
+            /** @description GST rate added to plan prices; 0 while GST is off. */
+            readonly gst_rate_percent: number;
+            readonly plans: components["schemas"]["Plan"][];
         };
         /**
          * @description * `pending` - pending
@@ -6297,6 +6319,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    billing_public_plans_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPlans"];
                 };
             };
         };

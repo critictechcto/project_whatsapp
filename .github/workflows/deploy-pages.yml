@@ -29,9 +29,11 @@ jobs:
       # Without a custom domain Pages serves /<repo>/: use VITE_BASE=/<repo>/ instead.
       VITE_BASE: /
       # No backend on Pages. Log in / sign up links and any /app URL go to the real dashboard on
-      # app.upchatz.com (DigitalOcean); the landing build itself stays in mock mode (no API calls).
+      # app.upchatz.com (DigitalOcean); the landing build itself stays in mock mode (no API calls),
+      # except that the pricing section reads plan prices from the public plans endpoint there.
       VITE_API_MODE: mock
       VITE_APP_URL: https://app.upchatz.com
+      VITE_PRICING_API_URL: https://app.upchatz.com
     steps:
       - uses: actions/checkout@v7
 

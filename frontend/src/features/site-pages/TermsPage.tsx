@@ -3,8 +3,7 @@
  * Have a lawyer review them (limitation of liability, indemnity, governing law and jurisdiction,
  * consumer and IT law, Meta and payment gateway terms). `site.legal` in config/site.ts holds the operator details.
  */
-import { ANNUAL_MONTHS_CHARGED, legalReady, plans, site } from '../../config/site'
-import { formatINR } from '../../lib/format'
+import { legalReady, sectionHref, site } from '../../config/site'
 import { LegalDetails } from './LegalDetails'
 import { PageLayout } from './PageLayout'
 import { BulletList, ProseSection, TextLink } from './prose'
@@ -15,7 +14,6 @@ export function TermsPage() {
   const { name, legal } = site
   const supportMail = `mailto:${site.email.support}`
   const courts = legal.jurisdictionCity.trim() ? `the courts at ${legal.jurisdictionCity}, India` : 'the courts of India'
-  const freeMonths = 12 - ANNUAL_MONTHS_CHARGED
 
   return (
     <PageLayout
@@ -94,22 +92,15 @@ export function TermsPage() {
       <ProseSection id="plans" title="Trial, plans and payment">
         <p>
           New workspaces get a {site.trialDays}-day free trial. After the trial, continuing to use paid features needs a
-          subscription to one of our plans. Current plans are:
+          subscription to one of our plans. Current prices are shown on the{' '}
+          <TextLink href={sectionHref('pricing')}>pricing page</TextLink> and in the dashboard before you pay.
         </p>
-        <BulletList>
-          {plans.map((plan) => (
-            <li key={plan.id}>
-              <strong className="font-semibold">{plan.name}</strong> — {formatINR(plan.monthlyPrice)} per month billed
-              monthly, or {formatINR(plan.monthlyPrice * ANNUAL_MONTHS_CHARGED)} per year billed annually.
-            </li>
-          ))}
-        </BulletList>
         <p>
           Prices are in Indian rupees.{' '}
           {site.gstRate > 0
             ? `GST is added at ${site.gstRate}% or the rate that applies at the time.`
             : "We don't charge GST while we aren't GST-registered; if that changes, GST will be added at the rate that applies and shown at checkout before you pay."}{' '}
-          Annual billing charges {ANNUAL_MONTHS_CHARGED} months for a full year ({freeMonths} months free). Plans are paid
+          Annual plans are paid for a year in advance at the annual price shown. Plans are paid
           in advance for a month or a year at a time and don't renew automatically; we email you before your plan ends. Plan limits (such as numbers,
           team members and contacts) are shown on the pricing page and in the dashboard. We may change prices or plans
           with notice before your next billing period.

@@ -226,6 +226,41 @@ describe('billing', () => {
     expect(await screen.findByText(new RegExp(`^Paid until ${renewedEnd}`))).toBeInTheDocument()
   })
 
+  it('shows months free from each plan’s own prices', async () => {
+    signIn()
+    const { user } = renderDashboard(`/app/w/${ids.sharmaSweets}/billing/plans`)
+
+    // The mock plans charge ten months for a year.
+    expect(await screen.findByRole('radio', { name: /Annual.*2 months free/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('radio', { name: /Annual/ }))
+    expect(await screen.findByText('works out to ₹2,082.50 a month · 2 months free')).toBeInTheDocument()
+  })
+
+  it('shows an interval without a price as not available and blocks its checkout', async () => {
+    const base = { limits: { whatsapp_numbers: 2, members: 5, contacts: 25000 }, features: [] }
+    server.use(
+      http.untyped.get(apiUrl('/api/v1/billing/plans/'), () =>
+        Response.json([
+          { id: 'starter', name: 'Starter', monthly_price_paise: 99900, annual_price_paise: 999000, ...base },
+          { id: 'growth', name: 'Growth', monthly_price_paise: 249900, annual_price_paise: null, ...base },
+        ] satisfies Schemas['Plan'][]),
+      ),
+    )
+    signIn()
+    const { user } = renderDashboard(`/app/w/${ids.sharmaSweets}/billing/plans?interval=annual`)
+
+    expect(await screen.findByText('Not available')).toBeInTheDocument()
+    expect(screen.getByText("Annual billing can't be bought right now.")).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose Growth' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Choose Starter' })).toBeEnabled()
+    // The recommended plan has no annual price, so the toggle doesn't promise months free.
+    expect(screen.getByRole('radio', { name: 'Annual' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Monthly' }))
+    expect(screen.queryByText('Not available')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose Growth' })).toBeEnabled()
+  })
+
   it('warns in the last 7 days of a prepaid plan', async () => {
     server.use(
       http.untyped.get(apiUrl('/api/v1/billing/subscription/'), () =>

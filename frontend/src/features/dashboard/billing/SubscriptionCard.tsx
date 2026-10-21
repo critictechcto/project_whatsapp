@@ -65,6 +65,8 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
   const paymentsLabel = prepaid ? `${providerName}, paid once` : subscription.payment_mode === 'autopay' ? `${providerName}, auto-pay` : providerName
   const { checkout, stage, provider: checkoutProvider } = useCheckout()
   const canRenew = isOwner && prepaid && status === 'active'
+  // Null when the plan's interval can't be bought right now (no Razorpay plan, or Razorpay unreachable).
+  const planPrice = planPricePaise(plan, interval)
   const daysLeft = prepaid && status === 'active' && !subscription.cancel_at_period_end ? daysUntil(subscription.current_period_end) : null
 
   return (
@@ -89,7 +91,7 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
               {status === 'active' ? 'Change plan' : 'Choose a plan'}
             </Link>
             {canRenew && (
-              <Button loading={stage !== 'idle'} onClick={() => void checkout(plan, interval, 'one_time')}>
+              <Button loading={stage !== 'idle'} disabled={planPrice === null} onClick={() => void checkout(plan, interval, 'one_time')}>
                 Renew
               </Button>
             )}
@@ -105,7 +107,9 @@ function SubscriptionDetails({ subscription }: { subscription: Subscription }) {
           <p className="text-sm text-muted">
             {status === 'trialing'
               ? `Free trial of the ${plan.name} plan`
-              : `${formatPlanPrice(planPricePaise(plan, interval))} / ${interval === 'annual' ? 'year' : 'month'}${gstSuffix(subscription.gst_rate_percent)}`}
+              : planPrice === null
+                ? `Billed ${interval === 'annual' ? 'yearly' : 'monthly'}`
+                : `${formatPlanPrice(planPrice)} / ${interval === 'annual' ? 'year' : 'month'}${gstSuffix(subscription.gst_rate_percent)}`}
           </p>
         </div>
 

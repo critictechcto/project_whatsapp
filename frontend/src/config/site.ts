@@ -1,4 +1,4 @@
-// Single source for brand, contact details and pricing.
+// Single source for brand, contact details and plan copy (prices come from the API).
 // Brand: UpChatz (upchatz.com).
 
 const BASE_URL = import.meta.env.BASE_URL
@@ -106,24 +106,24 @@ export function sectionHref(id: string, pathname: string = currentPathname()) {
   return isLandingPath(pathname) ? `#${id}` : `${BASE_URL}#${id}`
 }
 
+/**
+ * Marketing copy per plan. Prices are not here: Razorpay plans are the only source, read from the
+ * API (`/api/v1/billing/public-plans/` on the landing page, `/api/v1/billing/plans/` in the dashboard)
+ * and matched to this copy by `id`.
+ */
 export type Plan = {
   id: string
   name: string
-  monthlyPrice: number
   blurb: string
   limits: string[]
   features: string[]
   recommended?: boolean
 }
 
-/** Annual billing charges this many months for a full year. */
-export const ANNUAL_MONTHS_CHARGED = 10
-
 export const plans: Plan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    monthlyPrice: 999,
     blurb: 'For small shops and clinics starting with WhatsApp.',
     limits: ['1 WhatsApp number', '2 team members', '5,000 contacts'],
     features: [
@@ -138,7 +138,6 @@ export const plans: Plan[] = [
   {
     id: 'growth',
     name: 'Growth',
-    monthlyPrice: 2499,
     blurb: 'For growing brands sending every day.',
     limits: ['2 WhatsApp numbers', '5 team members', '25,000 contacts'],
     features: [
@@ -154,7 +153,6 @@ export const plans: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    monthlyPrice: 5999,
     blurb: 'For teams running WhatsApp as a core channel.',
     limits: ['5 WhatsApp numbers', '15 team members', '1,00,000 contacts'],
     features: [
