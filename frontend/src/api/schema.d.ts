@@ -463,7 +463,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Active plans with prices before GST (null when an interval can't be bought right now) and the GST rate added at checkout. Public: no authentication or workspace header; throttled per IP. Cacheable for 5 minutes. */
+        /** @description Active plans with prices before GST (null when an interval can't be bought right now) and the GST rate added at checkout. Public: no authentication or workspace header; throttled per IP. Sent with an ETag and no-cache, so browsers revalidate on every load. */
         get: operations["billing_public_plans_list"];
         put?: never;
         post?: never;

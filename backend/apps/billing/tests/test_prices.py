@@ -398,7 +398,24 @@ def test_public_plans_need_no_authentication_or_workspace():
     assert body["plans"][1]["limits"] == {"whatsapp_numbers": 2, "members": 5, "contacts": 25000}
     assert response["Access-Control-Allow-Origin"] == "*"
     assert "Access-Control-Allow-Credentials" not in response
-    assert response["Cache-Control"] == "public, max-age=300"
+    assert response["Cache-Control"] == "no-cache"
+    assert response["ETag"]
+
+
+def test_public_plans_answer_not_modified_until_a_price_changes():
+    first = APIClient().get(PUBLIC_PLANS)
+
+    again = APIClient().get(PUBLIC_PLANS, HTTP_IF_NONE_MATCH=first["ETag"])
+
+    assert again.status_code == 304
+    assert again["ETag"] == first["ETag"]
+    assert again["Access-Control-Allow-Origin"] == "*"
+
+    Plan.objects.filter(slug="growth").update(is_active=False)
+    changed = APIClient().get(PUBLIC_PLANS, HTTP_IF_NONE_MATCH=first["ETag"])
+
+    assert changed.status_code == 200
+    assert changed["ETag"] != first["ETag"]
 
 
 def test_public_plans_list_active_plans_only():

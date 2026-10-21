@@ -41,7 +41,9 @@ EVENT_ID_HEADER = "X-Razorpay-Event-Id"
 EVENT_ID_MAX_LENGTH = 100
 CASHFREE_SIGNATURE_HEADER = "x-webhook-signature"
 CASHFREE_TIMESTAMP_HEADER = "x-webhook-timestamp"
-PUBLIC_CACHE_CONTROL = "public, max-age=300"
+# Browsers may keep the answer but must check it on every load (a 304 when the ETag still
+# matches), so a plan id changed in admin shows on the next page load.
+PUBLIC_CACHE_CONTROL = "no-cache"
 
 
 class BillingViewSet(WorkspaceScopedGenericViewSet):
@@ -88,14 +90,20 @@ class PublicPlansView(APIView):
         description=(
             "Active plans with prices before GST (null when an interval can't be bought right "
             "now) and the GST rate added at checkout. Public: no authentication or workspace "
-            "header; throttled per IP. Cacheable for 5 minutes."
+            "header; throttled per IP. Sent with an ETag and no-cache, so browsers revalidate "
+            "on every load."
         ),
     )
     def get(self, request):
         data = PublicPlansSerializer(
             {"gst_rate_percent": services.gst_rate_percent(), "plans": active_plans()}
         ).data
-        response = Response(data)
+        body = json.dumps(data, sort_keys=True, separators=(",", ":"), default=str)
+        etag = f'"{hashlib.sha256(body.encode()).hexdigest()[:32]}"'
+        if_none_match = request.headers.get("If-None-Match", "")
+        matches = etag in (tag.strip().removeprefix("W/") for tag in if_none_match.split(","))
+        response = Response(status=304) if matches else Response(data)
+        response["ETag"] = etag
         response["Cache-Control"] = PUBLIC_CACHE_CONTROL
         response["Access-Control-Allow-Origin"] = "*"
         return response

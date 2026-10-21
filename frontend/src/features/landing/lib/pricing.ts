@@ -63,9 +63,13 @@ export function monthsFree(prices: PlanPrices | undefined): number | null {
   return free > 0 ? free : null
 }
 
+/** Coming back to the tab re-checks prices at most this often. */
+const REFRESH_AFTER_MS = 30_000
+
 /**
  * Prices for the pricing section. Always 'loading' on the server and on the first client render (so
- * hydration matches); the request starts in an effect after hydration.
+ * hydration matches); the request starts in an effect after hydration. The backend answers with
+ * `no-cache` and an ETag, so every load and refresh sees the current prices.
  */
 export function usePublicPrices(): PublicPricesState {
   const [state, setState] = useState<PublicPricesState>({ status: 'loading' })
@@ -77,13 +81,31 @@ export function usePublicPrices(): PublicPricesState {
       return
     }
     const controller = new AbortController()
-    fetchPublicPrices(url, controller.signal).then(
-      (prices) => setState({ status: 'ready', prices }),
-      () => {
-        if (!controller.signal.aborted) setState({ status: 'unavailable' })
-      },
-    )
-    return () => controller.abort()
+    let lastLoadedAt = 0
+    let loaded = false
+    const load = () => {
+      lastLoadedAt = Date.now()
+      fetchPublicPrices(url, controller.signal).then(
+        (prices) => {
+          loaded = true
+          setState({ status: 'ready', prices })
+        },
+        () => {
+          // A failed refresh keeps the prices already shown.
+          if (!controller.signal.aborted && !loaded) setState({ status: 'unavailable' })
+        },
+      )
+    }
+    // Prices can change in admin while the page is open: check again when the visitor comes back.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastLoadedAt >= REFRESH_AFTER_MS) load()
+    }
+    load()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      controller.abort()
+    }
   }, [])
 
   return state

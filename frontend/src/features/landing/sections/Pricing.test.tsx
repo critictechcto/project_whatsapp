@@ -80,6 +80,23 @@ describe('Pricing', () => {
     expect(screen.getByRole('button', { name: 'Annual · 2 months free' })).toBeInTheDocument()
   })
 
+  it('checks the prices again when the visitor comes back to the tab', async () => {
+    mockReducedMotion(true)
+    server.use(publicPlans())
+    await renderWithPrices()
+    expect(shownPrices()).toContain(formatINR(Math.round(annual('growth') / 12)))
+
+    server.use(publicPlans({ growth: { monthly_price_paise: 1999_00, annual_price_paise: 19990_00 } }))
+    const now = Date.now()
+    vi.spyOn(Date, 'now').mockReturnValue(now + 31_000)
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    await vi.waitFor(() => expect(shownPrices()).toContain(formatINR(Math.round(19990 / 12))))
+  })
+
   it('keeps the placeholders when the prices cannot be loaded', async () => {
     mockReducedMotion(false)
     const requested = vi.fn()
