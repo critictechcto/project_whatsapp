@@ -4,16 +4,16 @@ UpChatz ([upchatz.com](https://upchatz.com)) lets Indian businesses run customer
 - chat with customers from a shared team inbox;
 - send approved broadcasts;
 - automate replies;
-- from wave 3, sell products inside WhatsApp.
+- sell products and take bookings inside WhatsApp, with offer codes and online payments;
+- see what works in analytics reports.
 
-This document explains the product, not the code. For API details see `docs/contracts/wave-2.md` and `docs/contracts/wave-3-commerce.md`.
+This document explains the product, not the code. For API details see `docs/contracts/`: `wave-2.md` (messaging, billing, plans), `wave-3-commerce.md` (selling), `services-and-offers.md` and `booking-payments.md` (bookings and offer codes), `analytics.md`, `onboarding.md` and `billing-razorpay.md`. For a flat list of every feature with its plan gate, see [feature-inventory.md](feature-inventory.md).
 
-**Status legend:**
+**Status legend** (as of 2026-10-22):
 
 | Label | Meaning |
 |---|---|
-| **Live** | Merged and deployed (waves 0–2) |
-| **Built** | Wave 3 "Sell on WhatsApp": merged and tested, not live on upchatz.com yet |
+| **Live** | Merged and deployed (upchatz.com and app.upchatz.com) |
 | **Planned** | Agreed direction, not started |
 
 ---
@@ -22,27 +22,28 @@ This document explains the product, not the code. For API details see `docs/cont
 
 | # | Feature | What it does | Why it's needed | Status |
 |---|---|---|---|---|
-| 1 | Accounts and login | Sign up, log in, stay logged in, change password | Every action belongs to a real person | Live |
-| 2 | Workspaces, team and roles | One workspace per business, invite teammates, roles owner / admin / agent / viewer | Several staff share one WhatsApp number safely; each business's data is kept apart | Live |
-| 3 | Plans, trial and billing | 14-day trial, Starter / Growth / Pro plans, Razorpay subscription, GST invoices, usage limits | How UpChatz earns money; limits protect the service | Live |
+| 1 | Accounts and login | Sign up, verify email, log in, stay logged in, change or reset password | Every action belongs to a real person | Live |
+| 2 | Workspaces, team and roles | One workspace per business, invite teammates, roles owner / admin / agent / viewer, welcome flow and tour | Several staff share one WhatsApp number safely; each business's data is kept apart | Live |
+| 3 | Plans, trial and billing | 14-day trial, Starter / Growth / Pro plans priced from Razorpay plans, auto-pay or pay once, GST invoices with PDF, usage limits | How UpChatz earns money; limits protect the service | Live |
 | 4 | WhatsApp connection | Embedded Signup, phone number registration, quality and status tracking, disconnect | Nothing can be sent until a number is connected the official way | Live |
 | 5 | Meta webhooks | Receives every message, delivery status and account update from Meta | Meta tells us what happened; every other feature reacts to it | Live |
-| 6 | Contacts and consent | Contact list, tags, CSV import, opt-in / opt-out (STOP) | Meta requires recorded opt-in for marketing; tags pick audiences | Live |
+| 6 | Contacts and consent | Contact list, tags, CSV import, opt-in / opt-out with history, consent keywords, opt-in button | Meta requires recorded opt-in for marketing; tags pick audiences | Live |
 | 7 | Message templates | Create, submit to Meta for approval, sync status, preview | Meta allows business-initiated messages only with approved templates | Live |
 | 8 | Team inbox | Two-way chat, media, notes, assignment, read receipts, live updates | Where the business actually talks to customers | Live |
 | 9 | Campaigns | Broadcast a template to a tagged audience, now or scheduled, with stats and cost estimate | Promotions, reminders, announcements at scale | Live |
-| 10 | Automations | Rules: keyword, first message, new contact or outside business hours → send, tag, assign, close | Instant replies without staff; routing | Live |
-| 11 | Dashboard home | Overview cards and setup progress | Shows what needs attention first | Live, commerce cards Built |
-| 12 | Store settings | Turn the store on, shop mode, shipping, COD rules, pincodes, bot text, setup checklist, store link | One place to configure selling | Built |
-| 13 | Catalog | Products, collections, images, CSV import, optional sync to Meta's native catalog | What buyers browse and buy | Built |
-| 14 | Shop bot | Menu → collections → product cards → cart in chat; also accepts WhatsApp native carts | Lets buyers shop inside WhatsApp without a website | Built |
-| 15 | Checkout and orders | Address, payment choice, stock reservation, order status, buyer updates, "My orders" | Turns a cart into a trackable order | Built |
-| 16 | Payments | Seller connects their own Razorpay or Cashfree keys; UpChatz creates payment links and confirms payment | Buyers pay online; money goes straight to the seller | Built |
-| 17 | Seller alerts | New-order alerts on the seller's personal WhatsApp with *Mark packed / shipped / Cancel* buttons | Small sellers live on their phone, not in a dashboard | Built |
-| 18 | Marketing site | Landing page, pricing, FAQ, "Sell on WhatsApp" section | Explains the product and brings sign-ups | Live, commerce section Built |
-| 19 | Analytics | Reports on messages, campaigns and sales | Sellers need to see what works | Planned |
-| 20 | Developer API | API keys and outbound webhooks for the business's own systems | Integrations with existing software | Planned |
-| 21 | Message credit wallet | UpChatz collects message charges and pays Meta | Removes the "add a card in WhatsApp Manager" step | Planned (needs Meta Solution Partner status) |
+| 10 | Automations | Rules: keyword, first message, new contact or outside business hours → send, tag, assign, close, ask to opt in, shop actions | Instant replies without staff; routing | Live |
+| 11 | Dashboard home | Overview cards and a setup checklist ordered by the workspace's goal | Shows what needs attention first | Live |
+| 12 | Store settings | Turn the store on, shop mode, shipping, COD rules, pincodes, bot text, booking settings, setup checklist, store link | One place to configure selling | Live |
+| 13 | Catalog | Products and services, collections, images, CSV import, optional sync to Meta's native catalog | What buyers browse, buy and book | Live |
+| 14 | Shop bot | Menu → collections → product cards → cart in chat; also accepts WhatsApp native carts | Lets buyers shop inside WhatsApp without a website | Live |
+| 15 | Checkout, orders and bookings | Address or booking slot, payment choice, stock reservation, order status, buyer updates, payment reminder, "My orders" | Turns a cart into a trackable order or booking | Live |
+| 16 | Payments | Seller connects their own Razorpay or Cashfree keys; UpChatz creates payment links and confirms payment; services can require an advance | Buyers pay online; money goes straight to the seller | Live |
+| 17 | Seller alerts | New-order and booking alerts on the seller's personal WhatsApp with action buttons | Small sellers live on their phone, not in a dashboard | Live (needs the alerts number set up) |
+| 18 | Offer codes | Codes buyers send on WhatsApp, discounts at checkout, counter redemption, ad source | Promotions and walk-in tracking without a website | Live |
+| 19 | Analytics | Reports on messages, templates, campaigns, team and sales, with CSV export | Sellers need to see what works | Live |
+| 20 | Marketing site | Landing page, pricing (prices read from the API), FAQ, "Sell on WhatsApp" section, legal pages | Explains the product and brings sign-ups | Live |
+| 21 | Developer API | API keys and outbound webhooks for the business's own systems | Integrations with existing software | Planned |
+| 22 | Message credit wallet | UpChatz collects message charges and pays Meta | Removes the "add a card in WhatsApp Manager" step | Planned (needs Meta Solution Partner status) |
 
 ---
 
@@ -162,6 +163,8 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
 
 ### 3.1 Accounts and login (Live)
 - **What:** register with email and password, log in, refresh the session, log out, change password, view profile.
+  - **Email verification:** sign-up sends a link; the dashboard shows a banner until it's used, but nothing is blocked. Accepting an invitation also verifies the email.
+  - **Password reset:** a link by email; resetting signs out every session.
 - **How:** JWT access tokens are kept in memory in the browser. The refresh token lives in an HttpOnly cookie that page scripts can't read, so a script-injection bug can't steal a session; it survives reloads and rotates on every refresh. Logging out blacklists it, clears the cookie and signs out every tab. Tabs take turns refreshing and share the new access token, so they don't log each other out.
 - **Why:** every change in the product is tied to a person, for security and so the inbox can show "sent by".
 - **Connects with:** workspaces (a user can belong to several), inbox (`sent_by`), orders (who changed a status).
@@ -173,6 +176,7 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
   - **admin:** settings, campaigns, templates, store.
   - **agent:** chats and order handling.
   - **viewer:** read only.
+- **Onboarding:** a new member gets a welcome flow; an admin picks the workspace's goals (sell, marketing, support), which order the Home setup checklist. A guided tour points at each area, and both can be replayed.
 - **How:** every request names its workspace. People who aren't members get "not found", so they can't even tell a workspace exists. A role change or removal immediately disconnects that person's live dashboard.
 - **Why:** a shop owner and two staff can share one WhatsApp number without sharing a password, and each business's data stays private.
 - **Connects with:**
@@ -182,12 +186,15 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
 ### 3.3 Plans, trial and billing (Live)
 - **What:**
   - A 14-day Growth trial starts automatically when a workspace is created.
-  - Plans: Starter, Growth and Pro, monthly or annual (annual costs 10 months). Prices live in `frontend/src/config/site.ts` and exclude GST.
-  - Razorpay subscription checkout, cancellation, a billing profile with GSTIN, and GST invoices (CGST + SGST, or IGST).
-- **Limits per plan:** WhatsApp numbers, team members and contacts.
+  - Plans: Starter, Growth and Pro, monthly or annual.
+  - **Prices come only from Razorpay plans.** Each plan names a Razorpay plan per interval (set in Django admin); the API reads the amount from Razorpay, and the landing page and dashboard show what the API returns. An interval with no Razorpay plan can't be bought. `frontend/src/config/site.ts` holds only the plan copy (blurb, limits, features).
+  - The owner chooses **auto-pay** (a Razorpay subscription: UPI AutoPay or card mandate) or **pay once** (one month or one year, no auto-debit; a renewal reminder email comes before it ends, and an unpaid period expires).
+  - A billing profile with GSTIN, and invoices numbered per financial year with a PDF download. GST (CGST + SGST, or IGST) is charged only when `BILLING_GST_ENABLED` is on; it is off while UpChatz isn't GST-registered.
+- **Limits per plan:** WhatsApp numbers, team members (including open invitations) and contacts.
 - **Features per plan:**
-  - scheduled campaigns, keyword automations and API access are on Growth and Pro;
+  - scheduled campaigns, keyword automations, analytics and API access are on Growth and Pro (API access isn't checked anywhere yet: the developer API isn't built);
   - the store (`commerce`) is on every plan for now.
+  - The dashboard Plans page shows each feature by name ("Scheduled campaigns", "Sell on WhatsApp").
 - **How:** other features ask one module (`entitlements`) "may this workspace do X?". If a subscription is halted, cancelled or expired, existing data stays but nothing new can be added.
 - **Why:** it's how UpChatz is paid. Limits keep costs predictable, and feature gates make higher plans worth buying.
 - **Note:** this is UpChatz's subscription fee. WhatsApp message charges and buyer payments are separate (see section 4).
@@ -222,7 +229,10 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
 
 ### 3.6 Contacts and consent (Live)
 - **What:** a contact list with name, phone, email, custom attributes and tags. You can add contacts by hand, import them from CSV, or get them created automatically when someone messages you.
-- **Consent:** each contact has a marketing opt-in status (unknown / opted in / opted out) with a history of changes. A customer sending STOP opts out and START opts back in. If Meta reports that the user blocked marketing, that is recorded too.
+- **Consent:** each contact has a marketing opt-in status (unknown / opted in / opted out) with a history of changes. If Meta reports that the user blocked marketing, that is recorded too.
+  - **Consent keywords:** each workspace edits its own whole-message opt-in and opt-out words (START and STOP by default). STOP, UNSUBSCRIBE, STOP PROMOTIONS and STOP ALL always opt out.
+  - **Opt-in button:** the automation action *ask to opt in* sends Yes/No buttons; a tap on *Yes* records the opt-in with source `whatsapp_button`.
+- **Contact limit:** adding contacts by hand is refused at the plan limit, and imports skip new rows over it. A customer who writes in is always saved, so their message is never lost; that contact still counts towards the limit.
 - **Why:**
   - Meta requires recorded opt-in before sending marketing, and ignoring STOP damages the number's quality rating and can get it restricted.
   - Tags are how campaigns choose an audience and how automations organise people.
@@ -260,7 +270,7 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
 - **How:**
   - Each inbound message opens or extends the 24-hour window for that contact and number.
   - Outbound messages are queued and sent in the background, then updated as Meta reports sent / delivered / read.
-  - Wave 3 adds rendering of shop messages: product cards, carts, payment links.
+  - Shop messages render as product cards, carts and payment links.
   - A secure WebSocket pushes new messages and status changes to every open dashboard. It's joined with a single-use ticket, and access is re-checked on connect.
 - **Why:** it's the core daily tool. Customers message the business, and staff need one shared place to answer quickly and see history.
 - **Connects with:** every sending feature. Campaign replies, automation replies, shop bot messages and order updates all appear in the same conversation, so staff see the full story.
@@ -277,6 +287,7 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
   2. Messages go out in the background within Meta's rate and tier limits.
   3. Consent is re-checked just before each send.
   4. Delivery webhooks update each recipient and the stats.
+  5. When a scheduled campaign is due, the plan is checked again. If the workspace lost scheduling meanwhile (for example the trial ended on Starter), the campaign is paused with the reason shown, and nothing is sent. *Resume* sends it now, which every plan allows.
 - **Why:** broadcasts (festival offers, restock news, payment reminders) are one of the main reasons businesses buy WhatsApp tools. The consent checks protect the number from being flagged.
 - **Connects with:**
   - templates and contacts (inputs);
@@ -286,7 +297,7 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
 ### 3.10 Automations (Live)
 - **What:** rules with a trigger and up to 5 actions.
   - **Triggers:** keyword (exact / contains), first message ever, new contact, message outside business hours.
-  - **Actions:** send text, send template, add tags, assign to a teammate, close the conversation. Wave 3 adds *send shop menu*, *send catalog* and *send collection*.
+  - **Actions:** send text, send template, add tags, assign to a teammate, close the conversation, ask to opt in. Shop actions: *send shop menu*, *send catalog* and *send collection* (skipped when the store is off).
   - **Options:** cooldown, priority, "stop processing further rules", per-number rules, business hours per weekday, and a run log showing what fired and why something was skipped.
 - **How:** every inbound message is checked against active rules in priority order. Each action runs once per message, even if Meta delivers the webhook twice. Shop messages claimed by the store are skipped.
 - **Why:** customers expect instant answers (prices, timings, "hi"), and small teams can't watch the inbox all day.
@@ -296,13 +307,13 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
   - the shop bot (shop actions);
   - billing (keyword automations are a plan feature).
 
-### 3.11 Dashboard home (Live, commerce cards Built)
-- **What:** overview cards. Wave 3 adds **Orders today** (count, revenue, open, needs attention, awaiting payment) and **Store setup** progress.
+### 3.11 Dashboard home (Live)
+- **What:** overview cards, **Orders today** (count, revenue, open, needs attention, awaiting payment), **Store setup** progress, and a setup checklist ordered by the workspace's goals.
 - **Why:** the first screen should tell the owner what needs attention now.
 
 ---
 
-### Sell on WhatsApp (wave 3, Built)
+### Sell on WhatsApp (Live)
 
 The goal: a buyer can **browse, order, pay and track without leaving WhatsApp**, and a seller can **run the shop mostly from their phone**. It's built on everything above:
 - the connected number;
@@ -351,7 +362,7 @@ sequenceDiagram
     Ord->>B: Your order has shipped (tracking link)
 ```
 
-### 3.12 Store settings (Built)
+### 3.12 Store settings (Live)
 - **What:**
   - Store on/off.
   - Shop mode: **bot** (works for everyone) or **native catalog** (WhatsApp's own catalog and cart).
@@ -359,6 +370,7 @@ sequenceDiagram
   - Order number prefix (e.g. `SS-1001`).
   - Minimum order, shipping fee and free-shipping threshold.
   - Cash on delivery on/off, COD fee and COD maximum.
+  - Bookings: open days, time windows, how many days ahead buyers can book, reminder timing, pay at the shop on/off, and a cancellation policy shown at payment.
   - Serviceable pincodes, support message, and a "Powered by UpChatz" footer.
   - Which template to use for each order update.
 - **Setup checklist:** connect WhatsApp → add products → payments (gateway or COD) → order update templates → alert number → turn store on. Then share the store link (`wa.me/<number>?text=Hi`).
@@ -370,9 +382,10 @@ sequenceDiagram
   - seller alerts;
   - billing (store is a plan feature).
 
-### 3.13 Catalog (Built)
+### 3.13 Catalog (Live)
 - **What:**
   - **Products:** SKU, name, description, price and sale price, image, stock (or not tracked), max per order, active.
+  - **Services:** booked instead of delivered, with a duration and no stock. Each service can require an **advance** (a fixed amount or a percentage) or **full payment** online, or follow the store default.
   - **Collections:** with ordering.
   - **Import and images:** CSV import; image upload (JPEG/PNG, at least 500×500).
   - **Native catalog:** optional connection to a Meta catalog, or creating one, with product sync and Meta review status (approved / rejected with reasons).
@@ -385,7 +398,7 @@ sequenceDiagram
   - **Bot mode** works on day one for every seller.
   - **Native catalog** looks better, but needs Meta approval of extra permissions, Commerce Policy compliance and a review of each product. It becomes an upgrade, not a blocker.
 
-### 3.14 Shop bot (Built)
+### 3.14 Shop bot (Live)
 - **What:**
   - welcome menu;
   - collection list;
@@ -401,7 +414,7 @@ sequenceDiagram
 - **Why:** most Indian small sellers don't have a website, and buyers already live on WhatsApp.
 - **Connects with:** catalog (what to show), store settings (texts, mode), checkout (hand-off), automations (shop actions), inbox (all messages visible to staff).
 
-### 3.15 Checkout and orders (Built)
+### 3.15 Checkout, orders and bookings (Live)
 - **Checkout steps:**
   1. **Re-price** from the catalog. Unavailable items are dropped and explained. If WhatsApp showed a different total, the buyer confirms the new one.
   2. **Address:** WhatsApp's address form for Indian numbers, pre-filled from the last order, with a pincode check. A text fallback covers older WhatsApp apps.
@@ -410,11 +423,13 @@ sequenceDiagram
   5. **Online:** a payment link is sent. **COD:** the order is confirmed immediately.
 - **Order statuses:** checkout stages → pending payment → **confirmed → packed → shipped → delivered**, or cancelled / expired / **needs attention**.
   - Needs attention covers a buyer who paid after checkout expired and stock ran out. The seller decides to fulfil it or refund.
+- **Bookings:** a cart of services skips the address. The buyer picks a day and a time window, then pays online (in full or the advance) or at the shop. The booking lands in **requested** until the seller confirms a time, then **confirmed → completed** or **no-show**. The buyer gets a confirmation, a reminder hours before and one the evening before, with *I'll be there / Change time / Cancel booking* buttons. A paid advance shows as *advance paid*, and the seller marks the balance paid at the shop.
 - **Seller actions** (dashboard or WhatsApp): pack, ship (courier, AWB, tracking link), deliver, cancel (restock, cancel the open payment link), mark COD collected, mark refunded, notes.
 - **Buyer updates:**
   - inside the 24-hour window, a normal WhatsApp message;
   - outside it, the seller's approved update template;
   - if no template is mapped, the timeline shows the update wasn't sent.
+- **Payment reminder:** if the buyer hasn't paid 15 minutes after the payment link was sent, and the link has more than 5 minutes left, they get one reminder with a *Pay* button (the `payment_reminder` template outside the 24-hour window). One reminder per checkout attempt; `ORDER_PAYMENT_REMINDER_MINUTES` sets the delay, 0 turns it off.
 - **Safety rules:**
   - one active checkout per buyer (a new cart replaces the old one);
   - abandoned checkouts expire after about 35 minutes and release stock;
@@ -430,7 +445,7 @@ sequenceDiagram
   - inbox (conversation link);
   - dashboard home and the orders screen (live).
 
-### 3.16 Payments (Built)
+### 3.16 Payments (Live)
 - **What:** the seller connects **their own Razorpay or Cashfree account**:
   1. choose the gateway (and test/live for Cashfree);
   2. paste the key id and secret;
@@ -452,10 +467,10 @@ sequenceDiagram
   - **COD always possible:** many Indian buyers prefer it, and it lets sellers start before a gateway is set up.
 - **Connects with:** checkout (create and cancel links), orders (payment confirmed / expired), store checklist, and the return page's link back to the store's WhatsApp.
 
-### 3.17 Seller alerts (Built)
+### 3.17 Seller alerts (Live, needs the alerts number)
 - **What:**
   - The seller adds up to 3 personal WhatsApp numbers and confirms each from a verification message.
-  - Alerts: new order (items, total, paid/COD), needs attention, and a confirmed order cancelled by the buyer or UpChatz. Carts abandoned or replaced during checkout never alert. New-order alerts come with *Mark packed / Mark shipped / Cancel* buttons; *Cancel* asks *Yes, cancel / Keep order* first, so one mis-tap can't lose a sale.
+  - Alerts: new order (items, total, paid/COD), new booking (with *Accept / Cancel*), needs attention, and a confirmed order cancelled by the buyer or UpChatz. Carts abandoned or replaced during checkout never alert. New-order alerts come with *Mark packed / Mark shipped / Cancel* buttons; *Cancel* asks *Yes, cancel / Keep order* first, so one mis-tap can't lose a sale.
   - **Commands:**
     - `ORDERS`: today's open orders.
     - `HELP`: the command list.
@@ -468,19 +483,36 @@ sequenceDiagram
 - **Why:** small sellers run their business from their phone. They should hear about an order instantly and ship it without opening a laptop.
 - **Connects with:** orders (status change → alert; button → status change), webhooks (platform number routing), templates (platform templates).
 
-### 3.18 Marketing site (Live, commerce section Built)
-- **What:** landing page with product, how it works, official vs unofficial WhatsApp, messaging rules, security, use cases, pricing, developers and FAQ. Wave 3 adds a "Sell on WhatsApp" section.
+### 3.18 Offer codes (Live)
+- **What:** the seller creates a code (e.g. `DIWALI`): a percentage (with an optional cap) or a fixed amount off, on everything, on products only, on services only or on chosen items, with a minimum order, start and end dates, and total and per-customer limits.
+- **How:**
+  - A buyer who sends exactly the code gets the offer reply, and a **claim** is recorded, with the Click-to-WhatsApp ad that brought them when there is one.
+  - The buyer's next checkout applies the discount (claimed → applied).
+  - Staff can **redeem** a claim at the counter by phone number, which also counts walk-ins who never ordered on WhatsApp.
+  - Each code shows its claims, uses and redemptions.
+- **Why:** shops run festival and ad offers; codes on WhatsApp let them track which offer and which ad brought customers in, even for walk-ins.
+- **Connects with:** checkout (discount on totals), shop bot (code messages aren't treated as shop input), contacts (the claim's buyer), catalog (which items qualify).
+
+### 3.19 Analytics (Live)
+- **What:** an overview with KPI cards compared with the previous period, and reports on messages, templates, campaigns, team (per member) and commerce (orders, revenue, top products). Every report exports to CSV.
+- **How:** any date range up to 92 days, in the workspace's time zone. Reports only read and aggregate; they never change data. A booking counts as revenue once it is fully paid.
+- **Plans:** the `analytics` feature (Growth and Pro, so trials see it); the commerce report also needs `commerce`.
+- **Why:** sellers need to see which campaigns, templates and products work, and how fast the team answers.
+
+### 3.20 Marketing site (Live)
+- **What:** landing page with product, how it works, official vs unofficial WhatsApp, messaging rules, security, use cases, a "Sell on WhatsApp" section, pricing, developers and FAQ, plus privacy, terms and contact pages.
+- **Prices:** the pricing section loads prices from the public plans API after the page loads (they come from Razorpay plans); the plan copy comes from `frontend/src/config/site.ts`.
 - **Why:** explains the product honestly and brings sign-ups. Meta claims stay hedged ("under Meta's current pricing").
 
-### 3.19 Planned
-- **Analytics:** message, campaign, automation and sales reports.
-- **Developer API:** API keys and outbound webhooks. The API access plan feature already exists.
+### 3.21 Planned
+- **Developer API:** API keys and outbound webhooks. The API access plan feature already exists but nothing checks it yet.
 - **Message credit wallet:** sellers top up with UpChatz and UpChatz pays Meta. This needs Meta **Solution Partner** status (credit line sharing) or a partnership with an existing Solution Partner; as a Tech Provider we can't pay for a seller's WABA.
 - **Later commerce:**
   - Shiprocket and other couriers;
   - Shopify / WooCommerce sync;
-  - coupons, product variants and abandoned-cart reminders;
+  - product variants and abandoned-cart reminders (today only an open payment link gets a reminder);
   - more payment gateways.
+- Features the site or plan cards mention that aren't built yet are listed in [feature-inventory.md](feature-inventory.md), section 4.
 
 ---
 
@@ -488,7 +520,7 @@ sequenceDiagram
 
 | Cost | Who pays | Paid to | Notes |
 |---|---|---|---|
-| UpChatz subscription | Business | UpChatz (Razorpay subscription) | 14-day trial first |
+| UpChatz subscription | Business | UpChatz (Razorpay: auto-pay subscription or pay once) | 14-day trial first; GST only once UpChatz is GST-registered |
 | WhatsApp message charges on the business's number | Business | Meta directly | Meta bills the business's own WABA. They add a payment method in WhatsApp Manager during signup or later. Under Meta's current pricing, replies inside the 24-hour window are free; business-initiated templates outside it are charged. Without a payment method, paid messages fail but free replies still work. |
 | Buyer's order payment | Buyer | Seller's own Razorpay / Cashfree | UpChatz never holds it. Gateway fees are between the seller and their gateway. |
 | Seller alert messages | UpChatz | Meta | From UpChatz's alerts number; kept low by using free-form messages inside the window |
@@ -514,7 +546,7 @@ sequenceDiagram
 - **Meta app:**
   - Embedded Signup configuration, webhook subscription and Tech Provider status.
   - For native catalog: App Review for `catalog_management` and `business_management`, added to the signup configuration; existing sellers reconnect.
-- **Alerts number:** UpChatz's own WABA and phone number, a system user token, and the platform templates (`upc_seller_verify`, `upc_new_order`, `upc_order_attention`) approved via `manage.py sync_platform_templates`.
+- **Alerts number:** UpChatz's own WABA and phone number, a system user token, and the platform templates (`upc_seller_verify`, `upc_new_order`, `upc_new_booking`, `upc_order_attention`) approved via `manage.py sync_platform_templates`.
 - **Hosting:** a public HTTPS bucket or CDN for product images, because Meta must be able to fetch them.
-- **Razorpay (UpChatz's own):** subscription plans and a webhook for UpChatz billing.
+- **Razorpay (UpChatz's own):** a Razorpay plan per plan and interval (its amount is the price everywhere), each plan id set in Django admin, `RAZORPAY_ENV=live` with live keys, and a webhook for UpChatz billing.
 - **Each seller:** their own Razorpay or Cashfree account (KYC done) and a payment method on their WABA in WhatsApp Manager.

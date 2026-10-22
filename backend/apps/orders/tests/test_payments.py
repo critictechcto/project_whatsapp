@@ -7,13 +7,19 @@ from celery.exceptions import Retry
 from django.utils import timezone
 
 from apps.catalog.factories import ProductFactory
-from apps.orders import checkout
+from apps.orders import checkout, notifications
 from apps.orders.factories import OrderEventFactory
 from apps.orders.models import Order
-from apps.orders.tasks import PAYMENT_LINK_MAX_RETRIES, expire_checkouts, send_payment_link
+from apps.orders.tasks import (
+    PAYMENT_LINK_MAX_RETRIES,
+    expire_checkouts,
+    send_payment_link,
+    send_payment_reminders,
+)
 from apps.payments import services as payment_services
 from apps.payments.exceptions import PaymentAccountInvalid, PaymentProviderError
 from apps.payments.factories import PaymentLinkFactory
+from apps.payments.models import PaymentLink
 from common import events
 from common.commerce import build_reply_id
 
@@ -305,4 +311,105 @@ def test_expiry_runs_on_beat_every_five_minutes():
 
     entry = BEAT_SCHEDULE["orders.expire_checkouts"]
     assert entry["task"] == "orders.expire_checkouts"
+    assert entry["schedule"]._orig_minute == "*/5"
+
+
+# --- Payment reminder ---------------------------------------------------------------------------
+
+
+def unpaid_link(order, *, age_minutes=16, left_minutes=14, attempt=1):
+    link = PaymentLinkFactory(
+        order=order,
+        reference_id=f"{order.number}-{attempt}",
+        expires_at=timezone.now() + timedelta(minutes=left_minutes),
+    )
+    PaymentLink.objects.filter(pk=link.pk).update(
+        created_at=timezone.now() - timedelta(minutes=age_minutes)
+    )
+    link.refresh_from_db()
+    return link
+
+
+def reminders(order) -> list[dict]:
+    return [
+        event.metadata for event in order.events.filter(type="reminder_sent").order_by("created_at")
+    ]
+
+
+def test_buyer_is_reminded_once_to_pay_an_open_link(conversation, tracked):
+    order = pending_order(conversation, tracked, quantity=2)
+    link = unpaid_link(order)
+
+    assert send_payment_reminders.apply().get() == 1
+    assert send_payment_reminders.apply().get() == 0
+
+    assert [item["attempt"] for item in reminders(order)] == [1]
+    message = last_outbound(conversation.contact)
+    assert link.short_url in content_text(message)
+    assert order.number in content_text(message)
+    assert "notification_sent" in event_types(order)
+
+
+def test_a_new_checkout_attempt_is_reminded_again(conversation, tracked):
+    order = pending_order(conversation, tracked, quantity=1)
+    unpaid_link(order).delete()
+    OrderEventFactory(
+        order=order,
+        type="reminder_sent",
+        actor="system",
+        metadata={"reminder": "payment_reminder", "attempt": 1},
+    )
+    Order.objects.filter(pk=order.pk).update(checkout_attempt=2)
+    unpaid_link(order, attempt=2)
+
+    assert checkout.send_payment_reminders() == 1
+    assert [item["attempt"] for item in reminders(order)] == [1, 2]
+
+
+@pytest.mark.parametrize(
+    ("age_minutes", "left_minutes"),
+    [(5, 25), (26, 4)],
+    ids=["link too new", "link about to expire"],
+)
+def test_no_reminder_outside_the_reminder_window(conversation, tracked, age_minutes, left_minutes):
+    order = pending_order(conversation, tracked, quantity=1)
+    unpaid_link(order, age_minutes=age_minutes, left_minutes=left_minutes)
+
+    assert checkout.send_payment_reminders() == 0
+    assert reminders(order) == []
+
+
+def test_no_reminder_for_a_superseded_link_or_a_paid_order(conversation, tracked):
+    stale = pending_order(conversation, tracked, quantity=1, checkout_attempt=2)
+    unpaid_link(stale, attempt=1)
+    paid = pending_order(conversation, tracked, quantity=1, status=Order.Status.CONFIRMED)
+    unpaid_link(paid)
+
+    assert checkout.send_payment_reminders() == 0
+
+
+def test_payment_reminder_can_be_turned_off(conversation, tracked, settings):
+    settings.ORDER_PAYMENT_REMINDER_MINUTES = 0
+    order = pending_order(conversation, tracked, quantity=1)
+    unpaid_link(order)
+
+    assert checkout.send_payment_reminders() == 0
+
+
+def test_payment_reminder_template_carries_the_link(conversation, tracked):
+    order = pending_order(conversation, tracked, quantity=2)
+
+    params = notifications.template_params(
+        order, "payment_reminder", payment_url="https://rzp.io/i/abc"
+    )
+
+    assert params[1] == order.number
+    assert params[3] == "https://rzp.io/i/abc"
+
+
+def test_payment_reminders_run_on_beat_every_five_minutes():
+    from apps.orders.schedules import BEAT_SCHEDULE
+
+    entry = BEAT_SCHEDULE["orders.send_payment_reminders"]
+    assert entry["task"] == send_payment_reminders.name
     assert entry["schedule"]._orig_minute == "*/5"

@@ -1,8 +1,12 @@
-"""Contact quota: single creates are checked, imports create new contacts only up to the limit."""
+"""Contact quota: single creates are checked, imports create new contacts only up to the limit,
+and a customer who writes in is always saved (their contact counts towards the limit)."""
+
+import uuid
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.billing import entitlements
 from apps.billing import services as billing_services
@@ -10,6 +14,7 @@ from apps.billing.models import Plan, Subscription
 from apps.contacts import tasks
 from apps.contacts.factories import ContactFactory
 from apps.contacts.models import Contact, ContactImport
+from common.events import InboundMessage, emit, inbound_message_received
 
 pytestmark = pytest.mark.django_db
 
@@ -111,3 +116,25 @@ def test_import_errors_expose_the_reason(auth_client, upload, workspace):
     assert response.json()["errors"] == [
         {"row": 2, "error": tasks.QUOTA_EXCEEDED_MESSAGE, "reason": "quota_exceeded"}
     ]
+
+
+def test_customer_who_writes_in_is_saved_over_the_limit(auth_client, workspace):
+    limit_contacts(workspace, 1)
+    ContactFactory(workspace=workspace)
+    message = InboundMessage(
+        workspace_id=workspace.id,
+        waba_id="waba-1",
+        phone_number_id="pn-1",
+        wamid=f"wamid.{uuid.uuid4().hex}",
+        from_wa_id="919876543210",
+        timestamp=timezone.now(),
+        type="text",
+        text="hello",
+    )
+
+    assert emit(inbound_message_received, message) == []
+    created = auth_client().post(CONTACTS, {"phone_e164": "9876543211"})
+
+    assert Contact.objects.filter(workspace=workspace, phone_e164="+919876543210").exists()
+    assert entitlements.remaining_quota(workspace, entitlements.CONTACTS) == 0
+    assert created.status_code == 409, created.content

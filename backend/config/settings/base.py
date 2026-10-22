@@ -464,6 +464,8 @@ PUBLIC_MEDIA_BASE_URL = env("PUBLIC_MEDIA_BASE_URL", default="")
 # and releases its stock (kept a few minutes longer than the link).
 PAYMENT_LINK_EXPIRY_MINUTES = env.int("PAYMENT_LINK_EXPIRY_MINUTES", default=30)
 ORDER_CHECKOUT_TTL_MINUTES = env.int("ORDER_CHECKOUT_TTL_MINUTES", default=35)
+# Minutes after a payment link is sent before the buyer gets one reminder to pay (0 = off).
+ORDER_PAYMENT_REMINDER_MINUTES = env.int("ORDER_PAYMENT_REMINDER_MINUTES", default=15)
 
 # UpChatz's own WhatsApp number that sends order alerts to sellers' personal numbers. Lives in
 # the UpChatz WABA (not a seller's); empty disables seller alerts.

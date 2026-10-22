@@ -5,6 +5,9 @@ interactive). Outside it, the template mapped in ``StoreSettings.notification_te
 with body parameters in the contract order. Every attempt writes an ``OrderEvent``:
 ``notification_sent`` (with the message) or ``notification_failed``.
 
+``payment_reminder`` (checkout ``send_payment_reminders``) carries the open payment link: a *Pay*
+URL button in the window, the template's fourth body parameter outside it.
+
 Bookings (docs/contracts/services-and-offers.md) use their own keys: ``booking_confirmed`` (with
 the appointment time), ``booking_rescheduled`` (the time changed; same template as confirmed),
 ``booking_cancelled``, ``booking_reminder`` (hours before) and ``booking_day_before`` (18:00 the
@@ -155,11 +158,21 @@ def payment_phrase(order: Order) -> str:
     return "Paid online"
 
 
-def session_content(order: Order, notification: str):
+def session_content(order: Order, notification: str, *, payment_link=None):
     """The in-window message for a status notification."""
     footer = footer_for(get_store_settings(order.workspace))
     view = [(build_reply_id("ord", "view", order.pk), "View order")]
     name = buyer.buyer_name(order)
+    if notification == "payment_reminder":
+        noun = "booking" if order.is_booking else "order"
+        amount = format_inr(payment_link.amount_paise)
+        body = (
+            f"Hi {name}, your {noun} {order.number} is waiting for payment of {amount}. "
+            "Tap below to pay before the link expires."
+        )
+        return interactive.cta_url(
+            body, f"Pay {amount}"[:20], payment_link.short_url, footer=footer
+        )
     if notification.startswith("booking_"):
         return booking_session_content(order, notification, name=name, view=view, footer=footer)
     if notification == "confirmed":
@@ -240,12 +253,16 @@ def booking_session_content(order: Order, notification: str, *, name, view, foot
     raise ValueError(f"Unknown order notification {notification!r}.")
 
 
-def notify_buyer(order: Order, notification: str, *, actor: str, user=None) -> Message | None:
-    """Tell the buyer about a status change. Call inside the transaction that changed it."""
+def notify_buyer(
+    order: Order, notification: str, *, actor: str, user=None, payment_link=None
+) -> Message | None:
+    """Tell the buyer about a status change. Call inside the transaction that changed it.
+
+    ``payment_reminder`` needs the open ``payment_link`` (its URL and amount)."""
     notification = notification_key(order, notification)
     idempotency_key = buyer.key(order.pk, "notify", notification, order.updated_at.timestamp())
     if sending.window_open(order.contact, order.phone_number):
-        content = session_content(order, notification)
+        content = session_content(order, notification, payment_link=payment_link)
         message = buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
         if message is None:
             return _failed(order, notification, actor, user, "The message could not be sent.")
@@ -267,8 +284,11 @@ def notify_buyer(order: Order, notification: str, *, actor: str, user=None) -> M
             order, notification, actor, user, f"The template {template.name} is not approved."
         )
     button_params = quick_reply_payloads(template, order) if notification in REMINDERS else None
+    payment_url = payment_link.short_url if payment_link is not None else ""
     content = sending.TemplateContent(
-        template, template_params(order, notification), button_params=button_params or None
+        template,
+        template_params(order, notification, payment_url=payment_url),
+        button_params=button_params or None,
     )
     message = buyer.send_to_buyer(order, content, idempotency_key=idempotency_key)
     if message is None:

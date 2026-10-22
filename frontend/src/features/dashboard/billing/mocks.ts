@@ -46,6 +46,10 @@ const planLimits: Record<string, Plan['limits']> = {
   pro: { whatsapp_numbers: 5, members: 15, contacts: 100000 },
 }
 
+/** Feature keys as the API returns them (backend `apps/billing/plans.py`). */
+const allFeatures = ['scheduled_campaigns', 'keyword_automations', 'api_access', 'commerce', 'analytics']
+const planFeatures: Record<string, string[]> = { starter: ['commerce'], growth: allFeatures, pro: allFeatures }
+
 /**
  * Mock monthly prices in rupees. The real prices live only in Razorpay plans (the API reads them);
  * annual is ten months' worth, like the demo Razorpay plans.
@@ -60,7 +64,7 @@ const apiPlans: Plan[] = sitePlans.map((plan) => {
     monthly_price_paise: monthly || null,
     annual_price_paise: monthly ? monthly * 10 : null,
     limits: planLimits[plan.id] ?? { whatsapp_numbers: null, members: null, contacts: null },
-    features: plan.features,
+    features: planFeatures[plan.id] ?? [],
   }
 })
 

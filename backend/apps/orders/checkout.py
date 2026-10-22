@@ -56,6 +56,7 @@ from .store import (
     get_store_settings,
     next_order_number,
     payment_link_expiry_minutes,
+    payment_reminder_minutes,
     store_display_name,
 )
 
@@ -1968,6 +1969,75 @@ def expire_checkouts(*, now=None, batch_size: int = 200) -> int:
             )
         expired += 1
     return expired
+
+
+# A reminder isn't worth sending when the link is about to expire.
+PAYMENT_REMINDER_MIN_LEFT = timedelta(minutes=5)
+PAYMENT_REMINDER = "payment_reminder"
+
+
+def send_payment_reminders(*, now=None, batch_size: int = 200) -> int:
+    """Remind buyers once per checkout attempt to pay their open payment link (beat
+    ``orders.send_payment_reminders``): when the link is ``payment_reminder_minutes()`` old and
+    still has at least ``PAYMENT_REMINDER_MIN_LEFT`` before it expires."""
+    minutes = payment_reminder_minutes()
+    if minutes <= 0:
+        return 0
+    now = now or timezone.now()
+    due = list(
+        Order.objects.filter(
+            status=Status.PENDING_PAYMENT,
+            payment_links__status="created",
+            payment_links__created_at__lte=now - timedelta(minutes=minutes),
+            payment_links__expires_at__gt=now + PAYMENT_REMINDER_MIN_LEFT,
+        )
+        .distinct()
+        .order_by("pk")
+        .values_list("pk", flat=True)[:batch_size]
+    )
+    sent = 0
+    for order_id in due:
+        with transaction.atomic():
+            order = lifecycle.lock_order(order_id)
+            if order is None or order.status != Status.PENDING_PAYMENT:
+                continue
+            link = lifecycle.latest_payment_link(order)
+            if not _remindable(order, link, now, minutes):
+                continue
+            lifecycle.record_event(
+                order,
+                OrderEvent.Type.REMINDER_SENT,
+                actor=SYSTEM,
+                detail=f"Payment reminder for {format_inr(link.amount_paise)}.",
+                metadata={
+                    "reminder": PAYMENT_REMINDER,
+                    "attempt": order.checkout_attempt,
+                    "payment_link_id": str(link.pk),
+                },
+            )
+            notifications.notify_buyer(order, PAYMENT_REMINDER, actor=SYSTEM, payment_link=link)
+        sent += 1
+    return sent
+
+
+def _remindable(order: Order, link, now, minutes: int) -> bool:
+    """The current attempt's link is open, has a URL, is old enough and not about to expire,
+    and this attempt hasn't been reminded yet."""
+    if (
+        link is None
+        or link.status != "created"
+        or not link.short_url
+        or link.reference_id != f"{order.number}-{order.checkout_attempt}"
+        or link.created_at > now - timedelta(minutes=minutes)
+        or link.expires_at is None
+        or link.expires_at <= now + PAYMENT_REMINDER_MIN_LEFT
+    ):
+        return False
+    return not order.events.filter(
+        type=OrderEvent.Type.REMINDER_SENT,
+        metadata__reminder=PAYMENT_REMINDER,
+        metadata__attempt=order.checkout_attempt,
+    ).exists()
 
 
 def _links_closed(order: Order) -> bool:

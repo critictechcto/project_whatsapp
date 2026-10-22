@@ -246,6 +246,8 @@ WhatsApp message charges: under Meta's current pricing, Meta bills the seller's 
 
 Buyer notifications use an interactive or text message while the service window is open, and the mapped template otherwise. If no template is mapped outside the window, the `OrderEvent` is `notification_failed`.
 
+**Payment reminder.** `orders.send_payment_reminders` (beat every 5 minutes) reminds the buyer once per checkout attempt to pay an open link: when the current attempt's link (`reference_id` `<order number>-<checkout_attempt>`) is still `created`, is at least `ORDER_PAYMENT_REMINDER_MINUTES` (default 15; 0 turns reminders off) old and has more than 5 minutes left before `expires_at`. In the window the buyer gets a *Pay ₹X* URL button; outside it, the mapped `payment_reminder` template with the link as the fourth parameter. Each reminder writes a `reminder_sent` `OrderEvent` (metadata `reminder: "payment_reminder"`, `attempt`, `payment_link_id`) before the send, so a retry or a second beat run never reminds twice.
+
 ## Payments: `/api/v1/payments/`, `/pay/return/{payment_link_id}/` and `/webhooks/payments/merchants/{token}/`
 
 Sellers connect a gateway account they already have. Setup is: choose the provider (and the mode for Cashfree), paste the key id and secret, verify. **No webhook setup is required.** A payment is confirmed when the buyer's browser returns to UpChatz after paying, or by polling the gateway, whichever comes first. A webhook is optional and only makes confirmation faster.
@@ -481,7 +483,7 @@ Feature `commerce` is added to `FEATURES` and enabled on every plan and the tria
 - Later addition, `send_opt_in_request {text, yes_label, no_label, confirmation_text, decline_text}` (in `SEND_ACTIONS`): two reply buttons `upc:consent:yes|no:<rule_id>:<index>` (labels ≤ 20 characters, defaults *Yes, send offers* / *No thanks*). *Yes* records a marketing opt-in with `ConsentEvent` source `whatsapp_button` (idempotent per wamid) and sends the confirmation text (a default when blank or when the rule is gone); *No* changes nothing and sends the decline text if one is set. The task `automations.handle_consent_reply` handles the tap. Failure code: `outside_service_window`.
 
 ### Settings (lead-owned, in `config/settings/base.py`)
-`PUBLIC_API_BASE_URL`, `PUBLIC_MEDIA_BASE_URL`, `PAYMENT_LINK_EXPIRY_MINUTES` (30), `ORDER_CHECKOUT_TTL_MINUTES` (35), `PLATFORM_WA_WABA_ID`, `PLATFORM_WA_PHONE_NUMBER_ID`, `PLATFORM_WA_DISPLAY_PHONE_NUMBER`, `PLATFORM_WA_ACCESS_TOKEN`.
+`PUBLIC_API_BASE_URL`, `PUBLIC_MEDIA_BASE_URL`, `PAYMENT_LINK_EXPIRY_MINUTES` (30), `ORDER_CHECKOUT_TTL_MINUTES` (35), `ORDER_PAYMENT_REMINDER_MINUTES` (15), `PLATFORM_WA_WABA_ID`, `PLATFORM_WA_PHONE_NUMBER_ID`, `PLATFORM_WA_DISPLAY_PHONE_NUMBER`, `PLATFORM_WA_ACCESS_TOKEN`.
 
 ### Celery
 Tasks and beat entries:

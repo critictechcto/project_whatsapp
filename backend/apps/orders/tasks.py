@@ -1,5 +1,5 @@
-"""Orders Celery tasks: payment links for online checkouts, checkout expiry and booking
-reminders."""
+"""Orders Celery tasks: payment links for online checkouts, payment reminders, checkout expiry
+and booking reminders."""
 
 import logging
 
@@ -48,6 +48,12 @@ def send_payment_link(self, order_id: str, attempt: int) -> None:
 def expire_checkouts() -> int:
     """Expire checkouts past their deadline (beat, every 5 minutes)."""
     return checkout.expire_checkouts()
+
+
+@shared_task(name="orders.send_payment_reminders")
+def send_payment_reminders() -> int:
+    """Remind buyers once to pay an open payment link (beat, every 5 minutes)."""
+    return checkout.send_payment_reminders()
 
 
 @shared_task(name="orders.send_booking_reminders")

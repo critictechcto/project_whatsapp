@@ -35,7 +35,12 @@ def wa_id_to_e164(wa_id: str) -> str:
 
 
 def get_or_create_from_wa(workspace, wa_id: str, profile_name: str | None = None) -> Contact:
-    """Contact for a WhatsApp id in ``workspace``; fills a blank name from ``profile_name``."""
+    """Contact for a WhatsApp id in ``workspace``; fills a blank name from ``profile_name``.
+
+    Not checked against the ``contacts`` quota: a customer who writes in is always saved so their
+    message is never dropped. The contact still counts towards the limit, which then blocks manual
+    creates and imports; business-initiated paths check the quota themselves.
+    """
     phone = wa_id_to_e164(wa_id)
     profile_name = (profile_name or "").strip()[:255]
     contact, created = Contact.objects.get_or_create(

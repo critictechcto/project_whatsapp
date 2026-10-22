@@ -3,6 +3,7 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
+from apps.billing import entitlements
 from apps.campaigns import services, tasks
 from apps.campaigns.models import Campaign, CampaignRecipient
 from apps.contacts.models import Contact
@@ -10,6 +11,7 @@ from apps.inbox import sending
 from apps.inbox.models import Message
 from apps.message_templates.models import MessageTemplate
 from apps.whatsapp.models import PhoneNumber
+from common.exceptions import FeatureNotAvailable
 
 pytestmark = pytest.mark.django_db
 
@@ -208,6 +210,43 @@ def test_start_due_starts_scheduled_campaigns(launched, commit, fake_graph):
     assert campaign.started_at is not None
     assert campaign.status == Campaign.Status.COMPLETED
     assert len(fake_graph.calls_to("send_message")) == 1
+
+
+def test_scheduled_campaign_pauses_when_the_plan_lost_scheduling(
+    launched, commit, fake_graph, monkeypatch
+):
+    campaign, _ = launched(1, scheduled_at=timezone.now() + timedelta(hours=1))
+    # Scheduled on the trial; at send time the plan no longer includes scheduling.
+    monkeypatch.setattr(entitlements, "has_feature", lambda workspace, feature: False)
+    Campaign.objects.filter(pk=campaign.pk).update(
+        scheduled_at=timezone.now() - timedelta(minutes=1)
+    )
+    with commit():
+        tasks.start_due.apply()
+
+    campaign.refresh_from_db()
+    assert campaign.status == Campaign.Status.PAUSED
+    assert campaign.started_at is None
+    assert campaign.last_error == services.SCHEDULED_START_BLOCKED
+    assert fake_graph.calls_to("send_message") == []
+
+    # Resuming sends now, which every plan allows.
+    with commit():
+        services.resume(campaign)
+    campaign.refresh_from_db()
+    assert campaign.status == Campaign.Status.COMPLETED
+    assert len(fake_graph.calls_to("send_message")) == 1
+
+
+def test_resume_into_a_future_schedule_needs_the_plan_feature(launched, monkeypatch):
+    campaign, _ = launched(1, scheduled_at=timezone.now() + timedelta(hours=1))
+    services.pause(campaign)
+    monkeypatch.setattr(entitlements, "has_feature", lambda workspace, feature: False)
+
+    with pytest.raises(FeatureNotAvailable):
+        services.resume(campaign)
+    campaign.refresh_from_db()
+    assert campaign.status == Campaign.Status.PAUSED
 
 
 def test_start_due_restarts_a_lost_batch_chain(launched, commit, fake_graph):

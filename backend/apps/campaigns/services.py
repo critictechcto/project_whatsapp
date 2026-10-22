@@ -85,6 +85,10 @@ class InvalidCampaignTransition(Conflict):
 
 
 SCHEDULING_NOT_AVAILABLE = "Scheduling campaigns isn't included in your plan. Upgrade to schedule."
+SCHEDULED_START_BLOCKED = (
+    "This campaign didn't start at its scheduled time because scheduled campaigns aren't "
+    "included in your current plan. Resume it to send now, or upgrade to keep scheduling."
+)
 
 
 # --- Stats and realtime -------------------------------------------------------------------------
@@ -631,6 +635,7 @@ def resume(campaign: Campaign) -> Campaign:
         now = timezone.now()
         never_started = campaign.started_at is None
         if never_started and campaign.scheduled_at is not None and campaign.scheduled_at > now:
+            _require_scheduling(campaign)
             campaign.status = CampaignStatus.SCHEDULED
         else:
             campaign.status = CampaignStatus.RUNNING
@@ -666,7 +671,11 @@ def cancel(campaign: Campaign) -> Campaign:
 
 
 def start_scheduled(campaign_id) -> bool:
-    """Move a due scheduled campaign to running and kick off its first batch."""
+    """Move a due scheduled campaign to running and kick off its first batch.
+
+    The plan is checked again here, not only when scheduling: a campaign scheduled during the
+    trial, or before a downgrade, is paused with the reason instead of sending.
+    """
     with transaction.atomic():
         campaign = (
             Campaign.objects.select_for_update()
@@ -678,6 +687,9 @@ def start_scheduled(campaign_id) -> bool:
             .first()
         )
         if campaign is None:
+            return False
+        if not entitlements.has_feature(campaign.workspace, entitlements.SCHEDULED_CAMPAIGNS):
+            set_paused(campaign, SCHEDULED_START_BLOCKED)
             return False
         campaign.status = CampaignStatus.RUNNING
         campaign.started_at = timezone.now()

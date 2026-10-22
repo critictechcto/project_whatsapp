@@ -60,7 +60,7 @@ export const sendErrorCopy: Record<string, string> = {
   contact_opted_out: 'This contact has opted out, so messages to them are blocked.',
   marketing_opt_in_required: "Marketing templates need the contact's recorded opt-in. Use a utility template or record their opt-in first.",
   template_not_approved: "This template isn't approved by Meta yet. Choose an approved template.",
-  quota_exceeded: "You've reached your plan's message limit. Upgrade the plan to keep sending.",
+  quota_exceeded: "You've reached a limit of your plan. Upgrade the plan to keep going.",
   insufficient_role: "Your role in this workspace can't send messages.",
   network_error: 'Could not reach the server. Check your connection and retry.',
 }

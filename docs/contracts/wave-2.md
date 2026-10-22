@@ -94,6 +94,8 @@ Error codes: `whatsapp_not_connected`, `phone_number_not_registered`, `outside_s
 
 Error codes: `campaign_not_editable`, `invalid_campaign_transition`, `template_not_approved`, `whatsapp_not_connected`, `feature_not_available` (scheduling a campaign when the plan lacks `scheduled_campaigns`) (all 409), `invalid` (400).
 
+The plan is checked again when a scheduled campaign is due: if the workspace lost `scheduled_campaigns` meanwhile, the campaign goes to `paused` with a `last_error` saying why and sends nothing. `resume` then sends it now (every plan may send now); resuming a never-started campaign into a future `scheduled_at` needs the feature (409 `feature_not_available`).
+
 Rules: `OPTED_OUT` contacts are always skipped; MARKETING templates also require `OPTED_IN`; consent is snapshotted at materialisation and re-checked at dispatch. Template must be APPROVED at launch (409 `template_not_approved`).
 
 ## Automations — `/api/v1/automations/`
@@ -146,7 +148,7 @@ Billing through Cashfree (prepaid plans, the default gateway for new checkouts) 
 Error codes: `quota_exceeded` (409), `billing_profile_required` (409), `subscription_active` (409), `payment_not_completed` (409), `payment_verification_failed` (400), `upstream_unavailable` (503).
 
 ### Entitlements (`apps/billing/entitlements.py`, signatures frozen)
-- Metrics: `whatsapp_numbers`, `members`, `contacts`. Features: `scheduled_campaigns`, `keyword_automations`, `api_access`.
+- Metrics: `whatsapp_numbers`, `members`, `contacts`. Features: `scheduled_campaigns`, `keyword_automations`, `api_access` (not checked yet: the developer API isn't built), `commerce` (wave 3) and `analytics` (docs/contracts/analytics.md). Clients show these keys with their own labels.
 - `has_feature(workspace, feature) -> bool`, `remaining_quota(workspace, metric) -> int | None`, `check_quota(workspace, metric, amount=1) -> None` (raises `QuotaExceeded`, 409 `quota_exceeded`), `record_usage(workspace, metric, amount, *, key) -> None` (idempotent on `key`).
 
 ## WebSocket — `/ws/v1/?ticket=<ticket>`
@@ -201,7 +203,7 @@ window_open(contact, phone_number) -> bool
 - `FeatureNotAvailable` (409 `feature_not_available`): the plan lacks a feature. Pass a message naming it.
 - `QuotaExceeded` (409 `quota_exceeded`, `details` `{metric, limit, used}`): raised by `check_quota`. Guards:
   - Members: creating an invitation needs members + open unexpired invitations to other emails + 1 within the limit (re-inviting the same email doesn't take another seat). Accepting re-checks members + 1.
-  - Contacts: `POST /contacts/` is checked; updates are not. CSV imports create new contacts only up to `remaining_quota`; the rest are skipped (`skipped_count`) with an `errors` entry whose `reason` is `quota_exceeded`, and existing contacts still update. Contacts created by inbound messages are never blocked.
+  - Contacts: `POST /contacts/` is checked; updates are not. CSV imports create new contacts only up to `remaining_quota`; the rest are skipped (`skipped_count`) with an `errors` entry whose `reason` is `quota_exceeded`, and existing contacts still update. Contacts created by inbound messages are never blocked, so a customer's message is never dropped; they still count towards `used`, which then blocks manual creates and imports.
   - WhatsApp numbers: Embedded Signup counts numbers new to the workspace (or deregistered) before storing anything; reconnecting already-connected numbers is not blocked.
   - Halted, cancelled or expired subscriptions leave no quota (`limit == used`).
 

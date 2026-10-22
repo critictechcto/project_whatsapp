@@ -101,3 +101,7 @@ def checkout_ttl_minutes() -> int:
 
 def payment_link_expiry_minutes() -> int:
     return int(settings.PAYMENT_LINK_EXPIRY_MINUTES)
+
+
+def payment_reminder_minutes() -> int:
+    return int(settings.ORDER_PAYMENT_REMINDER_MINUTES)
