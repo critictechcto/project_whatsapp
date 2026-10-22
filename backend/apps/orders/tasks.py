@@ -1,17 +1,20 @@
-"""Orders Celery tasks: payment links for online checkouts, payment reminders, checkout expiry
-and booking reminders."""
+"""Orders Celery tasks: payment links for online checkouts, payment reminders and their default
+template, checkout expiry and booking reminders."""
 
 import logging
 
 from celery import shared_task
+from django.db import IntegrityError
+from rest_framework.exceptions import APIException
 
 from apps.payments.exceptions import (
     PaymentAccountInvalid,
     PaymentAccountMissing,
     PaymentProviderError,
 )
+from apps.whatsapp.models import WhatsAppBusinessAccount
 
-from . import checkout, lifecycle
+from . import checkout, lifecycle, store_setup
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,21 @@ def expire_checkouts() -> int:
 def send_payment_reminders() -> int:
     """Remind buyers once to pay an open payment link (beat, every 5 minutes)."""
     return checkout.send_payment_reminders()
+
+
+@shared_task(name="orders.ensure_payment_reminder_template")
+def ensure_payment_reminder_template(waba_id: str) -> None:
+    """Create the default ``upc_payment_reminder`` template in a WABA that has none (queued when a
+    payment link is sent). Failures are logged; the next payment link queues it again."""
+    waba = WhatsAppBusinessAccount.objects.filter(pk=waba_id).first()
+    if waba is None:
+        return
+    try:
+        store_setup.ensure_default_template(waba, "payment_reminder")
+    except (APIException, IntegrityError) as exc:
+        logger.warning(
+            "Default payment reminder template for WABA %s not created: %s", waba_id, exc
+        )
 
 
 @shared_task(name="orders.send_booking_reminders")

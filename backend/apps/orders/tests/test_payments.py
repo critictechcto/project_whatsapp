@@ -7,9 +7,11 @@ from celery.exceptions import Retry
 from django.utils import timezone
 
 from apps.catalog.factories import ProductFactory
+from apps.message_templates.factories import MessageTemplateFactory
+from apps.message_templates.models import MessageTemplate
 from apps.orders import checkout, notifications
 from apps.orders.factories import OrderEventFactory
-from apps.orders.models import Order
+from apps.orders.models import Order, StoreSettings
 from apps.orders.tasks import (
     PAYMENT_LINK_MAX_RETRIES,
     expire_checkouts,
@@ -413,3 +415,37 @@ def test_payment_reminders_run_on_beat_every_five_minutes():
     entry = BEAT_SCHEDULE["orders.send_payment_reminders"]
     assert entry["task"] == send_payment_reminders.name
     assert entry["schedule"]._orig_minute == "*/5"
+
+
+def test_sending_a_link_creates_the_default_reminder_template_once(
+    conversation, tracked, online, payment_links, graph, django_capture_on_commit_callbacks
+):
+    order = pending_order(conversation, tracked, quantity=1)
+    waba = conversation.phone_number.waba
+
+    with django_capture_on_commit_callbacks(execute=True):
+        send_payment_link.apply(args=[str(order.pk), 1])
+    Order.objects.filter(pk=order.pk).update(checkout_attempt=2)
+    with django_capture_on_commit_callbacks(execute=True):
+        send_payment_link.apply(args=[str(order.pk), 2])
+
+    template = MessageTemplate.objects.get(waba=waba, name="upc_payment_reminder")
+    assert template.status == MessageTemplate.Status.PENDING
+    assert template.category == "UTILITY"
+    assert len(graph.calls_to("create_template")) == 1
+    assert StoreSettings.objects.get(workspace=order.workspace).payment_reminder_template is None
+
+
+def test_no_default_reminder_template_when_the_seller_mapped_one(
+    conversation, store, tracked, online, payment_links, graph, django_capture_on_commit_callbacks
+):
+    store.payment_reminder_template = MessageTemplateFactory(
+        waba=conversation.phone_number.waba, status=MessageTemplate.Status.APPROVED
+    )
+    store.save()
+    order = pending_order(conversation, tracked, quantity=1)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        send_payment_link.apply(args=[str(order.pk), 1])
+
+    assert graph.calls_to("create_template") == []

@@ -8,7 +8,7 @@ import { actionErrorMessage } from '../settings/ui/hooks'
 import { Notice } from '../settings/ui/Notice'
 import { SegmentedControl } from '../settings/ui/SegmentedControl'
 import { formatPlanPrice, gstRateOf } from './money'
-import { featureLabel, freeMonthsLabel, intervalLabels, limitLabel, planCopy, planPricePaise, type BillingInterval, type Plan } from './plans'
+import { featureLabels, freeMonthsLabel, intervalLabels, limitLabel, planCopy, planPricePaise, type BillingInterval, type Plan } from './plans'
 import { usePlans, useSubscription } from './queries'
 import { checkoutStageText, isPaymentMode, useCheckout, type PaymentMode } from './useCheckout'
 
@@ -193,10 +193,10 @@ export function PlansPage() {
                   ))}
                 </ul>
                 <ul className="mt-3 flex flex-1 flex-col gap-1.5 text-[13px] text-ink-2">
-                  {plan.features.map((feature) => (
+                  {featureLabels(plan.features).map((feature) => (
                     <li key={feature} className="flex gap-2">
                       <Check className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden="true" />
-                      {featureLabel(feature)}
+                      {feature}
                     </li>
                   ))}
                 </ul>

@@ -6,7 +6,9 @@ with body parameters in the contract order. Every attempt writes an ``OrderEvent
 ``notification_sent`` (with the message) or ``notification_failed``.
 
 ``payment_reminder`` (checkout ``send_payment_reminders``) carries the open payment link: a *Pay*
-URL button in the window, the template's fourth body parameter outside it.
+URL button in the window, the template's fourth body parameter outside it. Without a mapped
+template it falls back to the approved ``upc_payment_reminder`` starter template, which
+``tasks.ensure_payment_reminder_template`` creates in the WABA when a payment link is sent.
 
 Bookings (docs/contracts/services-and-offers.md) use their own keys: ``booking_confirmed`` (with
 the appointment time), ``booking_rescheduled`` (the time changed; same template as confirmed),
@@ -22,7 +24,7 @@ from apps.inbox.models import Message
 from apps.message_templates.models import MessageTemplate
 from common.commerce import build_reply_id
 
-from . import booking, buyer
+from . import booking, buyer, store_setup
 from .models import Order, OrderEvent, StoreSettings
 from .money import format_inr
 from .store import footer_for, get_store_settings
@@ -271,6 +273,8 @@ def notify_buyer(
     store_settings = get_store_settings(order.workspace)
     field = template_field(notification)
     template = getattr(store_settings, field) if field else None
+    if template is None:
+        template = store_setup.default_template(order.phone_number.waba_id, notification)
     if template is None:
         return _failed(
             order,

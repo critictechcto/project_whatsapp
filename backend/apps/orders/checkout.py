@@ -46,7 +46,7 @@ from common.commerce import ReplyId, build_reply_id
 from common.events import MessageDeliveryUpdated, MessageRecorded
 from common.phone import InvalidPhoneNumber, normalize_e164
 
-from . import booking, buyer, lifecycle, notifications, transitions
+from . import booking, buyer, lifecycle, notifications, store_setup, transitions
 from .exceptions import CheckoutRejected
 from .models import Order, OrderEvent, OrderItem, ShopperAddress
 from .money import format_inr, format_inr_short
@@ -1713,6 +1713,20 @@ def create_and_send_payment_link(order_id, attempt: int) -> None:
         buyer.send_to_buyer(
             order, content, idempotency_key=buyer.key(order.pk, "payment_link", attempt)
         )
+        _queue_default_reminder_template(order, store_settings)
+
+
+def _queue_default_reminder_template(order: Order, store_settings) -> None:
+    """Have the default payment reminder template created in the order's WABA when the seller
+    mapped none, so a reminder outside the 24-hour window can still be sent."""
+    waba_id = order.phone_number.waba_id
+    if payment_reminder_minutes() <= 0 or not store_setup.needs_default_template(
+        store_settings, waba_id, PAYMENT_REMINDER
+    ):
+        return
+    from .tasks import ensure_payment_reminder_template
+
+    transaction.on_commit(partial(ensure_payment_reminder_template.delay, str(waba_id)))
 
 
 def payment_link_failed(order_id, attempt: int, *, retryable: bool) -> None:

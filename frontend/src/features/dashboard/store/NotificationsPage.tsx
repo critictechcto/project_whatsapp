@@ -30,7 +30,7 @@ const orderRows: { key: NotificationKey; label: string; description: string }[] 
   { key: 'shipped', label: 'Shipped', description: 'With the courier, AWB number and tracking link.' },
   { key: 'delivered', label: 'Delivered', description: 'When you mark the order delivered.' },
   { key: 'cancelled', label: 'Cancelled', description: 'With the reason for cancelling.' },
-  { key: 'payment_reminder', label: 'Payment reminder', description: 'With the payment link, while an online payment is pending.' },
+  { key: 'payment_reminder', label: 'Payment reminder', description: 'With the payment link, if the buyer hasn’t paid after 15 minutes. Left empty, the default upc_payment_reminder template is used once Meta approves it (it’s created in your account automatically).' },
 ]
 
 /** Bookings keep their template ids as top-level store settings, not in `notification_templates`. */

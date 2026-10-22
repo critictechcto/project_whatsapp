@@ -148,7 +148,7 @@ Billing through Cashfree (prepaid plans, the default gateway for new checkouts) 
 Error codes: `quota_exceeded` (409), `billing_profile_required` (409), `subscription_active` (409), `payment_not_completed` (409), `payment_verification_failed` (400), `upstream_unavailable` (503).
 
 ### Entitlements (`apps/billing/entitlements.py`, signatures frozen)
-- Metrics: `whatsapp_numbers`, `members`, `contacts`. Features: `scheduled_campaigns`, `keyword_automations`, `api_access` (not checked yet: the developer API isn't built), `commerce` (wave 3) and `analytics` (docs/contracts/analytics.md). Clients show these keys with their own labels.
+- Metrics: `whatsapp_numbers`, `members`, `contacts`. Features: `scheduled_campaigns`, `keyword_automations`, `api_access` (not checked yet: the developer API isn't built), `commerce` (wave 3) and `analytics` (docs/contracts/analytics.md). Clients show these keys with their own labels; the dashboard hides `api_access` until the developer API is built.
 - `has_feature(workspace, feature) -> bool`, `remaining_quota(workspace, metric) -> int | None`, `check_quota(workspace, metric, amount=1) -> None` (raises `QuotaExceeded`, 409 `quota_exceeded`), `record_usage(workspace, metric, amount, *, key) -> None` (idempotent on `key`).
 
 ## WebSocket — `/ws/v1/?ticket=<ticket>`

@@ -34,7 +34,7 @@ From `backend/apps/billing/plans.py` and `entitlements.py`. Prices come only fro
 | `scheduled_campaigns` | – | yes | yes |
 | `keyword_automations` | – | yes | yes |
 | `analytics` | – | yes | yes |
-| `api_access` | – | yes | yes (checked nowhere, see section 4) |
+| `api_access` | – | yes | yes (checked nowhere and hidden on the Plans page, see section 4) |
 
 - **Trial:** 14 days on Growth (`TRIAL_PLAN_SLUG`, `TRIAL_DAYS`).
 - **Same features:** Growth and Pro have the same feature keys; they differ only in limits.
@@ -149,7 +149,7 @@ From `backend/apps/billing/plans.py` and `entitlements.py`. Prices come only fro
 | Cash on delivery | On/off, COD fee, COD order cap, mark collected | Built | `commerce` | |
 | Online payments | Seller's own Razorpay or Cashfree; payment links; confirmed by return page and polling, optional webhook | Built | `commerce` | |
 | Orders | List, filters, timeline, notes; confirm, packed, shipped (courier/AWB), delivered, cancel, refund mark | Built | `commerce` | |
-| Buyer notifications | Order and booking updates, session message or template outside the window; starter templates; one payment reminder per unpaid link | Built | `commerce` | |
+| Buyer notifications | Order and booking updates, session message or template outside the window; starter templates; one payment reminder per unpaid link, with a default template outside the window | Built | `commerce` | |
 | Bookings | Day and time window, reminders (hours before + evening before), confirm/reschedule/cancel buttons, no-show, completed | Built | `commerce` | |
 | Booking payments | Advance or full online payment, pay at shop, balance paid later | Built | `commerce` | |
 | Offer codes | Percent (with cap) or amount, on all/products/services/items, min order, dates, total and per-customer limits | Built | `commerce` (writes) | |
@@ -236,7 +236,7 @@ These could become a plan limit or gate, but the code doesn't count or check the
 
 ## 6. Gaps found while listing (resolved 2026-10-22)
 
-- **Plans page showed raw keys.** The dashboard Plans page now names each feature ("Scheduled campaigns", "Sell on WhatsApp"); unknown keys are shown as words (`frontend/src/features/dashboard/billing/plans.ts` `featureLabel`). The mock returns the backend's keys, so tests cover it.
+- **Plans page showed raw keys.** The dashboard Plans page now names each feature ("Scheduled campaigns", "Sell on WhatsApp"); unknown keys are shown as words (`frontend/src/features/dashboard/billing/plans.ts` `featureLabel`). The mock returns the backend's keys, so tests cover it. `api_access` is hidden until the developer API is built.
 - **Contacts from chats.** Every contact counts towards the `contacts` limit, including ones created when a customer writes in. Those inbound contacts are never blocked, so a customer's message is never dropped; reaching the limit then blocks manual adds and imports. The inbox only starts conversations with existing contacts, so nothing business-initiated creates contacts past the limit.
 - **Schedules are re-checked.** When a scheduled campaign is due and the plan no longer has `scheduled_campaigns`, it is paused with the reason and sends nothing; *Resume* sends it now. Resuming into a future time needs the feature.
 - **Payment reminder is sent.** `orders.send_payment_reminders` (every 5 minutes) reminds the buyer once per checkout attempt, 15 minutes after the link was sent (`ORDER_PAYMENT_REMINDER_MINUTES`, 0 = off), while the link has more than 5 minutes left.

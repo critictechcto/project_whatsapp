@@ -192,7 +192,7 @@ Shop messages (menu buttons, carts, addresses, payment choices) are **claimed** 
   - A billing profile with GSTIN, and invoices numbered per financial year with a PDF download. GST (CGST + SGST, or IGST) is charged only when `BILLING_GST_ENABLED` is on; it is off while UpChatz isn't GST-registered.
 - **Limits per plan:** WhatsApp numbers, team members (including open invitations) and contacts.
 - **Features per plan:**
-  - scheduled campaigns, keyword automations, analytics and API access are on Growth and Pro (API access isn't checked anywhere yet: the developer API isn't built);
+  - scheduled campaigns, keyword automations, analytics and API access are on Growth and Pro (API access isn't checked anywhere yet and the Plans page hides it: the developer API isn't built);
   - the store (`commerce`) is on every plan for now.
   - The dashboard Plans page shows each feature by name ("Scheduled campaigns", "Sell on WhatsApp").
 - **How:** other features ask one module (`entitlements`) "may this workspace do X?". If a subscription is halted, cancelled or expired, existing data stays but nothing new can be added.
@@ -429,7 +429,7 @@ sequenceDiagram
   - inside the 24-hour window, a normal WhatsApp message;
   - outside it, the seller's approved update template;
   - if no template is mapped, the timeline shows the update wasn't sent.
-- **Payment reminder:** if the buyer hasn't paid 15 minutes after the payment link was sent, and the link has more than 5 minutes left, they get one reminder with a *Pay* button (the `payment_reminder` template outside the 24-hour window). One reminder per checkout attempt; `ORDER_PAYMENT_REMINDER_MINUTES` sets the delay, 0 turns it off.
+- **Payment reminder:** if the buyer hasn't paid 15 minutes after the payment link was sent, and the link has more than 5 minutes left, they get one reminder with a *Pay* button. Outside the 24-hour window it uses the seller's `payment_reminder` template, or, when none is mapped, the default `upc_payment_reminder` template that UpChatz creates in the seller's WhatsApp account the first time a payment link is sent (it can be used once Meta approves it). One reminder per checkout attempt; `ORDER_PAYMENT_REMINDER_MINUTES` sets the delay, 0 turns it off.
 - **Safety rules:**
   - one active checkout per buyer (a new cart replaces the old one);
   - abandoned checkouts expire after about 35 minutes and release stock;

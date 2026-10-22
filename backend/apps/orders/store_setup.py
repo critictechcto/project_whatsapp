@@ -418,6 +418,27 @@ def starter_components(starter: StarterTemplate) -> list[dict]:
     return components
 
 
+def _ensure_starter(waba, starter: StarterTemplate, *, user=None) -> tuple[MessageTemplate, bool]:
+    """The ``starter`` template in ``waba``, created and submitted when missing (a draft left by an
+    earlier failed attempt is submitted). True when it was submitted now."""
+    template = MessageTemplate.objects.filter(
+        waba=waba, name=starter.name, language=STARTER_LANGUAGE
+    ).first()
+    if template is None:
+        template = template_services.create_draft(
+            workspace=waba.workspace,
+            waba=waba,
+            name=starter.name,
+            language=STARTER_LANGUAGE,
+            category=MessageTemplate.Category.UTILITY,
+            components=starter_components(starter),
+            created_by=user,
+        )
+    if template.status == MessageTemplate.Status.DRAFT:
+        return template_services.submit(template), True
+    return template, False
+
+
 def create_starter_templates(workspace, *, user=None) -> dict:
     """Create the missing ``upc_*`` templates in the store number's WABA (UTILITY, ``en``), submit
     them for review and map them to notifications that have no template yet.
@@ -433,26 +454,57 @@ def create_starter_templates(workspace, *, user=None) -> dict:
     waba = number.waba
     created, existing = [], []
     for starter in STARTER_TEMPLATES:
-        template = MessageTemplate.objects.filter(
-            waba=waba, name=starter.name, language=STARTER_LANGUAGE
-        ).first()
-        if template is None:
-            template = template_services.create_draft(
-                workspace=workspace,
-                waba=waba,
-                name=starter.name,
-                language=STARTER_LANGUAGE,
-                category=MessageTemplate.Category.UTILITY,
-                components=starter_components(starter),
-                created_by=user,
-            )
-        if template.status == MessageTemplate.Status.DRAFT:
-            template = template_services.submit(template)
-            created.append(starter.name)
-        else:
-            existing.append(starter.name)
+        template, submitted = _ensure_starter(waba, starter, user=user)
+        (created if submitted else existing).append(starter.name)
         field = template_field(starter.notification)
         if getattr(store_settings, f"{field}_id") is None:
             setattr(store_settings, field, template)
             store_settings.save(update_fields=[field, "updated_at"])
     return {"created": created, "existing": existing}
+
+
+# --- Default templates --------------------------------------------------------------------------
+
+# Notifications that fall back to their starter template when the seller mapped none.
+DEFAULT_TEMPLATE_NOTIFICATIONS = ("payment_reminder",)
+
+
+def _starter_for(notification: str) -> StarterTemplate:
+    return next(starter for starter in STARTER_TEMPLATES if starter.notification == notification)
+
+
+def default_template(waba_id, notification: str) -> MessageTemplate | None:
+    """The approved starter template for ``notification`` in the WABA, used when no template is
+    mapped; None for notifications without a default."""
+    if notification not in DEFAULT_TEMPLATE_NOTIFICATIONS:
+        return None
+    return MessageTemplate.objects.filter(
+        waba_id=waba_id,
+        name=_starter_for(notification).name,
+        language=STARTER_LANGUAGE,
+        status=MessageTemplate.Status.APPROVED,
+    ).first()
+
+
+def needs_default_template(store_settings: StoreSettings, waba_id, notification: str) -> bool:
+    """No template is mapped for ``notification`` and its starter template was never submitted
+    to the WABA (a missing one or a leftover draft)."""
+    if getattr(store_settings, f"{template_field(notification)}_id") is not None:
+        return False
+    return (
+        not MessageTemplate.objects.filter(
+            waba_id=waba_id, name=_starter_for(notification).name, language=STARTER_LANGUAGE
+        )
+        .exclude(status=MessageTemplate.Status.DRAFT)
+        .exists()
+    )
+
+
+def ensure_default_template(waba, notification: str) -> MessageTemplate | None:
+    """Create and submit the starter template for ``notification`` in ``waba`` when it's missing.
+    Mappings are left alone: an unmapped notification falls back to it once Meta approves it.
+    None when the WABA isn't connected."""
+    if not template_services.is_connected(waba):
+        return None
+    template, _ = _ensure_starter(waba, _starter_for(notification))
+    return template

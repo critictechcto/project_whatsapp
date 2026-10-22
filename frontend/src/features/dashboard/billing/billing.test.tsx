@@ -236,13 +236,15 @@ describe('billing', () => {
     expect(await screen.findByText('works out to ₹2,082.50 a month · 2 months free')).toBeInTheDocument()
   })
 
-  it('names plan features instead of showing their keys', async () => {
+  it('names plan features instead of showing their keys and hides API access', async () => {
     signIn()
     renderDashboard(`/app/w/${ids.sharmaSweets}/billing/plans`)
 
     expect(await screen.findAllByText('Sell on WhatsApp')).toHaveLength(3)
     expect(screen.getAllByText('Scheduled campaigns')).toHaveLength(2)
     expect(screen.queryByText('scheduled_campaigns')).not.toBeInTheDocument()
+    // The developer API isn't built, so `api_access` isn't shown.
+    expect(screen.queryByText('API access')).not.toBeInTheDocument()
   })
 
   it('shows an interval without a price as not available and blocks its checkout', async () => {

@@ -20,17 +20,24 @@ export function limitLabel(key: string, value: number | null): string {
   return `${grouping.format(value)} ${value === 1 ? one : many}`
 }
 
-const featureLabels: Record<string, string> = {
+const featureNames: Record<string, string> = {
   scheduled_campaigns: 'Scheduled campaigns',
   keyword_automations: 'Keyword automations',
-  api_access: 'API access',
   commerce: 'Sell on WhatsApp',
   analytics: 'Analytics reports',
 }
 
+// Plan features not shown to customers yet: the developer API behind `api_access` isn't built.
+const hiddenFeatures = new Set(['api_access'])
+
+/** A plan's features as display names, without the hidden ones. */
+export function featureLabels(features: string[]): string[] {
+  return features.filter((key) => !hiddenFeatures.has(key)).map(featureLabel)
+}
+
 /** Display name of a plan feature key ("scheduled_campaigns" -> "Scheduled campaigns"). */
-export function featureLabel(key: string): string {
-  if (featureLabels[key]) return featureLabels[key]
+function featureLabel(key: string): string {
+  if (featureNames[key]) return featureNames[key]
   const words = key.replace(/_/g, ' ')
   return words.charAt(0).toUpperCase() + words.slice(1)
 }

@@ -10,6 +10,7 @@ from apps.message_templates.models import MessageTemplate
 from apps.orders import notifications
 from apps.orders.factories import OrderFactory, StoreSettingsFactory
 from apps.orders.models import OrderEvent
+from apps.payments.factories import PaymentLinkFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -139,3 +140,58 @@ def test_shipped_text_mentions_only_the_details_given(workspace, fields, text):
     order = OrderFactory(workspace=workspace, number="SS-1", **fields)
 
     assert notifications.shipped_text("Asha", order) == text
+
+
+REMINDER_BODY = "Hi {{1}}, your order {{2}} for {{3}} is waiting for payment. Pay here: {{4}}."
+
+
+def unpaid_order(workspace, number):
+    contact = ContactFactory(workspace=workspace, name="Asha Verma")
+    ConversationFactory(workspace=workspace, contact=contact, phone_number=number)
+    order = OrderFactory(
+        workspace=workspace, contact=contact, phone_number=number, status="pending_payment"
+    )
+    return order, PaymentLinkFactory(order=order, short_url="https://rzp.io/i/abc")
+
+
+@pytest.mark.parametrize(
+    ("status", "sent"),
+    [(MessageTemplate.Status.APPROVED, True), (MessageTemplate.Status.PENDING, False)],
+    ids=["approved", "pending review"],
+)
+def test_payment_reminder_falls_back_to_the_default_template(workspace, number, status, sent):
+    MessageTemplateFactory(
+        waba=number.waba,
+        name="upc_payment_reminder",
+        language="en",
+        status=status,
+        components=standard_components(REMINDER_BODY),
+    )
+    StoreSettingsFactory(workspace=workspace)
+    order, link = unpaid_order(workspace, number)
+
+    message = notifications.notify_buyer(
+        order, "payment_reminder", actor="system", payment_link=link
+    )
+
+    if sent:
+        assert message.type == Message.Type.TEMPLATE
+        assert message.template.name == "upc_payment_reminder"
+        assert "https://rzp.io/i/abc" in message.text
+    else:
+        assert message is None
+        assert order.events.get().type == OrderEvent.Type.NOTIFICATION_FAILED
+
+
+def test_other_updates_have_no_default_template(workspace, number):
+    MessageTemplateFactory(
+        waba=number.waba,
+        name="upc_order_shipped",
+        language="en",
+        status=MessageTemplate.Status.APPROVED,
+        components=standard_components(SHIPPED_BODY),
+    )
+    StoreSettingsFactory(workspace=workspace)
+    order = shipped_order(workspace, number)
+
+    assert notifications.notify_buyer(order, "shipped", actor="dashboard") is None
